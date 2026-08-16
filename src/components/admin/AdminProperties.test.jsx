@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdminProperties from './AdminProperties.jsx'
 
@@ -57,6 +57,21 @@ describe('AdminProperties', () => {
 
     expect(await screen.findByText(/Could not update pin status/)).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Pin' })).toHaveLength(1)
+  })
+
+  it('ignores a pin toggle while a pin request is in flight', async () => {
+    let resolve
+    setPropertyPinned.mockReturnValue(new Promise((r) => { resolve = r }))
+    const user = userEvent.setup()
+
+    render(<AdminProperties />)
+
+    const pinButtons = await screen.findAllByRole('button', { name: 'Pin' })
+    await user.click(pinButtons[0])
+
+    expect(setPropertyPinned).toHaveBeenCalledTimes(1)
+    resolve()
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Pinned' })).toHaveLength(2))
   })
 
   it('deletes a property after confirmation', async () => {

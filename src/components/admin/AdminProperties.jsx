@@ -9,6 +9,7 @@ export default function AdminProperties() {
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState(null)
   const [form, setForm] = useState(null)
+  const [pendingPins, setPendingPins] = useState({})
 
   const load = useCallback(() => {
     setStatus('loading')
@@ -23,15 +24,19 @@ export default function AdminProperties() {
   useEffect(load, [load])
 
   const togglePin = async (property) => {
+    if (pendingPins[property.id]) return
     const next = !property.is_pinned
     const prev = property.is_pinned
     setError(null)
+    setPendingPins((pins) => ({ ...pins, [property.id]: true }))
     setProperties((list) => list.map((x) => (x.id === property.id ? { ...x, is_pinned: next } : x)))
     try {
       await setPropertyPinned(property.id, next)
     } catch {
       setProperties((list) => list.map((x) => (x.id === property.id ? { ...x, is_pinned: prev } : x)))
       setError('Could not update pin status. Please try again.')
+    } finally {
+      setPendingPins((pins) => ({ ...pins, [property.id]: false }))
     }
   }
 
@@ -127,6 +132,7 @@ export default function AdminProperties() {
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => togglePin(property)}
+                      disabled={Boolean(pendingPins[property.id])}
                       aria-pressed={property.is_pinned}
                       className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold transition-colors ${
                         property.is_pinned
