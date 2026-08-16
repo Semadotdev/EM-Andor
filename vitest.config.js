@@ -5,13 +5,13 @@ export default defineConfig({
   plugins: [
     react(),
     {
-      // Test-only: lets AdminDashboard.test.jsx mock the admin panels before they exist.
+      // Test-only: lets AdminDashboard.test.jsx mock the AdminInquiries panel before it exists.
       // Vite's import-analysis resolves the real import before vi.mock can intercept,
-      // so the missing ./AdminProperties.jsx and ./AdminInquiries.jsx would error at
-      // transform time. Once both files exist, remove this plugin (it no longer matches).
+      // so the missing ./AdminInquiries.jsx would error at transform time.
+      // Once AdminInquiries.jsx exists (Task 12), remove this plugin entirely.
       name: 'virtual-admin-panels',
       resolveId(id) {
-        if (id === './AdminProperties.jsx' || id === './AdminInquiries.jsx') return id
+        if (id === './AdminInquiries.jsx') return id
       },
     },
   ],
