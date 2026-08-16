@@ -179,4 +179,41 @@ describe('api', () => {
 
     await expect(fetchProperties()).rejects.toThrow('boom')
   })
+
+  it('submitInquiry throws when the insert fails', async () => {
+    const c = makeChain()
+    c.insert.mockResolvedValue({ data: null, error: new Error('insert failed') })
+    supabase.from.mockReturnValue(c)
+
+    await expect(submitInquiry({ name: 'Juan' })).rejects.toThrow('insert failed')
+  })
+
+  it('uploadPropertyImage throws when the upload fails', async () => {
+    const file = new File(['img'], 'lot-a.jpg', { type: 'image/jpeg' })
+    const bucket = {
+      upload: vi.fn().mockResolvedValue({ data: null, error: new Error('storage down') }),
+      getPublicUrl: vi.fn(),
+    }
+    supabase.storage.from.mockReturnValue(bucket)
+
+    await expect(uploadPropertyImage(file)).rejects.toThrow('storage down')
+  })
+
+  it('uploadPropertyImage rejects non-image files', async () => {
+    const file = new File(['<script>alert(1)</script>'], 'evil.html', { type: 'text/html' })
+
+    await expect(uploadPropertyImage(file)).rejects.toThrow('Only JPG, PNG, or WebP images are allowed.')
+  })
+
+  it('uploadPropertyImage rejects svg files', async () => {
+    const file = new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' })
+
+    await expect(uploadPropertyImage(file)).rejects.toThrow('Only JPG, PNG, or WebP images are allowed.')
+  })
+
+  it('uploadPropertyImage rejects images over 5MB', async () => {
+    const file = new File([new ArrayBuffer(6 * 1024 * 1024)], 'big.jpg', { type: 'image/jpeg' })
+
+    await expect(uploadPropertyImage(file)).rejects.toThrow('Image must be 5MB or smaller.')
+  })
 })

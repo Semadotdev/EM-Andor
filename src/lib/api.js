@@ -1,5 +1,8 @@
 import { supabase } from './supabase.js'
 
+const IMAGE_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
 export async function fetchPinnedProperties() {
   const { data, error } = await supabase
     .from('properties')
@@ -51,8 +54,13 @@ export async function deleteProperty(id) {
 }
 
 export async function uploadPropertyImage(file) {
-  const ext = file.name.split('.').pop() || 'jpg'
-  const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  if (!IMAGE_EXT[file.type]) {
+    throw new Error('Only JPG, PNG, or WebP images are allowed.')
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    throw new Error('Image must be 5MB or smaller.')
+  }
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${IMAGE_EXT[file.type]}`
   const { error } = await supabase.storage.from('property-images').upload(path, file)
   if (error) throw error
   const { data } = supabase.storage.from('property-images').getPublicUrl(path)
