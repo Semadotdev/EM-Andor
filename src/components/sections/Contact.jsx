@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Reveal from '../shared/Reveal.jsx'
 import SectionHeading from '../shared/SectionHeading.jsx'
 import Icon from '../shared/Icon.jsx'
+import { submitInquiry } from '../../lib/api.js'
 import { contact } from '../../data/site.js'
 
 const infoItems = [
@@ -19,11 +20,14 @@ export default function Contact() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', projectType: '', message: '' })
   const [errors, setErrors] = useState({})
   const [sent, setSent] = useState(false)
+  const [error, setError] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const setField = (field) => (e) => {
     setForm((f) => ({ ...f, [field]: e.target.value }))
     setErrors((errs) => ({ ...errs, [field]: undefined }))
     setSent(false)
+    setError(null)
   }
 
   const validate = () => {
@@ -37,19 +41,29 @@ export default function Contact() {
     return next
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const next = validate()
     setErrors(next)
     if (Object.keys(next).length > 0) return
 
-    const subject = encodeURIComponent(`Quote request from ${form.name}`)
-    const body = encodeURIComponent(
-      `Name: ${form.name}\nEmail: ${form.email}\nPhone: ${form.phone}\nProject Type: ${form.projectType}\n\nMessage:\n${form.message}`,
-    )
-    window.location.href = `mailto:${contact.email}?subject=${subject}&body=${body}`
-    setSent(true)
-    setForm({ name: '', email: '', phone: '', projectType: '', message: '' })
+    setSubmitting(true)
+    setError(null)
+    try {
+      await submitInquiry({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        project_type: form.projectType || null,
+        message: form.message.trim(),
+      })
+      setSent(true)
+      setForm({ name: '', email: '', phone: '', projectType: '', message: '' })
+    } catch {
+      setError('Something went wrong while sending your inquiry. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const errorText = (field) =>
@@ -109,7 +123,14 @@ export default function Contact() {
                   <svg viewBox="0 0 24 24" className="mt-0.5 size-5 shrink-0 text-brand-2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="m5 13 4 4 10-11" />
                   </svg>
-                  Thank you! Your email app should open with your message ready to send. We look forward to hearing from you.
+                  Thank you! Your inquiry has been sent. Our team will get back to you soon.
+                </div>
+              )}
+
+              {error && (
+                <div className="mb-6 flex items-start gap-3 rounded-md border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700" role="alert">
+                  <span aria-hidden="true">!</span>
+                  {error}
                 </div>
               )}
 
@@ -169,9 +190,9 @@ export default function Contact() {
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-gold mt-7 w-full sm:w-auto">
-                Submit Inquiry
-                <Icon name="arrow-right" className="size-4" />
+              <button type="submit" disabled={submitting} className="btn btn-gold mt-7 w-full sm:w-auto disabled:opacity-60">
+                {submitting ? 'Sending…' : 'Submit Inquiry'}
+                {!submitting && <Icon name="arrow-right" className="size-4" />}
               </button>
             </form>
           </Reveal>
