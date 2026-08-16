@@ -70,4 +70,27 @@ describe('AvailableProperties', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByText('Andor Ridge Lot B')).toBeInTheDocument()
   })
+
+  it('shows the subdivision map above the grid only when a property has a position', async () => {
+    fetchPinnedProperties.mockResolvedValue(sample)
+
+    render(<AvailableProperties />)
+
+    expect(await screen.findByText('Andor Ridge Lot A')).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: /subdivision map/i })).not.toBeInTheDocument()
+  })
+
+  it('renders pins on the map and highlights the matching card when a pin is clicked', async () => {
+    fetchPinnedProperties.mockResolvedValue([{ ...sample[0], map_x: 25, map_y: 40 }])
+    const user = userEvent.setup()
+
+    render(<AvailableProperties />)
+
+    expect(await screen.findByRole('img', { name: /subdivision map/i })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Andor Ridge Lot A.*pin on map/i }))
+
+    const card = screen.getByRole('heading', { name: 'Andor Ridge Lot A' }).closest('article')
+    expect(card).toHaveAttribute('data-highlighted', 'true')
+  })
 })

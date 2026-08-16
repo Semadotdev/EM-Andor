@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Reveal from '../shared/Reveal.jsx'
 import SectionHeading from '../shared/SectionHeading.jsx'
 import Icon from '../shared/Icon.jsx'
+import SubdivisionMap from './SubdivisionMap.jsx'
 import { fetchPinnedProperties } from '../../lib/api.js'
 import { formatPrice } from '../../lib/format.js'
 
@@ -11,6 +12,7 @@ export default function AvailableProperties() {
   const [properties, setProperties] = useState([])
   const [status, setStatus] = useState('loading')
   const [reloadKey, setReloadKey] = useState(0)
+  const [selectedId, setSelectedId] = useState(null)
 
   useEffect(() => {
     let mounted = true
@@ -29,6 +31,14 @@ export default function AvailableProperties() {
       mounted = false
     }
   }, [reloadKey])
+
+  useEffect(() => {
+    if (!selectedId) return
+    const el = document.getElementById(`property-${selectedId}`)
+    el?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    const timer = setTimeout(() => setSelectedId(null), 2500)
+    return () => clearTimeout(timer)
+  }, [selectedId])
 
   return (
     <section id="available-properties" className="scroll-mt-24 bg-white py-20 sm:py-28">
@@ -70,43 +80,50 @@ export default function AvailableProperties() {
         )}
 
         {status === 'ready' && properties.length > 0 && (
-          <div className="mt-12 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
-            {properties.map((property, i) => (
-              <Reveal key={property.id} delay={(i % 3) * 90}>
-                <article className="group overflow-hidden rounded-lg bg-surface shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lift">
-                  <div className="relative aspect-[16/11] overflow-hidden">
-                    <img
-                      src={property.image_url || fallbackImage}
-                      alt={property.name}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
-                    <span className="absolute left-4 top-4 rounded-full bg-brand px-3.5 py-1.5 font-display text-xs font-bold uppercase tracking-wide text-white">
-                      {property.type}
-                    </span>
-                  </div>
-                  <div className="p-6">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-brand-2">
-                        <Icon name="pin" className="size-3.5" />
-                        {property.location}
-                      </p>
-                      {property.lot_area_sqm != null && (
-                        <span className="text-xs font-semibold text-ink/60">
-                          {Number(property.lot_area_sqm).toLocaleString('en-PH')} sqm
-                        </span>
+          <>
+            <SubdivisionMap properties={properties} onSelect={setSelectedId} />
+            <div className="mt-12 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
+              {properties.map((property, i) => (
+                <Reveal key={property.id} delay={(i % 3) * 90}>
+                  <article
+                    id={`property-${property.id}`}
+                    data-highlighted={selectedId === property.id ? 'true' : 'false'}
+                    className="group overflow-hidden rounded-lg bg-surface shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lift data-[highlighted=true]:ring-2 data-[highlighted=true]:ring-brand data-[highlighted=true]:ring-offset-2"
+                  >
+                    <div className="relative aspect-[16/11] overflow-hidden">
+                      <img
+                        src={property.image_url || fallbackImage}
+                        alt={property.name}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      />
+                      <span className="absolute left-4 top-4 rounded-full bg-brand px-3.5 py-1.5 font-display text-xs font-bold uppercase tracking-wide text-white">
+                        {property.type}
+                      </span>
+                    </div>
+                    <div className="p-6">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-brand-2">
+                          <Icon name="pin" className="size-3.5" />
+                          {property.location}
+                        </p>
+                        {property.lot_area_sqm != null && (
+                          <span className="text-xs font-semibold text-ink/60">
+                            {Number(property.lot_area_sqm).toLocaleString('en-PH')} sqm
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="mt-2 font-display text-xl font-bold text-brand-deep">{property.name}</h3>
+                      {property.description && <p className="mt-2 text-sm leading-relaxed text-ink/70">{property.description}</p>}
+                      {formatPrice(property.price) && (
+                        <p className="mt-3 font-display text-lg font-bold text-brand">{formatPrice(property.price)}</p>
                       )}
                     </div>
-                    <h3 className="mt-2 font-display text-xl font-bold text-brand-deep">{property.name}</h3>
-                    {property.description && <p className="mt-2 text-sm leading-relaxed text-ink/70">{property.description}</p>}
-                    {formatPrice(property.price) && (
-                      <p className="mt-3 font-display text-lg font-bold text-brand">{formatPrice(property.price)}</p>
-                    )}
-                  </div>
-                </article>
-              </Reveal>
-            ))}
-          </div>
+                  </article>
+                </Reveal>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </section>

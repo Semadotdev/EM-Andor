@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import PropertyForm from './PropertyForm.jsx'
 
@@ -20,6 +20,8 @@ const payload = {
   description: 'Corner lot',
   image_url: null,
   is_pinned: false,
+  map_x: null,
+  map_y: null,
 }
 
 async function fillRequiredFields(user) {
@@ -122,5 +124,42 @@ describe('PropertyForm', () => {
     await userEvent.keyboard('{Escape}')
 
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('places a pin on the map when clicked and includes it in the payload', async () => {
+    createProperty.mockResolvedValue({ id: 'p1' })
+    const user = userEvent.setup()
+
+    render(<PropertyForm mode="create" property={null} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    const mapImg = screen.getByAltText(/subdivision map/i)
+    const mapEl = mapImg.parentElement
+    mapEl.getBoundingClientRect = () => ({
+      left: 0, top: 0, right: 1000, bottom: 800, width: 1000, height: 800, x: 0, y: 0,
+    })
+    fireEvent.click(mapEl, { clientX: 250, clientY: 200 })
+
+    await fillRequiredFields(user)
+    await user.click(screen.getByRole('button', { name: 'Add Property' }))
+
+    expect(createProperty).toHaveBeenCalledWith(
+      expect.objectContaining({ map_x: 25, map_y: 25 }),
+    )
+  })
+
+  it('shows the saved pin position when editing and clears it', async () => {
+    const existing = { id: 'p7', ...payload, map_x: 50, map_y: 75 }
+    const user = userEvent.setup()
+
+    render(<PropertyForm mode="edit" property={existing} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: /clear pin/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /clear pin/i }))
+
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+    expect(updateProperty).toHaveBeenCalledWith(
+      'p7',
+      expect.objectContaining({ map_x: null, map_y: null }),
+    )
   })
 })

@@ -8,8 +8,13 @@ create table if not exists public.properties (
   description text,
   image_url text,
   is_pinned boolean not null default false,
+  map_x numeric,
+  map_y numeric,
   created_at timestamptz not null default now()
 );
+
+alter table public.properties add column if not exists map_x numeric;
+alter table public.properties add column if not exists map_y numeric;
 
 create table if not exists public.inquiries (
   id uuid primary key default gen_random_uuid(),

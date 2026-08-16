@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
+import Icon from '../shared/Icon.jsx'
 import { createProperty, updateProperty, uploadPropertyImage } from '../../lib/api.js'
+import { subdivisionMap } from '../../data/site.js'
 
 const inputCls =
   'w-full rounded-md border border-mist bg-white px-4 py-3 text-sm text-ink placeholder:text-ink/40 transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20'
 
 const types = ['residential lot', 'commercial lot', 'house & lot', 'development lot']
+
+const clampPercent = (value) => Math.min(100, Math.max(0, Math.round(value * 100) / 100))
 
 export default function PropertyForm({ mode, property, onClose, onSaved }) {
   const isEdit = mode === 'edit'
@@ -17,6 +21,8 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
     price: property?.price ?? '',
     description: property?.description ?? '',
     is_pinned: property?.is_pinned ?? false,
+    map_x: property?.map_x ?? '',
+    map_y: property?.map_y ?? '',
   })
   const [imageFile, setImageFile] = useState(null)
   const [imageUrl, setImageUrl] = useState(property?.image_url ?? '')
@@ -44,6 +50,15 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
     setForm((f) => ({ ...f, [field]: value }))
     setErrors((errs) => ({ ...errs, [field]: undefined }))
   }
+
+  const handleMapClick = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = clampPercent(((e.clientX - rect.left) / rect.width) * 100)
+    const y = clampPercent(((e.clientY - rect.top) / rect.height) * 100)
+    setForm((f) => ({ ...f, map_x: x, map_y: y }))
+  }
+
+  const hasMapPin = form.map_x !== '' && form.map_y !== ''
 
   const validate = () => {
     const next = {}
@@ -74,6 +89,8 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
         description: form.description.trim() || null,
         image_url: finalImageUrl || null,
         is_pinned: form.is_pinned,
+        map_x: form.map_x === '' ? null : Number(form.map_x),
+        map_y: form.map_y === '' ? null : Number(form.map_y),
       }
       const saved = isEdit ? await updateProperty(property.id, payload) : await createProperty(payload)
       onSaved(saved)
@@ -191,6 +208,34 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
                 {imageUrl && !imageFile && <span className="text-xs text-ink/50">Current image on file</span>}
               </div>
             )}
+          </div>
+
+          <div className="sm:col-span-2">
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-sm font-semibold text-brand-deep">Map position (optional)</label>
+              {hasMapPin && (
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, map_x: '', map_y: '' }))}
+                  className="rounded-md border border-mist px-2.5 py-1 text-xs font-semibold text-ink/60 transition-colors hover:border-brand/40 hover:text-brand"
+                >
+                  Clear pin
+                </button>
+              )}
+            </div>
+            <p className="mb-2 text-xs text-ink/50">Click the map where this lot is located.</p>
+            <div className="relative overflow-hidden rounded-lg border border-mist" onClick={handleMapClick} role="img" aria-label="Subdivision map">
+              <img src={subdivisionMap.image} alt={subdivisionMap.alt} className="w-full" />
+              {hasMapPin && (
+                <span
+                  aria-hidden="true"
+                  className="absolute z-10 -translate-x-1/2 -translate-y-full text-brand drop-shadow"
+                  style={{ left: `${Number(form.map_x)}%`, top: `${Number(form.map_y)}%` }}
+                >
+                  <Icon name="pin" className="size-7" />
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="sm:col-span-2 flex items-center gap-2">
