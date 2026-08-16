@@ -20,8 +20,7 @@ const payload = {
   description: 'Corner lot',
   image_url: null,
   is_pinned: false,
-  map_x: null,
-  map_y: null,
+  map_pins: [],
 }
 
 async function fillRequiredFields(user) {
@@ -126,7 +125,7 @@ describe('PropertyForm', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('places a pin on the map when clicked and includes it in the payload', async () => {
+  it('adds a lot pin when the map is clicked and includes it in the payload', async () => {
     createProperty.mockResolvedValue({ id: 'p1' })
     const user = userEvent.setup()
 
@@ -138,32 +137,51 @@ describe('PropertyForm', () => {
       left: 0, top: 0, right: 1000, bottom: 800, width: 1000, height: 800, x: 0, y: 0,
     })
     fireEvent.click(mapEl, { clientX: 250, clientY: 200 })
+    fireEvent.click(mapEl, { clientX: 700, clientY: 500 })
+
+    expect(screen.getByRole('button', { name: 'Remove Lot 1 pin' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove Lot 2 pin' })).toBeInTheDocument()
 
     await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Add Property' }))
 
     expect(createProperty).toHaveBeenCalledWith(
-      expect.objectContaining({ map_x: 25, map_y: 25 }),
+      expect.objectContaining({
+        map_pins: expect.arrayContaining([
+          expect.objectContaining({ name: 'Lot 1', x: 25, y: 25, price: null, lot_area_sqm: null }),
+          expect.objectContaining({ name: 'Lot 2', x: 70, y: 62.5 }),
+        ]),
+      }),
     )
   })
 
-  it('shows the saved pin position when editing and clears it', async () => {
-    const existing = { id: 'p7', ...payload, map_x: 50, map_y: 75 }
+  it('removes a lot pin when its pin or Remove button is clicked', async () => {
+    createProperty.mockResolvedValue({ id: 'p1' })
     const user = userEvent.setup()
 
-    render(<PropertyForm mode="edit" property={existing} onClose={vi.fn()} onSaved={vi.fn()} />)
+    render(<PropertyForm mode="create" property={null} onClose={vi.fn()} onSaved={vi.fn()} />)
 
-    expect(screen.getByRole('button', { name: /clear pin/i })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /clear pin/i }))
+    const mapImg = screen.getByAltText(/subdivision map/i)
+    const mapEl = mapImg.parentElement
+    mapEl.getBoundingClientRect = () => ({
+      left: 0, top: 0, right: 1000, bottom: 800, width: 1000, height: 800, x: 0, y: 0,
+    })
+    fireEvent.click(mapEl, { clientX: 250, clientY: 200 })
+    fireEvent.click(mapEl, { clientX: 700, clientY: 500 })
 
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
-    expect(updateProperty).toHaveBeenCalledWith(
-      'p7',
-      expect.objectContaining({ map_x: null, map_y: null }),
-    )
+    await user.click(screen.getByRole('button', { name: 'Remove Lot 1 pin' }))
+    expect(screen.queryByRole('button', { name: 'Remove Lot 1 pin' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove Lot 2 pin' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    expect(screen.queryByRole('button', { name: 'Remove Lot 2 pin' })).not.toBeInTheDocument()
+
+    await fillRequiredFields(user)
+    await user.click(screen.getByRole('button', { name: 'Add Property' }))
+    expect(createProperty).toHaveBeenCalledWith(expect.objectContaining({ map_pins: [] }))
   })
 
-  it('places the pin at the center when the map is activated with the keyboard', async () => {
+  it('edits lot fields and includes them in the payload', async () => {
     createProperty.mockResolvedValue({ id: 'p1' })
     const user = userEvent.setup()
 
@@ -174,11 +192,63 @@ describe('PropertyForm', () => {
     await user.click(mapEl)
     await user.keyboard('{Enter}')
 
+    await user.clear(screen.getByLabelText('Lot 1 name'))
+    await user.type(screen.getByLabelText('Lot 1 name'), 'Lot Corner')
+    await user.type(screen.getByLabelText('Lot 1 price'), '900000')
+    await user.type(screen.getByLabelText('Lot 1 area'), '120')
+
     await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Add Property' }))
 
     expect(createProperty).toHaveBeenCalledWith(
-      expect.objectContaining({ map_x: 50, map_y: 50 }),
+      expect.objectContaining({
+        map_pins: expect.arrayContaining([
+          expect.objectContaining({ name: 'Lot Corner', price: 900000, lot_area_sqm: 120, x: 50, y: 50 }),
+        ]),
+      }),
     )
+  })
+
+  it('shows the saved pins when editing and clears them all', async () => {
+    const existing = {
+      id: 'p7',
+      ...payload,
+      map_pins: [
+        { id: 'l1', name: 'Lot A', price: 1500000, lot_area_sqm: 150, x: 50, y: 75 },
+        { id: 'l2', name: 'Lot B', price: 2000000, lot_area_sqm: 200, x: 20, y: 40 },
+      ],
+    }
+    const user = userEvent.setup()
+
+    render(<PropertyForm mode="edit" property={existing} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    expect(screen.getByLabelText('Lot 1 name')).toHaveValue('Lot A')
+    expect(screen.getByLabelText('Lot 2 name')).toHaveValue('Lot B')
+    expect(screen.getByRole('button', { name: 'Remove Lot A pin' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /clear all/i }))
+    expect(screen.queryByRole('button', { name: /Remove .* pin/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+    expect(updateProperty).toHaveBeenCalledWith('p7', expect.objectContaining({ map_pins: [] }))
+  })
+
+  it('requires a name for each lot pin', async () => {
+    createProperty.mockResolvedValue({ id: 'p1' })
+    const user = userEvent.setup()
+
+    render(<PropertyForm mode="create" property={null} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    const mapImg = screen.getByAltText(/subdivision map/i)
+    const mapEl = mapImg.parentElement
+    await user.click(mapEl)
+    await user.keyboard('{Enter}')
+    await user.clear(screen.getByLabelText('Lot 1 name'))
+
+    await fillRequiredFields(user)
+    await user.click(screen.getByRole('button', { name: 'Add Property' }))
+
+    expect(await screen.findByText('Each lot needs a name.')).toBeInTheDocument()
+    expect(createProperty).not.toHaveBeenCalled()
   })
 })

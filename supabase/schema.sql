@@ -8,13 +8,13 @@ create table if not exists public.properties (
   description text,
   image_url text,
   is_pinned boolean not null default false,
-  map_x numeric,
-  map_y numeric,
+  map_pins jsonb not null default '[]',
   created_at timestamptz not null default now()
 );
 
-alter table public.properties add column if not exists map_x numeric;
-alter table public.properties add column if not exists map_y numeric;
+alter table public.properties add column if not exists map_pins jsonb not null default '[]';
+alter table public.properties drop column if exists map_x;
+alter table public.properties drop column if exists map_y;
 
 create table if not exists public.inquiries (
   id uuid primary key default gen_random_uuid(),

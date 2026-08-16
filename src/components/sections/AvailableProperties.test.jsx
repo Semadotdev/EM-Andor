@@ -71,7 +71,7 @@ describe('AvailableProperties', () => {
     expect(await screen.findByText('Andor Ridge Lot B')).toBeInTheDocument()
   })
 
-  it('shows the subdivision map above the grid only when a property has a position', async () => {
+  it('shows the subdivision map above the grid only when a property has pins', async () => {
     fetchPinnedProperties.mockResolvedValue(sample)
 
     render(<AvailableProperties />)
@@ -80,17 +80,40 @@ describe('AvailableProperties', () => {
     expect(screen.queryByRole('img', { name: /subdivision map/i })).not.toBeInTheDocument()
   })
 
-  it('renders pins on the map and highlights the matching card when a pin is clicked', async () => {
-    fetchPinnedProperties.mockResolvedValue([{ ...sample[0], map_x: 25, map_y: 40 }])
+  it('renders lot pins on the map and highlights the matching card when a pin is clicked', async () => {
+    fetchPinnedProperties.mockResolvedValue([
+      { ...sample[0], map_pins: [{ id: 'l1', name: 'Lot A', price: 1800000, lot_area_sqm: 150, x: 25, y: 40 }] },
+    ])
     const user = userEvent.setup()
 
     render(<AvailableProperties />)
 
     expect(await screen.findByRole('img', { name: /subdivision map/i })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /Andor Ridge Lot A.*pin on map/i }))
+    await user.click(screen.getByRole('button', { name: /Lot A.*pin on map/i }))
 
     const card = screen.getByRole('heading', { name: 'Andor Ridge Lot A' }).closest('article')
     expect(card).toHaveAttribute('data-highlighted', 'true')
+  })
+
+  it('lists lots on the card and shows a From price when lots have prices', async () => {
+    fetchPinnedProperties.mockResolvedValue([
+      {
+        ...sample[0],
+        price: null,
+        map_pins: [
+          { id: 'l1', name: 'Lot A', price: 1800000, lot_area_sqm: 150, x: 25, y: 40 },
+          { id: 'l2', name: 'Lot B', price: 2000000, lot_area_sqm: 200, x: 70, y: 15 },
+        ],
+      },
+    ])
+
+    render(<AvailableProperties />)
+
+    expect(await screen.findByText('Andor Ridge Lot A')).toBeInTheDocument()
+    expect(screen.getByText('2 lots')).toBeInTheDocument()
+    expect(screen.getByText('From ₱ 1,800,000')).toBeInTheDocument()
+    expect(screen.getAllByText('Lot A').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Lot B').length).toBeGreaterThan(0)
   })
 })

@@ -21,9 +21,8 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
     price: property?.price ?? '',
     description: property?.description ?? '',
     is_pinned: property?.is_pinned ?? false,
-    map_x: property?.map_x ?? '',
-    map_y: property?.map_y ?? '',
   })
+  const [pins, setPins] = useState(() => (property?.map_pins ?? []).map((p) => ({ ...p })))
   const [imageFile, setImageFile] = useState(null)
   const [imageUrl, setImageUrl] = useState(property?.image_url ?? '')
   const [errors, setErrors] = useState({})
@@ -52,35 +51,49 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
     setErrors((errs) => ({ ...errs, [field]: undefined }))
   }
 
-  const placePin = (x, y) => {
-    setForm((f) => ({ ...f, map_x: clampPercent(x), map_y: clampPercent(y) }))
-    setMapNotice('Pin placed on the map')
+  const addPin = (x, y) => {
+    const id = crypto.randomUUID()
+    setPins((prev) => [
+      ...prev,
+      { id, name: `Lot ${prev.length + 1}`, price: '', lot_area_sqm: '', x: clampPercent(x), y: clampPercent(y) },
+    ])
+    setMapNotice('Lot pin added')
+    setErrors((errs) => ({ ...errs, pins: undefined }))
+  }
+
+  const removePin = (id) => {
+    setPins((prev) => prev.filter((p) => p.id !== id))
+    setMapNotice('Lot pin removed')
+  }
+
+  const updatePin = (id, field) => (e) => {
+    setPins((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: e.target.value } : p)))
+    setErrors((errs) => ({ ...errs, pins: undefined }))
+  }
+
+  const clearAll = () => {
+    setPins([])
+    setMapNotice('All lot pins removed')
   }
 
   const handleMapClick = (e) => {
     const rect = e.currentTarget.getBoundingClientRect()
     if (!rect.width || !rect.height) return
-    placePin(((e.clientX - rect.left) / rect.width) * 100, ((e.clientY - rect.top) / rect.height) * 100)
+    addPin(((e.clientX - rect.left) / rect.width) * 100, ((e.clientY - rect.top) / rect.height) * 100)
   }
 
   const handleMapKeyDown = (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') return
     e.preventDefault()
-    placePin(50, 50)
+    addPin(50, 50)
   }
-
-  const clearPin = () => {
-    setForm((f) => ({ ...f, map_x: '', map_y: '' }))
-    setMapNotice('Pin removed from the map')
-  }
-
-  const hasMapPin = form.map_x !== '' && form.map_y !== ''
 
   const validate = () => {
     const next = {}
     if (!form.name.trim()) next.name = 'Name is required.'
     if (!form.type) next.type = 'Select a type.'
     if (!form.location.trim()) next.location = 'Location is required.'
+    if (pins.some((p) => !p.name.trim())) next.pins = 'Each lot needs a name.'
     return next
   }
 
@@ -105,8 +118,14 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
         description: form.description.trim() || null,
         image_url: finalImageUrl || null,
         is_pinned: form.is_pinned,
-        map_x: form.map_x === '' ? null : Number(form.map_x),
-        map_y: form.map_y === '' ? null : Number(form.map_y),
+        map_pins: pins.map((p) => ({
+          id: p.id,
+          name: p.name.trim(),
+          price: p.price === '' || p.price == null ? null : Number(p.price),
+          lot_area_sqm: p.lot_area_sqm === '' || p.lot_area_sqm == null ? null : Number(p.lot_area_sqm),
+          x: Number(p.x),
+          y: Number(p.y),
+        })),
       }
       const saved = isEdit ? await updateProperty(property.id, payload) : await createProperty(payload)
       onSaved(saved)
@@ -228,40 +247,95 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
 
           <div className="sm:col-span-2">
             <div className="mb-1.5 flex items-center justify-between">
-              <label className="text-sm font-semibold text-brand-deep">Map position (optional)</label>
-              {hasMapPin && (
+              <label className="text-sm font-semibold text-brand-deep">Map of lots (optional)</label>
+              {pins.length > 0 && (
                 <button
                   type="button"
-                  onClick={clearPin}
+                  onClick={clearAll}
                   className="rounded-md border border-mist px-2.5 py-1 text-xs font-semibold text-ink/60 transition-colors hover:border-brand/40 hover:text-brand"
                 >
-                  Clear pin
+                  Clear all
                 </button>
               )}
             </div>
-            <p className="mb-2 text-xs text-ink/50">Click the map where this lot is located, or press Enter on the map to place the pin at the center.</p>
+            <p className="mb-2 text-xs text-ink/50">
+              Click the map to add a lot pin — each pin is a separate lot. Click an existing pin to remove it.
+            </p>
             <div
               className="relative cursor-crosshair overflow-hidden rounded-lg border border-mist focus:outline-none focus:ring-2 focus:ring-brand/20"
               onClick={handleMapClick}
               onKeyDown={handleMapKeyDown}
               role="button"
               tabIndex={0}
-              aria-label="Subdivision map — click to place the pin at that spot, or press Enter to place it at the center"
+              aria-label="Subdivision map — click to add a lot pin at that spot, or press Enter to add one at the center"
             >
               <img src={subdivisionMap.image} alt={subdivisionMap.alt} className="w-full" />
-              {hasMapPin && (
-                <span
-                  aria-hidden="true"
-                  className="absolute z-10 -translate-x-1/2 -translate-y-full text-brand drop-shadow"
-                  style={{ left: `${Number(form.map_x)}%`, top: `${Number(form.map_y)}%` }}
+              {pins.map((pin, i) => (
+                <button
+                  key={pin.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removePin(pin.id)
+                  }}
+                  aria-label={`Remove ${pin.name || `Lot ${i + 1}`} pin`}
+                  className="absolute z-10 -translate-x-1/2 -translate-y-full text-brand drop-shadow transition-transform hover:scale-110"
+                  style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
                 >
                   <Icon name="pin" className="size-7" />
-                </span>
-              )}
+                </button>
+              ))}
             </div>
+            {errors.pins && (
+              <p className="mt-1.5 text-xs font-medium text-red-600" role="alert">
+                {errors.pins}
+              </p>
+            )}
             <span aria-live="polite" className="sr-only">
               {mapNotice}
             </span>
+
+            {pins.length > 0 && (
+              <div className="mt-4 space-y-3">
+                {pins.map((pin, i) => (
+                  <div
+                    key={pin.id}
+                    className="grid grid-cols-1 gap-3 rounded-lg border border-mist bg-surface p-4 sm:grid-cols-[1fr_130px_130px_auto]"
+                  >
+                    <input
+                      className={inputCls}
+                      value={pin.name}
+                      onChange={updatePin(pin.id, 'name')}
+                      placeholder={`Lot ${i + 1} name`}
+                      aria-label={`Lot ${i + 1} name`}
+                    />
+                    <input
+                      className={inputCls}
+                      value={pin.price ?? ''}
+                      onChange={updatePin(pin.id, 'price')}
+                      placeholder="Price"
+                      inputMode="decimal"
+                      aria-label={`Lot ${i + 1} price`}
+                    />
+                    <input
+                      className={inputCls}
+                      value={pin.lot_area_sqm ?? ''}
+                      onChange={updatePin(pin.id, 'lot_area_sqm')}
+                      placeholder="Area (sqm)"
+                      inputMode="decimal"
+                      aria-label={`Lot ${i + 1} area`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removePin(pin.id)}
+                      className="rounded-md border border-mist bg-white px-3 py-2 text-xs font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="sm:col-span-2 flex items-center gap-2">

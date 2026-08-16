@@ -84,46 +84,75 @@ export default function AvailableProperties() {
           <>
             <SubdivisionMap properties={properties} onSelect={setSelectedId} />
             <div className="mt-12 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
-              {properties.map((property, i) => (
-                <Reveal key={property.id} delay={(i % 3) * 90}>
-                  <article
-                    id={`property-${property.id}`}
-                    tabIndex={-1}
-                    data-highlighted={selectedId === property.id ? 'true' : 'false'}
-                    className="group overflow-hidden rounded-lg bg-surface shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lift data-[highlighted=true]:ring-2 data-[highlighted=true]:ring-brand data-[highlighted=true]:ring-offset-2"
-                  >
-                    <div className="relative aspect-[16/11] overflow-hidden">
-                      <img
-                        src={property.image_url || fallbackImage}
-                        alt={property.name}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      />
-                      <span className="absolute left-4 top-4 rounded-full bg-brand px-3.5 py-1.5 font-display text-xs font-bold uppercase tracking-wide text-white">
-                        {property.type}
-                      </span>
-                    </div>
-                    <div className="p-6">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-brand-2">
-                          <Icon name="pin" className="size-3.5" />
-                          {property.location}
-                        </p>
-                        {property.lot_area_sqm != null && (
-                          <span className="text-xs font-semibold text-ink/60">
-                            {Number(property.lot_area_sqm).toLocaleString('en-PH')} sqm
-                          </span>
+              {properties.map((property, i) => {
+                const lots = property.map_pins ?? []
+                const lotPrices = lots.map((l) => l.price).filter((v) => v != null)
+                const minLotPrice = lotPrices.length > 0 ? Math.min(...lotPrices) : null
+                const showFrom = minLotPrice != null
+                const displayPrice = showFrom ? minLotPrice : property.price
+                return (
+                  <Reveal key={property.id} delay={(i % 3) * 90}>
+                    <article
+                      id={`property-${property.id}`}
+                      tabIndex={-1}
+                      data-highlighted={selectedId === property.id ? 'true' : 'false'}
+                      className="group overflow-hidden rounded-lg bg-surface shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lift data-[highlighted=true]:ring-2 data-[highlighted=true]:ring-brand data-[highlighted=true]:ring-offset-2"
+                    >
+                      <div className="relative aspect-[16/11] overflow-hidden">
+                        <img
+                          src={property.image_url || fallbackImage}
+                          alt={property.name}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        />
+                        <span className="absolute left-4 top-4 rounded-full bg-brand px-3.5 py-1.5 font-display text-xs font-bold uppercase tracking-wide text-white">
+                          {property.type}
+                        </span>
+                      </div>
+                      <div className="p-6">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-brand-2">
+                            <Icon name="pin" className="size-3.5" />
+                            {property.location}
+                          </p>
+                          {lots.length > 0 ? (
+                            <span className="text-xs font-semibold text-ink/60">
+                              {lots.length} {lots.length === 1 ? 'lot' : 'lots'}
+                            </span>
+                          ) : (
+                            property.lot_area_sqm != null && (
+                              <span className="text-xs font-semibold text-ink/60">
+                                {Number(property.lot_area_sqm).toLocaleString('en-PH')} sqm
+                              </span>
+                            )
+                          )}
+                        </div>
+                        <h3 className="mt-2 font-display text-xl font-bold text-brand-deep">{property.name}</h3>
+                        {property.description && <p className="mt-2 text-sm leading-relaxed text-ink/70">{property.description}</p>}
+                        {displayPrice != null && formatPrice(displayPrice) && (
+                          <p className="mt-3 font-display text-lg font-bold text-brand">
+                            {showFrom ? `From ${formatPrice(displayPrice)}` : formatPrice(displayPrice)}
+                          </p>
+                        )}
+                        {lots.length > 0 && (
+                          <ul className="mt-3 space-y-1.5 border-t border-mist pt-3">
+                            {lots.map((lot) => (
+                              <li key={lot.id} className="flex items-center justify-between gap-2 text-sm">
+                                <span className="font-medium text-brand-deep">{lot.name}</span>
+                                <span className="text-xs text-ink/60">
+                                  {formatPrice(lot.price) && formatPrice(lot.price)}
+                                  {lot.lot_area_sqm != null &&
+                                    `${formatPrice(lot.price) ? ' · ' : ''}${Number(lot.lot_area_sqm).toLocaleString('en-PH')} sqm`}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
                         )}
                       </div>
-                      <h3 className="mt-2 font-display text-xl font-bold text-brand-deep">{property.name}</h3>
-                      {property.description && <p className="mt-2 text-sm leading-relaxed text-ink/70">{property.description}</p>}
-                      {formatPrice(property.price) && (
-                        <p className="mt-3 font-display text-lg font-bold text-brand">{formatPrice(property.price)}</p>
-                      )}
-                    </div>
-                  </article>
-                </Reveal>
-              ))}
+                    </article>
+                  </Reveal>
+                )
+              })}
             </div>
           </>
         )}
