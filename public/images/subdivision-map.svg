@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#eef1f4"/>
+  <rect x="0" y="0" width="1200" height="30" fill="#c9d4dd"/>
+  <rect x="0" y="770" width="1200" height="30" fill="#c9d4dd"/>
+  <rect x="0" y="0" width="30" height="800" fill="#c9d4dd"/>
+  <rect x="1170" y="0" width="30" height="800" fill="#c9d4dd"/>
+  <g fill="#ffffff" stroke="#b7c4ce" stroke-width="2">
+    <rect x="60" y="60" width="220" height="160" rx="4"/>
+    <rect x="310" y="60" width="220" height="160" rx="4"/>
+    <rect x="560" y="60" width="220" height="160" rx="4"/>
+    <rect x="810" y="60" width="320" height="160" rx="4"/>
+    <rect x="60" y="250" width="220" height="160" rx="4"/>
+    <rect x="310" y="250" width="220" height="160" rx="4"/>
+    <rect x="560" y="250" width="220" height="160" rx="4"/>
+    <rect x="810" y="250" width="320" height="160" rx="4"/>
+    <rect x="60" y="440" width="220" height="160" rx="4"/>
+    <rect x="310" y="440" width="220" height="160" rx="4"/>
+    <rect x="560" y="440" width="220" height="160" rx="4"/>
+    <rect x="810" y="440" width="320" height="160" rx="4"/>
+    <rect x="60" y="630" width="220" height="110" rx="4"/>
+    <rect x="310" y="630" width="220" height="110" rx="4"/>
+    <rect x="560" y="630" width="220" height="110" rx="4"/>
+    <rect x="810" y="630" width="320" height="110" rx="4"/>
+  </g>
+  <g stroke="#c9d4dd" stroke-width="2">
+    <path d="M290 60 V740" stroke-dasharray="10 8"/>
+    <path d="M540 60 V740" stroke-dasharray="10 8"/>
+    <path d="M790 60 V740" stroke-dasharray="10 8"/>
+    <path d="M60 240 H1140" stroke-dasharray="10 8"/>
+    <path d="M60 430 H1140" stroke-dasharray="10 8"/>
+    <path d="M60 620 H1140" stroke-dasharray="10 8"/>
+  </g>
+  <text x="600" y="390" font-family="system-ui, sans-serif" font-size="26" fill="#93a3b0" text-anchor="middle">Subdivision map — replace this placeholder with the actual map</text>
+</svg>

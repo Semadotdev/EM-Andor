@@ -29,6 +29,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
   const [errors, setErrors] = useState({})
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [mapNotice, setMapNotice] = useState('')
 
   const previewUrl = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : null), [imageFile])
 
@@ -51,11 +52,26 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
     setErrors((errs) => ({ ...errs, [field]: undefined }))
   }
 
+  const placePin = (x, y) => {
+    setForm((f) => ({ ...f, map_x: clampPercent(x), map_y: clampPercent(y) }))
+    setMapNotice('Pin placed on the map')
+  }
+
   const handleMapClick = (e) => {
     const rect = e.currentTarget.getBoundingClientRect()
-    const x = clampPercent(((e.clientX - rect.left) / rect.width) * 100)
-    const y = clampPercent(((e.clientY - rect.top) / rect.height) * 100)
-    setForm((f) => ({ ...f, map_x: x, map_y: y }))
+    if (!rect.width || !rect.height) return
+    placePin(((e.clientX - rect.left) / rect.width) * 100, ((e.clientY - rect.top) / rect.height) * 100)
+  }
+
+  const handleMapKeyDown = (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    e.preventDefault()
+    placePin(50, 50)
+  }
+
+  const clearPin = () => {
+    setForm((f) => ({ ...f, map_x: '', map_y: '' }))
+    setMapNotice('Pin removed from the map')
   }
 
   const hasMapPin = form.map_x !== '' && form.map_y !== ''
@@ -216,15 +232,22 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
               {hasMapPin && (
                 <button
                   type="button"
-                  onClick={() => setForm((f) => ({ ...f, map_x: '', map_y: '' }))}
+                  onClick={clearPin}
                   className="rounded-md border border-mist px-2.5 py-1 text-xs font-semibold text-ink/60 transition-colors hover:border-brand/40 hover:text-brand"
                 >
                   Clear pin
                 </button>
               )}
             </div>
-            <p className="mb-2 text-xs text-ink/50">Click the map where this lot is located.</p>
-            <div className="relative overflow-hidden rounded-lg border border-mist" onClick={handleMapClick} role="img" aria-label="Subdivision map">
+            <p className="mb-2 text-xs text-ink/50">Click the map where this lot is located, or press Enter on the map to place the pin at the center.</p>
+            <div
+              className="relative cursor-crosshair overflow-hidden rounded-lg border border-mist focus:outline-none focus:ring-2 focus:ring-brand/20"
+              onClick={handleMapClick}
+              onKeyDown={handleMapKeyDown}
+              role="button"
+              tabIndex={0}
+              aria-label="Subdivision map — click to place the pin at that spot, or press Enter to place it at the center"
+            >
               <img src={subdivisionMap.image} alt={subdivisionMap.alt} className="w-full" />
               {hasMapPin && (
                 <span
@@ -236,6 +259,9 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
                 </span>
               )}
             </div>
+            <span aria-live="polite" className="sr-only">
+              {mapNotice}
+            </span>
           </div>
 
           <div className="sm:col-span-2 flex items-center gap-2">

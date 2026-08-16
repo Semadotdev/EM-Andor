@@ -162,4 +162,23 @@ describe('PropertyForm', () => {
       expect.objectContaining({ map_x: null, map_y: null }),
     )
   })
+
+  it('places the pin at the center when the map is activated with the keyboard', async () => {
+    createProperty.mockResolvedValue({ id: 'p1' })
+    const user = userEvent.setup()
+
+    render(<PropertyForm mode="create" property={null} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    const mapImg = screen.getByAltText(/subdivision map/i)
+    const mapEl = mapImg.parentElement
+    await user.click(mapEl)
+    await user.keyboard('{Enter}')
+
+    await fillRequiredFields(user)
+    await user.click(screen.getByRole('button', { name: 'Add Property' }))
+
+    expect(createProperty).toHaveBeenCalledWith(
+      expect.objectContaining({ map_x: 50, map_y: 50 }),
+    )
+  })
 })

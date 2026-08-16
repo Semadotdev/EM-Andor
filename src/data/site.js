@@ -154,7 +154,7 @@ export const contact = {
 }
 
 export const subdivisionMap = {
-  image: '/images/subdivision-map.png',
+  image: '/images/subdivision-map.svg',
   alt: 'Subdivision map showing the location of each available lot',
 }
 

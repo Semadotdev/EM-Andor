@@ -20,7 +20,7 @@ export default function SubdivisionMap({ properties, onSelect }) {
             style={{ left: `${Number(property.map_x)}%`, top: `${Number(property.map_y)}%` }}
           >
             <Icon name="pin" className="size-8 text-brand drop-shadow" />
-            <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-mist bg-white px-3 py-2 text-sm shadow-lift group-hover:block">
+            <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-mist bg-white px-3 py-2 text-sm shadow-lift group-hover:block group-focus-within:block">
               <span className="block font-semibold text-brand-deep">{property.name}</span>
               {formatPrice(property.price) && <span className="block text-brand">{formatPrice(property.price)}</span>}
             </span>

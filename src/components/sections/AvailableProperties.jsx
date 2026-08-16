@@ -36,6 +36,7 @@ export default function AvailableProperties() {
     if (!selectedId) return
     const el = document.getElementById(`property-${selectedId}`)
     el?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    el?.focus?.({ preventScroll: true })
     const timer = setTimeout(() => setSelectedId(null), 2500)
     return () => clearTimeout(timer)
   }, [selectedId])
@@ -87,6 +88,7 @@ export default function AvailableProperties() {
                 <Reveal key={property.id} delay={(i % 3) * 90}>
                   <article
                     id={`property-${property.id}`}
+                    tabIndex={-1}
                     data-highlighted={selectedId === property.id ? 'true' : 'false'}
                     className="group overflow-hidden rounded-lg bg-surface shadow-card transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lift data-[highlighted=true]:ring-2 data-[highlighted=true]:ring-brand data-[highlighted=true]:ring-offset-2"
                   >
