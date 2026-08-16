@@ -62,4 +62,47 @@ describe('Contact form', () => {
 
     expect(await screen.findByText(/Something went wrong/i)).toBeInTheDocument()
   })
+
+  it('does not submit twice while a submission is in flight', async () => {
+    let resolveSubmit
+    submitInquiry.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSubmit = resolve
+      }),
+    )
+    const user = userEvent.setup()
+
+    render(<Contact />)
+
+    await user.type(screen.getByLabelText('Full Name'), 'Juan Dela Cruz')
+    await user.type(screen.getByLabelText('Email Address'), 'juan@example.com')
+    await user.type(screen.getByLabelText('Phone Number'), '09171234567')
+    await user.type(screen.getByLabelText('Message'), 'I want to build a house.')
+    await user.click(screen.getByRole('button', { name: 'Submit Inquiry' }))
+    await user.keyboard('{Enter}')
+
+    expect(submitInquiry).toHaveBeenCalledTimes(1)
+
+    resolveSubmit(undefined)
+  })
+
+  it('clears the success banner when a later submit fails validation', async () => {
+    submitInquiry.mockResolvedValue(undefined)
+    const user = userEvent.setup()
+
+    render(<Contact />)
+
+    await user.type(screen.getByLabelText('Full Name'), 'Juan Dela Cruz')
+    await user.type(screen.getByLabelText('Email Address'), 'juan@example.com')
+    await user.type(screen.getByLabelText('Phone Number'), '09171234567')
+    await user.type(screen.getByLabelText('Message'), 'I want to build a house.')
+    await user.click(screen.getByRole('button', { name: 'Submit Inquiry' }))
+
+    expect(await screen.findByText(/Thank you!/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Submit Inquiry' }))
+
+    expect(await screen.findByText(/Please enter your full name/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Thank you!/)).not.toBeInTheDocument()
+  })
 })

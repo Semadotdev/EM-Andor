@@ -43,8 +43,10 @@ export default function Contact() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (submitting) return
     const next = validate()
     setErrors(next)
+    setSent(false)
     if (Object.keys(next).length > 0) return
 
     setSubmitting(true)
