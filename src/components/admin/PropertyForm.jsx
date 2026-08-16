@@ -10,6 +10,9 @@ const types = ['residential lot', 'commercial lot', 'house & lot', 'development 
 
 const clampPercent = (value) => Math.min(100, Math.max(0, Math.round(value * 100) / 100))
 
+const newId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+
 export default function PropertyForm({ mode, property, onClose, onSaved }) {
   const isEdit = mode === 'edit'
 
@@ -52,10 +55,13 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
   }
 
   const addPin = (x, y) => {
-    const id = crypto.randomUUID()
+    const next = pins.reduce((max, p) => {
+      const m = String(p.name ?? '').match(/^Lot\s+(\d+)$/)
+      return m ? Math.max(max, Number(m[1])) : max
+    }, 0) + 1
     setPins((prev) => [
       ...prev,
-      { id, name: `Lot ${prev.length + 1}`, price: '', lot_area_sqm: '', x: clampPercent(x), y: clampPercent(y) },
+      { id: newId(), name: `Lot ${next}`, price: '', lot_area_sqm: '', x: clampPercent(x), y: clampPercent(y) },
     ])
     setMapNotice('Lot pin added')
     setErrors((errs) => ({ ...errs, pins: undefined }))
@@ -73,6 +79,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
 
   const clearAll = () => {
     setPins([])
+    setErrors((errs) => ({ ...errs, pins: undefined }))
     setMapNotice('All lot pins removed')
   }
 
@@ -83,6 +90,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
   }
 
   const handleMapKeyDown = (e) => {
+    if (e.target !== e.currentTarget) return
     if (e.key !== 'Enter' && e.key !== ' ') return
     e.preventDefault()
     addPin(50, 50)
@@ -118,14 +126,18 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
         description: form.description.trim() || null,
         image_url: finalImageUrl || null,
         is_pinned: form.is_pinned,
-        map_pins: pins.map((p) => ({
-          id: p.id,
-          name: p.name.trim(),
-          price: p.price === '' || p.price == null ? null : Number(p.price),
-          lot_area_sqm: p.lot_area_sqm === '' || p.lot_area_sqm == null ? null : Number(p.lot_area_sqm),
-          x: Number(p.x),
-          y: Number(p.y),
-        })),
+        map_pins: pins.map((p) => {
+          const price = p.price === '' || p.price == null ? null : Number(p.price)
+          const lotArea = p.lot_area_sqm === '' || p.lot_area_sqm == null ? null : Number(p.lot_area_sqm)
+          return {
+            id: p.id,
+            name: p.name.trim(),
+            price: Number.isFinite(price) && price >= 0 ? price : null,
+            lot_area_sqm: Number.isFinite(lotArea) && lotArea >= 0 ? lotArea : null,
+            x: Number(p.x),
+            y: Number(p.y),
+          }
+        }),
       }
       const saved = isEdit ? await updateProperty(property.id, payload) : await createProperty(payload)
       onSaved(saved)
@@ -314,7 +326,9 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
                       value={pin.price ?? ''}
                       onChange={updatePin(pin.id, 'price')}
                       placeholder="Price"
-                      inputMode="decimal"
+                      type="number"
+                      min="0"
+                      step="any"
                       aria-label={`Lot ${i + 1} price`}
                     />
                     <input
@@ -322,7 +336,9 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
                       value={pin.lot_area_sqm ?? ''}
                       onChange={updatePin(pin.id, 'lot_area_sqm')}
                       placeholder="Area (sqm)"
-                      inputMode="decimal"
+                      type="number"
+                      min="0"
+                      step="any"
                       aria-label={`Lot ${i + 1} area`}
                     />
                     <button

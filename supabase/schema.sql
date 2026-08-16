@@ -13,6 +13,26 @@ create table if not exists public.properties (
 );
 
 alter table public.properties add column if not exists map_pins jsonb not null default '[]';
+
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'properties' and column_name = 'map_x'
+  ) then
+    update public.properties
+    set map_pins = jsonb_build_array(jsonb_build_object(
+      'id', gen_random_uuid(),
+      'name', name,
+      'price', price,
+      'lot_area_sqm', lot_area_sqm,
+      'x', map_x,
+      'y', map_y
+    ))
+    where map_x is not null and map_y is not null;
+  end if;
+end $$;
+
 alter table public.properties drop column if exists map_x;
 alter table public.properties drop column if exists map_y;
 

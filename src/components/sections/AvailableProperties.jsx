@@ -136,16 +136,19 @@ export default function AvailableProperties() {
                         )}
                         {lots.length > 0 && (
                           <ul className="mt-3 space-y-1.5 border-t border-mist pt-3">
-                            {lots.map((lot) => (
-                              <li key={lot.id} className="flex items-center justify-between gap-2 text-sm">
-                                <span className="font-medium text-brand-deep">{lot.name}</span>
-                                <span className="text-xs text-ink/60">
-                                  {formatPrice(lot.price) && formatPrice(lot.price)}
-                                  {lot.lot_area_sqm != null &&
-                                    `${formatPrice(lot.price) ? ' · ' : ''}${Number(lot.lot_area_sqm).toLocaleString('en-PH')} sqm`}
-                                </span>
-                              </li>
-                            ))}
+                            {lots.map((lot, j) => {
+                              const lotPrice = formatPrice(lot.price)
+                              return (
+                                <li key={lot.id ?? j} className="flex items-center justify-between gap-2 text-sm">
+                                  <span className="font-medium text-brand-deep">{lot.name}</span>
+                                  <span className="text-xs text-ink/60">
+                                    {lotPrice}
+                                    {lot.lot_area_sqm != null &&
+                                      `${lotPrice ? ' · ' : ''}${Number(lot.lot_area_sqm).toLocaleString('en-PH')} sqm`}
+                                  </span>
+                                </li>
+                              )
+                            })}
                           </ul>
                         )}
                       </div>
