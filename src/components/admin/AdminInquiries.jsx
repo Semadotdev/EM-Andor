@@ -6,6 +6,7 @@ export default function AdminInquiries() {
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState(null)
   const [expanded, setExpanded] = useState(null)
+  const [pendingReads, setPendingReads] = useState({})
 
   const load = useCallback(() => {
     setStatus('loading')
@@ -20,15 +21,19 @@ export default function AdminInquiries() {
   useEffect(load, [load])
 
   const toggleRead = async (inquiry) => {
+    if (pendingReads[inquiry.id]) return
     const next = !inquiry.is_read
     const prev = inquiry.is_read
     setError(null)
+    setPendingReads((reads) => ({ ...reads, [inquiry.id]: true }))
     setInquiries((list) => list.map((x) => (x.id === inquiry.id ? { ...x, is_read: next } : x)))
     try {
       await setInquiryRead(inquiry.id, next)
     } catch {
       setInquiries((list) => list.map((x) => (x.id === inquiry.id ? { ...x, is_read: prev } : x)))
       setError('Could not update status. Please try again.')
+    } finally {
+      setPendingReads((reads) => ({ ...reads, [inquiry.id]: false }))
     }
   }
 
@@ -95,6 +100,8 @@ export default function AdminInquiries() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => toggleRead(inquiry)}
+                      disabled={Boolean(pendingReads[inquiry.id])}
+                      aria-pressed={inquiry.is_read}
                       className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
                     >
                       {inquiry.is_read ? 'Mark unread' : 'Mark read'}

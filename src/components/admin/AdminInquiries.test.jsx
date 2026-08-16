@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdminInquiries from './AdminInquiries.jsx'
 
@@ -69,5 +69,60 @@ describe('AdminInquiries', () => {
     expect(screen.getByText('maria@example.com')).toBeInTheDocument()
     expect(screen.getByText('09181234567')).toBeInTheDocument()
     expect(screen.getByText('Lot inquiry')).toBeInTheDocument()
+  })
+
+  it('reverts the read toggle on failure and shows an error', async () => {
+    setInquiryRead.mockRejectedValue(new Error('fail'))
+    const user = userEvent.setup()
+
+    render(<AdminInquiries />)
+
+    const readButtons = await screen.findAllByRole('button', { name: 'Mark read' })
+    await user.click(readButtons[0])
+
+    expect(await screen.findByText(/Could not update status/)).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Mark read' })).toHaveLength(1)
+  })
+
+  it('ignores a read toggle while a status request is in flight', async () => {
+    let resolve
+    setInquiryRead.mockReturnValue(new Promise((r) => { resolve = r }))
+    const user = userEvent.setup()
+
+    render(<AdminInquiries />)
+
+    const readButtons = await screen.findAllByRole('button', { name: 'Mark read' })
+    await user.click(readButtons[0])
+
+    expect(setInquiryRead).toHaveBeenCalledTimes(1)
+    resolve()
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Mark unread' })).toHaveLength(2))
+  })
+
+  it('keeps an inquiry when delete fails and shows an error', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    deleteInquiry.mockRejectedValue(new Error('fail'))
+    const user = userEvent.setup()
+
+    render(<AdminInquiries />)
+
+    const deleteButtons = await screen.findAllByRole('button', { name: 'Delete' })
+    await user.click(deleteButtons[0])
+
+    expect(await screen.findByText(/Could not delete inquiry/)).toBeInTheDocument()
+    expect(screen.getByText('Juan Dela Cruz')).toBeInTheDocument()
+
+    confirmSpy.mockRestore()
+  })
+
+  it('shows a retry state when loading fails', async () => {
+    fetchInquiries.mockRejectedValueOnce(new Error('boom'))
+    const user = userEvent.setup()
+
+    render(<AdminInquiries />)
+
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('Juan Dela Cruz')).toBeInTheDocument()
   })
 })
