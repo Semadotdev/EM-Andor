@@ -29,22 +29,32 @@ alter table public.inquiries enable row level security;
 -- before running this file. The admin dashboard only works for this account.
 -- Create the user in Supabase → Authentication → Users, then set their email here.
 do $$
-declare admin_email text := 'replace-with-admin-email@example.com';
+declare admin_email text := 'admin@gmail.com';
 begin
-  create policy "admin all on properties" on public.properties
-    for all to authenticated
-    using (auth.jwt() ->> 'email' = admin_email)
-    with check (auth.jwt() ->> 'email' = admin_email);
+  drop policy if exists "admin all on properties" on public.properties;
+  execute format(
+    'create policy "admin all on properties" on public.properties
+       for all to authenticated
+       using (auth.jwt() ->> ''email'' = %L)
+       with check (auth.jwt() ->> ''email'' = %L)',
+    admin_email, admin_email
+  );
 
-  create policy "admin all on inquiries" on public.inquiries
-    for all to authenticated
-    using (auth.jwt() ->> 'email' = admin_email)
-    with check (auth.jwt() ->> 'email' = admin_email);
+  drop policy if exists "admin all on inquiries" on public.inquiries;
+  execute format(
+    'create policy "admin all on inquiries" on public.inquiries
+       for all to authenticated
+       using (auth.jwt() ->> ''email'' = %L)
+       with check (auth.jwt() ->> ''email'' = %L)',
+    admin_email, admin_email
+  );
 end $$;
 
+drop policy if exists "public read pinned properties" on public.properties;
 create policy "public read pinned properties" on public.properties
   for select to anon using (is_pinned = true);
 
+drop policy if exists "public insert inquiries" on public.inquiries;
 create policy "public insert inquiries" on public.inquiries
   for insert to anon with check (is_read = false);
 
@@ -52,17 +62,22 @@ insert into storage.buckets (id, name, public)
 values ('property-images', 'property-images', true)
 on conflict (id) do nothing;
 
+drop policy if exists "public read property-images" on storage.objects;
 create policy "public read property-images" on storage.objects
   for select to anon using (bucket_id = 'property-images');
 
+drop policy if exists "admin read property-images" on storage.objects;
 create policy "admin read property-images" on storage.objects
   for select to authenticated using (bucket_id = 'property-images');
 
+drop policy if exists "admin insert property-images" on storage.objects;
 create policy "admin insert property-images" on storage.objects
   for insert to authenticated with check (bucket_id = 'property-images');
 
+drop policy if exists "admin update property-images" on storage.objects;
 create policy "admin update property-images" on storage.objects
   for update to authenticated using (bucket_id = 'property-images') with check (bucket_id = 'property-images');
 
+drop policy if exists "admin delete property-images" on storage.objects;
 create policy "admin delete property-images" on storage.objects
   for delete to authenticated using (bucket_id = 'property-images');
