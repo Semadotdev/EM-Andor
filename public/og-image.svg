@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#00452A" />
+  <rect width="1200" height="8" y="0" fill="#F6D21A" />
+  <g fill="none" stroke="#FFFFFF" stroke-opacity="0.08">
+    <path d="M0 470h1200M0 500h1200M0 530h1200M0 560h1200M0 590h1200M0 620h1200" />
+    <path d="M120 0v630M240 0v630M360 0v630M480 0v630M600 0v630M720 0v630M840 0v630M960 0v630M1080 0v630" />
+  </g>
+  <rect x="90" y="240" width="84" height="84" rx="12" fill="#006B3C" />
+  <path d="M132 252 202 320H62L132 252Z" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linejoin="round" />
+  <path d="M132 268 175 320H89L132 268Z" fill="#F6D21A" />
+  <text x="210" y="292" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="800" fill="#FFFFFF">E.M. ANDOR</text>
+  <text x="212" y="326" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="600" letter-spacing="6" fill="#F6D21A">BUILDERS &amp; ASSOCIATES DEV'T. CORP.</text>
+  <text x="90" y="440" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800" fill="#FFFFFF">Built on Trust. Driven by Quality.</text>
+  <text x="90" y="486" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#FFFFFF" fill-opacity="0.7">Construction &amp; Development · Batangas City, Philippines</text>
+</svg>
