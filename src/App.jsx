@@ -1,3 +1,4 @@
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import Navbar from './components/layout/Navbar.jsx'
 import Footer from './components/layout/Footer.jsx'
 import Hero from './components/sections/Hero.jsx'
@@ -9,8 +10,9 @@ import AvailableProperties from './components/sections/AvailableProperties.jsx'
 import WhyChooseUs from './components/sections/WhyChooseUs.jsx'
 import CTA from './components/sections/CTA.jsx'
 import Contact from './components/sections/Contact.jsx'
+import AdminApp from './components/admin/AdminApp.jsx'
 
-export default function App() {
+function PublicSite() {
   return (
     <>
       <a href="#home" className="skip-link">
@@ -30,5 +32,16 @@ export default function App() {
       </main>
       <Footer />
     </>
+  )
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/admin/*" element={<AdminApp />} />
+        <Route path="*" element={<PublicSite />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
