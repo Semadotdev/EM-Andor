@@ -40,7 +40,7 @@ export default function AvailableProperties() {
         />
 
         {status === 'loading' && (
-          <div className="mt-12 grid gap-7 sm:grid-cols-2 lg:grid-cols-3" aria-label="Loading available properties">
+          <div className="mt-12 grid gap-7 sm:grid-cols-2 lg:grid-cols-3" role="status" aria-label="Loading available properties">
             {[0, 1, 2].map((i) => (
               <div key={i} className="animate-pulse overflow-hidden rounded-lg border border-mist bg-surface">
                 <div className="aspect-[16/11] bg-mist" />
