@@ -99,4 +99,28 @@ describe('PropertyForm', () => {
       expect.objectContaining({ image_url: 'https://cdn.example.com/lot-a.jpg' }),
     )
   })
+
+  it('shows a save error and re-enables the submit button', async () => {
+    createProperty.mockRejectedValue(new Error('boom'))
+    const user = userEvent.setup()
+
+    render(<PropertyForm mode="create" property={null} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    await fillRequiredFields(user)
+    await user.click(screen.getByRole('button', { name: 'Add Property' }))
+
+    expect(await screen.findByText('Could not save the property. Please try again.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add Property' })).not.toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Saving…' })).not.toBeInTheDocument()
+  })
+
+  it('closes when Escape is pressed', async () => {
+    const onClose = vi.fn()
+
+    render(<PropertyForm mode="create" property={null} onClose={onClose} onSaved={vi.fn()} />)
+
+    await userEvent.keyboard('{Escape}')
+
+    expect(onClose).toHaveBeenCalled()
+  })
 })

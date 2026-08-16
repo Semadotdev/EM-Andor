@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createProperty, updateProperty, uploadPropertyImage } from '../../lib/api.js'
 
 const inputCls =
@@ -24,6 +24,21 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
 
+  const previewUrl = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : null), [imageFile])
+
+  useEffect(() => {
+    if (!previewUrl) return
+    return () => URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
   const setField = (field) => (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value
     setForm((f) => ({ ...f, [field]: value }))
@@ -40,6 +55,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (saving) return
     const next = validate()
     setErrors(next)
     if (Object.keys(next).length > 0) return
@@ -63,6 +79,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
       onSaved(saved)
     } catch {
       setError('Could not save the property. Please try again.')
+    } finally {
       setSaving(false)
     }
   }
@@ -99,7 +116,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
             <label htmlFor="pf-name" className="mb-1.5 block text-sm font-semibold text-brand-deep">
               Name
             </label>
-            <input id="pf-name" className={inputCls} value={form.name} onChange={setField('name')} placeholder="Andor Ridge Lot A" />
+            <input id="pf-name" autoFocus className={inputCls} value={form.name} onChange={setField('name')} placeholder="Andor Ridge Lot A" />
             {errors.name && (
               <p className="mt-1.5 text-xs font-medium text-red-600" role="alert">
                 {errors.name}
@@ -167,7 +184,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
             {(imageUrl || imageFile) && (
               <div className="mt-3 flex items-center gap-3">
                 <img
-                  src={imageFile ? URL.createObjectURL(imageFile) : imageUrl}
+                  src={imageFile ? previewUrl : imageUrl}
                   alt=""
                   className="size-16 rounded-md border border-mist object-cover"
                 />
