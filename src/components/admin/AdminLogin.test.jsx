@@ -62,4 +62,18 @@ describe('AdminLogin', () => {
 
     expect(await screen.findByText('Invalid login credentials')).toBeInTheDocument()
   })
+
+  it('shows an error and resets the button when sign-in rejects', async () => {
+    supabase.auth.signInWithPassword.mockRejectedValue(new Error('network down'))
+    const user = userEvent.setup()
+
+    renderLogin()
+
+    await user.type(screen.getByLabelText('Email'), 'admin@emandor.com')
+    await user.type(screen.getByLabelText('Password'), 'secret')
+    await user.click(screen.getByRole('button', { name: 'Sign In' }))
+
+    expect(await screen.findByText(/Something went wrong while signing in/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument()
+  })
 })

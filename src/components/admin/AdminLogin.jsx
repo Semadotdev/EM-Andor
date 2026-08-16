@@ -16,13 +16,18 @@ export default function AdminLogin() {
     e.preventDefault()
     setSubmitting(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setSubmitting(false)
-    if (error) {
-      setError(error.message)
-      return
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        setError(error.message)
+        return
+      }
+      navigate('/admin', { replace: true })
+    } catch {
+      setError('Something went wrong while signing in. Please try again.')
+    } finally {
+      setSubmitting(false)
     }
-    navigate('/admin', { replace: true })
   }
 
   return (
