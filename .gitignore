@@ -1,4 +1,6 @@
 node_modules
 dist
 *.local
+.env
+.worktrees
 .DS_Store
