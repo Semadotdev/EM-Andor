@@ -61,4 +61,30 @@ describe('AdminDashboard', () => {
     await user.click(screen.getByRole('button', { name: 'Inquiries' }))
     expect(await screen.findByText('InquiriesPanel')).toBeInTheDocument()
   })
+
+  it('redirects to login when sign-out fires the auth listener', async () => {
+    supabase.auth.getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } })
+    const user = userEvent.setup()
+
+    renderDashboard()
+
+    await screen.findByText('PropertiesPanel')
+    const listener = supabase.auth.onAuthStateChange.mock.calls[0][0]
+    await user.click(screen.getByRole('button', { name: 'Sign out' }))
+
+    expect(supabase.auth.signOut).toHaveBeenCalled()
+    listener('SIGNED_OUT', null)
+    expect(await screen.findByText('LoginPage')).toBeInTheDocument()
+  })
+
+  it('redirects to login when the auth listener reports no session', async () => {
+    supabase.auth.getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } })
+
+    renderDashboard()
+
+    await screen.findByText('PropertiesPanel')
+    const listener = supabase.auth.onAuthStateChange.mock.calls[0][0]
+    listener('SIGNED_OUT', null)
+    expect(await screen.findByText('LoginPage')).toBeInTheDocument()
+  })
 })
