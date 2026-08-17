@@ -18,7 +18,7 @@ export const stats = [
   { value: '100+', label: 'Projects Completed' },
   { value: '15+', label: 'Years of Experience' },
   { value: '50+', label: 'Satisfied Clients' },
-  { value: 'Batangas City', label: 'Our Location' },
+  { value: 'Alaminos', label: 'Our Location' },
 ]
 
 export const about = {
@@ -28,7 +28,7 @@ export const about = {
     'E. M. Andor Builders and Associates Dev’t. Corp. is a construction and development company rooted in Batangas City. For over a decade we have planned, built, and delivered structures that families call home and businesses call headquarters.',
     'We believe every project — no matter the scale — deserves the same standard: quality craftsmanship, honest timelines, and a team that treats your vision as its own.',
   ],
-  image: '/images/about.jpg',
+  image: '/images/aboutme.jpg',
   imageAlt: 'Completed modern building developed by E. M. Andor',
   imageCaption: 'A completed development in Batangas City',
   highlights: ['Quality workmanship', 'On-time delivery', 'Trusted partner'],
