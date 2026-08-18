@@ -82,6 +82,17 @@
     @apply font-display text-xs font-bold uppercase tracking-[0.28em] text-brand-2;
   }
 
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 2px;
+  }
+
   .gold-rule {
     @apply block h-1 w-14 rounded-full bg-gold;
   }

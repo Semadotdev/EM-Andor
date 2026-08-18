@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import PropertyForm from './PropertyForm.jsx'
 
@@ -18,6 +18,7 @@ const payload = {
   lot_area_sqm: 150,
   price: 1500000,
   description: 'Corner lot',
+  status: 'available',
   image_url: null,
   is_pinned: false,
   map_pins: [],
@@ -47,9 +48,52 @@ describe('PropertyForm', () => {
 
     await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Add Property' }))
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Add Property' }))
 
     expect(createProperty).toHaveBeenCalledWith(payload)
     expect(onSaved).toHaveBeenCalledWith(created)
+  })
+
+  it('shows a property summary in the confirmation modal', async () => {
+    createProperty.mockResolvedValue({ id: 'p1' })
+    const user = userEvent.setup()
+
+    render(<PropertyForm mode="create" property={null} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    await fillRequiredFields(user)
+    await user.click(screen.getByRole('button', { name: 'Add Property' }))
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText('Andor Ridge Lot A')).toBeInTheDocument()
+    expect(within(dialog).getByText('residential lot')).toBeInTheDocument()
+    expect(within(dialog).getByText('Batangas City')).toBeInTheDocument()
+    expect(within(dialog).getByText('₱1,500,000')).toBeInTheDocument()
+  })
+
+  it('defaults status to available and allows changing it', async () => {
+    createProperty.mockResolvedValue({ id: 'p1' })
+    const user = userEvent.setup()
+
+    render(<PropertyForm mode="create" property={null} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    await fillRequiredFields(user)
+    expect(screen.getByLabelText('Status')).toHaveValue('available')
+
+    await user.selectOptions(screen.getByLabelText('Status'), 'reserved')
+    expect(screen.getByLabelText('Status')).toHaveValue('reserved')
+
+    await user.click(screen.getByRole('button', { name: 'Add Property' }))
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+
+    const dialog = screen.getByRole('alertdialog')
+    expect(within(dialog).getByText('reserved')).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Add Property' }))
+
+    expect(createProperty).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'reserved' })
+    )
   })
 
   it('edits an existing property by id', async () => {
@@ -65,6 +109,8 @@ describe('PropertyForm', () => {
     await user.clear(screen.getByLabelText('Name'))
     await user.type(screen.getByLabelText('Name'), 'Andor Ridge Lot A (Reserved)')
     await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Save Changes' }))
 
     expect(updateProperty).toHaveBeenCalledWith('p7', expect.objectContaining({ name: 'Andor Ridge Lot A (Reserved)', price: 2000000 }))
     expect(onSaved).toHaveBeenCalledWith(updated)
@@ -94,6 +140,8 @@ describe('PropertyForm', () => {
     await user.upload(screen.getByLabelText('Image'), file)
     await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Add Property' }))
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Add Property' }))
 
     expect(uploadPropertyImage).toHaveBeenCalledWith(file)
     expect(createProperty).toHaveBeenCalledWith(
@@ -109,6 +157,8 @@ describe('PropertyForm', () => {
 
     await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Add Property' }))
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Add Property' }))
 
     expect(await screen.findByText('Could not save the property. Please try again.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add Property' })).not.toBeDisabled()
@@ -144,6 +194,8 @@ describe('PropertyForm', () => {
 
     await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Add Property' }))
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Add Property' }))
 
     expect(createProperty).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -178,6 +230,8 @@ describe('PropertyForm', () => {
 
     await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Add Property' }))
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Add Property' }))
     expect(createProperty).toHaveBeenCalledWith(expect.objectContaining({ map_pins: [] }))
   })
 
@@ -199,6 +253,8 @@ describe('PropertyForm', () => {
 
     await fillRequiredFields(user)
     await user.click(screen.getByRole('button', { name: 'Add Property' }))
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Add Property' }))
 
     expect(createProperty).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -230,6 +286,8 @@ describe('PropertyForm', () => {
     expect(screen.queryByRole('button', { name: /Remove .* pin/ })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Save Changes' }))
     expect(updateProperty).toHaveBeenCalledWith('p7', expect.objectContaining({ map_pins: [] }))
   })
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdminInquiries from './AdminInquiries.jsx'
 
@@ -7,9 +7,16 @@ vi.mock('../../lib/api.js', () => ({
   fetchInquiries: vi.fn(),
   setInquiryRead: vi.fn(),
   deleteInquiry: vi.fn(),
+  bulkDeleteInquiries: vi.fn(),
+  bulkSetInquiryRead: vi.fn(),
 }))
 
-import { fetchInquiries, setInquiryRead, deleteInquiry } from '../../lib/api.js'
+vi.mock('../../lib/csv.js', () => ({
+  exportToCSV: vi.fn(),
+}))
+
+import { fetchInquiries, setInquiryRead, deleteInquiry, bulkDeleteInquiries, bulkSetInquiryRead } from '../../lib/api.js'
+import { exportToCSV } from '../../lib/csv.js'
 
 const sample = [
   { id: 'q1', name: 'Juan Dela Cruz', email: 'juan@example.com', phone: '09171234567', project_type: 'Residential Construction', message: 'Build a house', is_read: false, created_at: '2026-08-16T01:00:00Z' },
@@ -19,7 +26,7 @@ const sample = [
 describe('AdminInquiries', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    fetchInquiries.mockResolvedValue(sample)
+    fetchInquiries.mockResolvedValue({ data: sample, count: sample.length })
   })
 
   it('lists inquiries with names and types', async () => {
@@ -44,19 +51,20 @@ describe('AdminInquiries', () => {
   })
 
   it('deletes an inquiry after confirmation', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     deleteInquiry.mockResolvedValue(undefined)
     const user = userEvent.setup()
 
     render(<AdminInquiries />)
 
-    const deleteButtons = await screen.findAllByRole('button', { name: 'Delete' })
-    await user.click(deleteButtons[0])
+    await screen.findByText('Maria Santos')
+    const mariaCard = screen.getByText('Maria Santos').closest('li')
+    const deleteButton = within(mariaCard).getByRole('button', { name: 'Delete' })
+    await user.click(deleteButton)
 
-    expect(deleteInquiry).toHaveBeenCalledWith('q1')
-    expect(screen.queryByText('Juan Dela Cruz')).not.toBeInTheDocument()
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
 
-    confirmSpy.mockRestore()
+    expect(deleteInquiry).toHaveBeenCalledWith('q2')
   })
 
   it('expands an inquiry to show full details', async () => {
@@ -100,7 +108,6 @@ describe('AdminInquiries', () => {
   })
 
   it('keeps an inquiry when delete fails and shows an error', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     deleteInquiry.mockRejectedValue(new Error('fail'))
     const user = userEvent.setup()
 
@@ -109,13 +116,15 @@ describe('AdminInquiries', () => {
     const deleteButtons = await screen.findAllByRole('button', { name: 'Delete' })
     await user.click(deleteButtons[0])
 
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
+
     expect(await screen.findByText(/Could not delete inquiry/)).toBeInTheDocument()
     expect(screen.getByText('Juan Dela Cruz')).toBeInTheDocument()
-
-    confirmSpy.mockRestore()
   })
 
   it('shows a retry state when loading fails', async () => {
+    fetchInquiries.mockResolvedValue({ data: sample, count: sample.length })
     fetchInquiries.mockRejectedValueOnce(new Error('boom'))
     const user = userEvent.setup()
 
@@ -124,5 +133,65 @@ describe('AdminInquiries', () => {
     expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByText('Juan Dela Cruz')).toBeInTheDocument()
+  })
+
+  it('shows bulk action toolbar when items are selected', async () => {
+    const user = userEvent.setup()
+
+    render(<AdminInquiries />)
+
+    await screen.findByText('Juan Dela Cruz')
+    const checkboxes = screen.getAllByRole('checkbox', { name: /Select/i })
+    await user.click(checkboxes[1])
+
+    expect(screen.getByText('1 item selected')).toBeInTheDocument()
+    expect(screen.getByText('Export CSV')).toBeInTheDocument()
+  })
+
+  it('selects all inquiries with header checkbox', async () => {
+    const user = userEvent.setup()
+
+    render(<AdminInquiries />)
+
+    await screen.findByText('Juan Dela Cruz')
+    const selectAll = screen.getByRole('checkbox', { name: 'Select all inquiries' })
+    await user.click(selectAll)
+
+    expect(screen.getByText('2 items selected')).toBeInTheDocument()
+  })
+
+  it('bulk deletes inquiries after confirmation', async () => {
+    bulkDeleteInquiries.mockResolvedValue(undefined)
+    const user = userEvent.setup()
+
+    render(<AdminInquiries />)
+
+    await screen.findByText('Juan Dela Cruz')
+    const selectAll = screen.getByRole('checkbox', { name: 'Select all inquiries' })
+    await user.click(selectAll)
+
+    await user.click(screen.getByText('Delete Selected'))
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete All' }))
+
+    expect(bulkDeleteInquiries).toHaveBeenCalledWith(['q1', 'q2'])
+  })
+
+  it('exports CSV with all inquiries', async () => {
+    const user = userEvent.setup()
+
+    render(<AdminInquiries />)
+
+    await screen.findByText('Juan Dela Cruz')
+    await user.click(screen.getByText('Export CSV'))
+
+    expect(exportToCSV).toHaveBeenCalledWith(
+      ['Name', 'Email', 'Phone', 'Project Type', 'Property', 'Message', 'Read Status', 'Created Date'],
+      expect.arrayContaining([
+        expect.arrayContaining(['Juan Dela Cruz']),
+        expect.arrayContaining(['Maria Santos']),
+      ]),
+      expect.stringMatching(/inquiries-export-\d{4}-\d{2}-\d{2}\.csv/)
+    )
   })
 })

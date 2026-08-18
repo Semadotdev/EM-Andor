@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Icon from '../shared/Icon.jsx'
+import ConfirmModal from '../shared/ConfirmModal.jsx'
 import { createProperty, updateProperty, uploadPropertyImage } from '../../lib/api.js'
 import { subdivisionMap } from '../../data/site.js'
 
@@ -23,6 +24,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
     lot_area_sqm: property?.lot_area_sqm ?? '',
     price: property?.price ?? '',
     description: property?.description ?? '',
+    status: property?.status ?? 'available',
     is_pinned: property?.is_pinned ?? false,
   })
   const [pins, setPins] = useState(() => (property?.map_pins ?? []).map((p) => ({ ...p })))
@@ -31,6 +33,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
   const [errors, setErrors] = useState({})
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [confirmSubmit, setConfirmSubmit] = useState(false)
   const [mapNotice, setMapNotice] = useState('')
 
   const previewUrl = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : null), [imageFile])
@@ -105,13 +108,17 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
     return next
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault()
     if (saving) return
     const next = validate()
     setErrors(next)
     if (Object.keys(next).length > 0) return
+    setConfirmSubmit(true)
+  }
 
+  const doSave = async () => {
+    if (saving) return
     setSaving(true)
     setError(null)
     try {
@@ -124,6 +131,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
         lot_area_sqm: form.lot_area_sqm === '' ? null : Number(form.lot_area_sqm),
         price: form.price === '' ? null : Number(form.price),
         description: form.description.trim() || null,
+        status: form.status,
         image_url: finalImageUrl || null,
         is_pinned: form.is_pinned,
         map_pins: pins.map((p) => {
@@ -145,6 +153,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
       setError('Could not save the property. Please try again.')
     } finally {
       setSaving(false)
+      setConfirmSubmit(false)
     }
   }
 
@@ -361,6 +370,17 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
             </label>
           </div>
 
+          <div className="sm:col-span-2">
+            <label htmlFor="pf-status" className="mb-1.5 block text-sm font-semibold text-brand-deep">
+              Status
+            </label>
+            <select id="pf-status" className={inputCls} value={form.status} onChange={setField('status')}>
+              <option value="available">Available</option>
+              <option value="reserved">Reserved</option>
+              <option value="sold">Sold</option>
+            </select>
+          </div>
+
           <div className="mt-2 flex flex-wrap justify-end gap-3 sm:col-span-2">
             <button type="button" onClick={onClose} className="btn border border-mist bg-white text-ink/70 hover:border-brand/30 hover:text-brand">
               Cancel
@@ -371,6 +391,61 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
           </div>
         </form>
       </div>
+
+      <ConfirmModal
+        open={confirmSubmit}
+        onClose={() => setConfirmSubmit(false)}
+        onConfirm={doSave}
+        title={isEdit ? 'Save Changes' : 'Add Property'}
+        message={isEdit ? 'Save changes to this property?' : 'Add this property to the website?'}
+        confirmLabel={isEdit ? 'Save Changes' : 'Add Property'}
+        loading={saving}
+      >
+        <dl className="rounded-lg border border-mist bg-surface p-4 text-sm space-y-2">
+          <div className="flex justify-between gap-4">
+            <dt className="font-semibold text-brand-deep shrink-0">Name</dt>
+            <dd className="text-right text-ink/70 truncate">{form.name || '—'}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="font-semibold text-brand-deep shrink-0">Type</dt>
+            <dd className="text-right text-ink/70 capitalize">{form.type || '—'}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="font-semibold text-brand-deep shrink-0">Location</dt>
+            <dd className="text-right text-ink/70 truncate">{form.location || '—'}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="font-semibold text-brand-deep shrink-0">Lot Area</dt>
+            <dd className="text-right text-ink/70">{form.lot_area_sqm ? `${Number(form.lot_area_sqm).toLocaleString()} sqm` : '—'}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="font-semibold text-brand-deep shrink-0">Price</dt>
+            <dd className="text-right text-ink/70">{form.price ? `₱${Number(form.price).toLocaleString()}` : '—'}</dd>
+          </div>
+          {form.description && (
+            <div className="flex justify-between gap-4">
+              <dt className="font-semibold text-brand-deep shrink-0">Description</dt>
+              <dd className="text-right text-ink/70 truncate max-w-[60%]">{form.description}</dd>
+            </div>
+          )}
+          <div className="flex justify-between gap-4">
+            <dt className="font-semibold text-brand-deep shrink-0">Image</dt>
+            <dd className="text-right text-ink/70">{imageFile ? 'New image attached' : imageUrl ? 'Existing image' : 'No image'}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="font-semibold text-brand-deep shrink-0">Lot Pins</dt>
+            <dd className="text-right text-ink/70">{pins.length > 0 ? `${pins.length} lot${pins.length > 1 ? 's' : ''} (${pins.map((p) => p.name).join(', ')})` : 'None'}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="font-semibold text-brand-deep shrink-0">Pinned</dt>
+            <dd className="text-right text-ink/70">{form.is_pinned ? 'Yes' : 'No'}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="font-semibold text-brand-deep shrink-0">Status</dt>
+            <dd className="text-right text-ink/70 capitalize">{form.status}</dd>
+          </div>
+        </dl>
+      </ConfirmModal>
     </div>
   )
 }

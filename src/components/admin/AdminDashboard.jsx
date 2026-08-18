@@ -1,12 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
+import Logo from '../shared/Logo.jsx'
 import AdminProperties from './AdminProperties.jsx'
 import AdminInquiries from './AdminInquiries.jsx'
+import AdminImageGallery from './AdminImageGallery.jsx'
+import AdminCMS from './AdminCMS.jsx'
+import AdminNotifications from './AdminNotifications.jsx'
+import AdminActivityLog from './AdminActivityLog.jsx'
+import DashboardStats from './DashboardStats.jsx'
 
 const tabs = [
   { id: 'properties', label: 'Properties' },
+  { id: 'gallery', label: 'Gallery' },
+  { id: 'cms', label: 'CMS' },
   { id: 'inquiries', label: 'Inquiries' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'activity', label: 'Activity Log' },
 ]
 
 export default function AdminDashboard() {
@@ -50,9 +60,8 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-surface">
       <header className="border-b border-mist bg-white">
         <div className="container-x flex items-center justify-between py-4">
-          <div className="flex items-center gap-3">
-            <img src="/favicon.svg" alt="" className="size-8" />
-            <span className="font-display text-lg font-extrabold text-brand-deep">E.M. Andor Admin</span>
+          <div className="flex items-center gap-3 min-w-0">
+            <Logo variant="dark" noLink className="max-w-[180px] sm:max-w-none" />
           </div>
           <button
             onClick={() => supabase.auth.signOut()}
@@ -64,7 +73,9 @@ export default function AdminDashboard() {
       </header>
 
       <div className="container-x py-8">
-        <nav className="mb-8 flex gap-2" aria-label="Admin sections">
+        <DashboardStats onJumpToInquiries={() => setTab('inquiries')} />
+
+        <nav className="mb-8 flex gap-2 overflow-x-auto pb-2 scrollbar-thin" aria-label="Admin sections">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -81,7 +92,12 @@ export default function AdminDashboard() {
           ))}
         </nav>
 
-        {tab === 'properties' ? <AdminProperties /> : <AdminInquiries />}
+        {tab === 'properties' && <AdminProperties />}
+        {tab === 'gallery' && <AdminImageGallery />}
+        {tab === 'cms' && <AdminCMS />}
+        {tab === 'inquiries' && <AdminInquiries />}
+        {tab === 'notifications' && <AdminNotifications />}
+        {tab === 'activity' && <AdminActivityLog />}
       </div>
     </div>
   )

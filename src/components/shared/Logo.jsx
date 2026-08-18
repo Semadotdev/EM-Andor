@@ -22,11 +22,13 @@ function Wordmark({ isLight }) {
   )
 }
 
-export default function Logo({ variant = 'dark', className = '' }) {
+export default function Logo({ variant = 'dark', className = '', noLink = false }) {
   const isLight = variant === 'light'
+  const Tag = noLink ? 'div' : 'a'
+  const tagProps = noLink ? {} : { href: '#home' }
 
   return (
-    <a href="#home" className={`group flex items-center gap-3 ${className}`} aria-label="E.M. Andor — home">
+    <Tag className={`group flex items-center gap-3 ${className}`} {...tagProps} aria-label="E.M. Andor — home">
       {logoSrc ? (
         <>
           <img
@@ -47,6 +49,6 @@ export default function Logo({ variant = 'dark', className = '' }) {
           <Wordmark isLight={isLight} />
         </span>
       )}
-    </a>
+    </Tag>
   )
 }

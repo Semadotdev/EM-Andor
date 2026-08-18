@@ -1,11 +1,17 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import {
+  bulkDeleteInquiries,
+  bulkDeleteProperties,
+  bulkSetInquiryRead,
+  bulkSetPropertyPinned,
+  bulkUpdatePropertyStatus,
   createProperty,
   deleteInquiry,
   deleteProperty,
   fetchInquiries,
   fetchPinnedProperties,
   fetchProperties,
+  fetchPropertyStatusCounts,
   setInquiryRead,
   setPropertyPinned,
   submitInquiry,
@@ -24,7 +30,7 @@ import { supabase } from './supabase.js'
 
 function makeChain() {
   const c = {}
-  for (const m of ['select', 'eq', 'order', 'update', 'delete', 'single', 'insert']) {
+  for (const m of ['select', 'eq', 'order', 'update', 'delete', 'single', 'insert', 'or', 'in']) {
     c[m] = vi.fn(() => c)
   }
   return c
@@ -53,13 +59,13 @@ describe('api', () => {
   it('fetchProperties reads all properties newest first', async () => {
     const data = [{ id: 'p1' }]
     const c = makeChain()
-    c.order.mockResolvedValue({ data, error: null })
+    c.order.mockResolvedValue({ data, error: null, count: 1 })
     supabase.from.mockReturnValue(c)
 
     const result = await fetchProperties()
 
     expect(c.eq).not.toHaveBeenCalled()
-    expect(result).toEqual(data)
+    expect(result).toEqual({ data, count: 1 })
   })
 
   it('submitInquiry inserts the inquiry', async () => {
@@ -126,13 +132,13 @@ describe('api', () => {
   it('fetchInquiries reads all inquiries newest first', async () => {
     const data = [{ id: 'q1' }]
     const c = makeChain()
-    c.order.mockResolvedValue({ data, error: null })
+    c.order.mockResolvedValue({ data, error: null, count: 1 })
     supabase.from.mockReturnValue(c)
 
     const result = await fetchInquiries()
 
     expect(supabase.from).toHaveBeenCalledWith('inquiries')
-    expect(result).toEqual(data)
+    expect(result).toEqual({ data, count: 1 })
   })
 
   it('setInquiryRead updates is_read by id', async () => {
@@ -174,7 +180,7 @@ describe('api', () => {
 
   it('throws when a query returns an error', async () => {
     const c = makeChain()
-    c.order.mockResolvedValue({ data: null, error: new Error('boom') })
+    c.order.mockResolvedValue({ data: null, error: new Error('boom'), count: null })
     supabase.from.mockReturnValue(c)
 
     await expect(fetchProperties()).rejects.toThrow('boom')
@@ -215,5 +221,164 @@ describe('api', () => {
     const file = new File([new ArrayBuffer(6 * 1024 * 1024)], 'big.jpg', { type: 'image/jpeg' })
 
     await expect(uploadPropertyImage(file)).rejects.toThrow('Image must be 5MB or smaller.')
+  })
+
+  it('fetchProperties applies search filter via or ilike', async () => {
+    const data = [{ id: 'p1' }]
+    const c = makeChain()
+    c.order.mockResolvedValue({ data, error: null, count: 1 })
+    supabase.from.mockReturnValue(c)
+
+    await fetchProperties({ search: 'lot' })
+
+    expect(c.or).toHaveBeenCalledWith('name.ilike.%lot%,location.ilike.%lot%')
+    expect(c.order).toHaveBeenCalledWith('created_at', { ascending: false })
+  })
+
+  it('fetchProperties applies type filter', async () => {
+    const c = makeChain()
+    c.order.mockResolvedValue({ data: [], error: null, count: 0 })
+    supabase.from.mockReturnValue(c)
+
+    await fetchProperties({ type: 'residential lot' })
+
+    expect(c.eq).toHaveBeenCalledWith('type', 'residential lot')
+  })
+
+  it('fetchProperties applies status filter', async () => {
+    const c = makeChain()
+    c.order.mockResolvedValue({ data: [], error: null, count: 0 })
+    supabase.from.mockReturnValue(c)
+
+    await fetchProperties({ status: 'sold' })
+
+    expect(c.eq).toHaveBeenCalledWith('status', 'sold')
+  })
+
+  it('fetchProperties applies custom sort', async () => {
+    const c = makeChain()
+    c.order.mockResolvedValue({ data: [], error: null, count: 0 })
+    supabase.from.mockReturnValue(c)
+
+    await fetchProperties({ sort: 'price_asc' })
+
+    expect(c.order).toHaveBeenCalledWith('price', { ascending: true })
+  })
+
+  it('fetchProperties returns data and count', async () => {
+    const c = makeChain()
+    c.order.mockResolvedValue({ data: [{ id: 'p1' }], error: null, count: 1 })
+    supabase.from.mockReturnValue(c)
+
+    const result = await fetchProperties()
+
+    expect(result).toEqual({ data: [{ id: 'p1' }], count: 1 })
+  })
+
+  it('fetchInquiries applies search filter via or ilike', async () => {
+    const c = makeChain()
+    c.order.mockResolvedValue({ data: [], error: null, count: 0 })
+    supabase.from.mockReturnValue(c)
+
+    await fetchInquiries({ search: 'juan' })
+
+    expect(c.or).toHaveBeenCalledWith('name.ilike.%juan%,email.ilike.%juan%,message.ilike.%juan%')
+  })
+
+  it('fetchInquiries applies is_read filter', async () => {
+    const c = makeChain()
+    c.order.mockResolvedValue({ data: [], error: null, count: 0 })
+    supabase.from.mockReturnValue(c)
+
+    await fetchInquiries({ is_read: false })
+
+    expect(c.eq).toHaveBeenCalledWith('is_read', false)
+  })
+
+  it('fetchInquiries applies custom sort', async () => {
+    const c = makeChain()
+    c.order.mockResolvedValue({ data: [], error: null, count: 0 })
+    supabase.from.mockReturnValue(c)
+
+    await fetchInquiries({ sort: 'name_asc' })
+
+    expect(c.order).toHaveBeenCalledWith('name', { ascending: true })
+  })
+
+  it('fetchPropertyStatusCounts aggregates status counts', async () => {
+    const c = makeChain()
+    c.select.mockResolvedValue({
+      data: [
+        { status: 'available' },
+        { status: 'available' },
+        { status: 'sold' },
+        { status: 'reserved' },
+      ],
+      error: null,
+    })
+    supabase.from.mockReturnValue(c)
+
+    const result = await fetchPropertyStatusCounts()
+
+    expect(supabase.from).toHaveBeenCalledWith('properties')
+    expect(c.select).toHaveBeenCalledWith('status')
+    expect(result).toEqual({ available: 2, reserved: 1, sold: 1 })
+  })
+
+  it('bulkDeleteProperties deletes multiple properties by ids', async () => {
+    const c = makeChain()
+    c.in.mockResolvedValue({ error: null })
+    supabase.from.mockReturnValue(c)
+
+    await bulkDeleteProperties(['p1', 'p2'])
+
+    expect(supabase.from).toHaveBeenCalledWith('properties')
+    expect(c.delete).toHaveBeenCalled()
+    expect(c.in).toHaveBeenCalledWith('id', ['p1', 'p2'])
+  })
+
+  it('bulkUpdatePropertyStatus updates status for multiple properties', async () => {
+    const c = makeChain()
+    c.in.mockResolvedValue({ error: null })
+    supabase.from.mockReturnValue(c)
+
+    await bulkUpdatePropertyStatus(['p1', 'p2'], 'sold')
+
+    expect(c.update).toHaveBeenCalledWith({ status: 'sold' })
+    expect(c.in).toHaveBeenCalledWith('id', ['p1', 'p2'])
+  })
+
+  it('bulkSetPropertyPinned updates is_pinned for multiple properties', async () => {
+    const c = makeChain()
+    c.in.mockResolvedValue({ error: null })
+    supabase.from.mockReturnValue(c)
+
+    await bulkSetPropertyPinned(['p1', 'p2'], true)
+
+    expect(c.update).toHaveBeenCalledWith({ is_pinned: true })
+    expect(c.in).toHaveBeenCalledWith('id', ['p1', 'p2'])
+  })
+
+  it('bulkDeleteInquiries deletes multiple inquiries by ids', async () => {
+    const c = makeChain()
+    c.in.mockResolvedValue({ error: null })
+    supabase.from.mockReturnValue(c)
+
+    await bulkDeleteInquiries(['q1', 'q2'])
+
+    expect(supabase.from).toHaveBeenCalledWith('inquiries')
+    expect(c.delete).toHaveBeenCalled()
+    expect(c.in).toHaveBeenCalledWith('id', ['q1', 'q2'])
+  })
+
+  it('bulkSetInquiryRead updates is_read for multiple inquiries', async () => {
+    const c = makeChain()
+    c.in.mockResolvedValue({ error: null })
+    supabase.from.mockReturnValue(c)
+
+    await bulkSetInquiryRead(['q1', 'q2'], true)
+
+    expect(c.update).toHaveBeenCalledWith({ is_read: true })
+    expect(c.in).toHaveBeenCalledWith('id', ['q1', 'q2'])
   })
 })

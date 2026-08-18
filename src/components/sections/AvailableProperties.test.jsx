@@ -5,6 +5,7 @@ import AvailableProperties from './AvailableProperties.jsx'
 
 vi.mock('../../lib/api.js', () => ({
   fetchPinnedProperties: vi.fn(),
+  submitInquiry: vi.fn(),
 }))
 
 import { fetchPinnedProperties } from '../../lib/api.js'
@@ -45,7 +46,6 @@ describe('AvailableProperties', () => {
 
     expect(await screen.findByText('Andor Ridge Lot A')).toBeInTheDocument()
     expect(screen.getByText('₱ 1,500,000')).toBeInTheDocument()
-    expect(screen.getByText('150 sqm')).toBeInTheDocument()
     expect(screen.getByText('residential lot')).toBeInTheDocument()
   })
 
@@ -71,8 +71,10 @@ describe('AvailableProperties', () => {
     expect(await screen.findByText('Andor Ridge Lot B')).toBeInTheDocument()
   })
 
-  it('shows the subdivision map above the grid only when a property has pins', async () => {
-    fetchPinnedProperties.mockResolvedValue(sample)
+  it('does not render a subdivision map at the section level', async () => {
+    fetchPinnedProperties.mockResolvedValue([
+      { ...sample[0], map_pins: [{ id: 'l1', name: 'Lot A', price: 1800000, lot_area_sqm: 150, x: 25, y: 40 }] },
+    ])
 
     render(<AvailableProperties />)
 
@@ -80,23 +82,23 @@ describe('AvailableProperties', () => {
     expect(screen.queryByRole('img', { name: /subdivision map/i })).not.toBeInTheDocument()
   })
 
-  it('renders lot pins on the map and highlights the matching card when a pin is clicked', async () => {
-    fetchPinnedProperties.mockResolvedValue([
-      { ...sample[0], map_pins: [{ id: 'l1', name: 'Lot A', price: 1800000, lot_area_sqm: 150, x: 25, y: 40 }] },
-    ])
+  it('opens a property modal when a card is clicked', async () => {
+    fetchPinnedProperties.mockResolvedValue(sample)
     const user = userEvent.setup()
 
     render(<AvailableProperties />)
 
-    expect(await screen.findByRole('img', { name: /subdivision map/i })).toBeInTheDocument()
+    const card = await screen.findByRole('button', { name: /View details for Andor Ridge Lot A/i })
+    await user.click(card)
 
-    await user.click(screen.getByRole('button', { name: /Lot A.*pin on map/i }))
-
-    const card = screen.getByRole('heading', { name: 'Andor Ridge Lot A' }).closest('article')
-    expect(card).toHaveAttribute('data-highlighted', 'true')
+    const dialog = await screen.findByRole('dialog', { name: 'Andor Ridge Lot A' })
+    expect(dialog).toBeInTheDocument()
+    expect(screen.getAllByText('Corner lot').length).toBe(2)
+    expect(screen.getAllByText('₱ 1,500,000').length).toBe(2)
+    expect(screen.getAllByText('Batangas City').length).toBe(2)
   })
 
-  it('lists lots on the card and shows a From price when lots have prices', async () => {
+  it('does not show lot breakdown on the card itself', async () => {
     fetchPinnedProperties.mockResolvedValue([
       {
         ...sample[0],
@@ -111,9 +113,8 @@ describe('AvailableProperties', () => {
     render(<AvailableProperties />)
 
     expect(await screen.findByText('Andor Ridge Lot A')).toBeInTheDocument()
-    expect(screen.getByText('2 lots')).toBeInTheDocument()
     expect(screen.getByText('From ₱ 1,800,000')).toBeInTheDocument()
-    expect(screen.getAllByText('Lot A').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Lot B').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Lot A')).not.toBeInTheDocument()
+    expect(screen.queryByText('Lot B')).not.toBeInTheDocument()
   })
 })
