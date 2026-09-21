@@ -1202,6 +1202,8 @@ Add `createAgent` to the import list in `src/lib/agents.test.js`, then append:
     expect(supabase.functions.invoke).toHaveBeenCalledWith('create-agent', {
       body: { name: 'New', email: 'new@x.com', phone: '0917', role: 'sub_agent', upline_id: 'a1', password: 'secret123' },
     })
+    expect(supabase.from).toHaveBeenCalledWith('agents')
+    expect(supabase.from).toHaveBeenCalledWith('properties')
     expect(result).toEqual(created)
   })
 
@@ -1217,6 +1219,17 @@ Add `createAgent` to the import list in `src/lib/agents.test.js`, then append:
     await expect(
       createAgent({ name: 'New', email: 'new@x.com', role: 'sub_agent', password: 'secret123' }),
     ).rejects.toThrow('Email already registered')
+  })
+
+  it('createAgent falls back to the SDK message when there is no error body', async () => {
+    supabase.functions.invoke.mockResolvedValue({
+      data: null,
+      error: { message: 'Failed to send a request to the Edge Function' },
+    })
+
+    await expect(
+      createAgent({ name: 'New', email: 'new@x.com', role: 'sub_agent', password: 'secret123' }),
+    ).rejects.toThrow('Failed to send a request to the Edge Function')
   })
 ```
 
@@ -1254,15 +1267,22 @@ export async function createAgent({ name, email, phone, role, uplineId, password
   }
   if (data?.error) throw new Error(data.error)
 
-  await applyEligiblePromotions()
-  return data.agent
+  const agent = data?.agent
+  if (!agent) throw new Error('Could not create the agent account.')
+
+  try {
+    await applyEligiblePromotions()
+  } catch {
+    // The account already exists; a later trigger (or deactivate/reactivate) re-runs promotions.
+  }
+  return agent
 }
 ```
 
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run src/lib/agents.test.js`
-Expected: PASS — 11 tests.
+Expected: PASS — 12 tests.
 
 - [ ] **Step 5: Commit**
 
