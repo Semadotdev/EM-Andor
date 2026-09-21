@@ -96,8 +96,8 @@ describe('BuyerLedgerModal', () => {
     expect(await screen.findByText('Juan Dela Cruz')).toBeInTheDocument()
     expect(screen.getByText('Buyer')).toBeInTheDocument()
     expect(screen.getByText('Block 1 Lot 1')).toBeInTheDocument()
-    expect(screen.queryByText('Project')).not.toBeInTheDocument()
-    expect(screen.queryByText('Andor Farm')).not.toBeInTheDocument()
+    expect(screen.getByText('Project')).toBeInTheDocument()
+    expect(screen.getByText('Andor Farm')).toBeInTheDocument()
     expect(screen.getByRole('dialog')).toHaveClass('max-w-6xl')
 
     for (const value of DETAIL_VALUES) {

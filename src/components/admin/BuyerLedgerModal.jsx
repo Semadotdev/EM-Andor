@@ -204,6 +204,10 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
                   <dt className="font-semibold text-brand-deep">Blk/Lot</dt>
                   <dd className="text-right text-ink/70">{lotLabel}</dd>
                 </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="font-semibold text-brand-deep">Project</dt>
+                  <dd className="text-right text-ink/70">{project?.name ?? '—'}</dd>
+                </div>
               </dl>
 
               <div
