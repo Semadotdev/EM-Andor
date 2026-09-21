@@ -195,7 +195,7 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
         {state === 'ready' && (
           <>
             <div className="mb-5 rounded-lg border border-mist bg-surface p-4 text-sm">
-              <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-3">
+              <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
                 <div className="flex justify-between gap-4">
                   <dt className="font-semibold text-brand-deep">Buyer</dt>
                   <dd className="text-right text-ink/70">{sale?.buyer_name ?? '—'}</dd>
@@ -204,7 +204,7 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
                   <dt className="font-semibold text-brand-deep">Blk/Lot</dt>
                   <dd className="text-right text-ink/70">{lotLabel}</dd>
                 </div>
-                <div className="flex justify-between gap-4">
+                <div className="flex justify-between gap-4 sm:col-start-2">
                   <dt className="font-semibold text-brand-deep">Project</dt>
                   <dd className="text-right text-ink/70">{project?.name ?? '—'}</dd>
                 </div>
@@ -245,7 +245,7 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
                         <dt className="font-semibold text-brand-deep">Terms</dt>
                         <dd className="text-right text-ink/70">{sale?.terms_of_payment ?? '—'}</dd>
                       </div>
-                      <div className="flex justify-between gap-4 sm:col-span-2">
+                      <div className="flex justify-between gap-4">
                         <dt className="font-semibold text-brand-deep">Buyer Address</dt>
                         <dd className="text-right text-ink/70">{sale?.buyer_address ?? '—'}</dd>
                       </div>
