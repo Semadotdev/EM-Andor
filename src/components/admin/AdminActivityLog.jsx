@@ -14,6 +14,10 @@ const ENTITY_LABELS = {
   property: 'Properties',
   inquiry: 'Inquiries',
   cms: 'CMS',
+  sale: 'Sales',
+  project: 'Projects',
+  commission: 'Commissions',
+  agent: 'Agents',
 }
 
 export default function AdminActivityLog() {

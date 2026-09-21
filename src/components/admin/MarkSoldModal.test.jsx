@@ -59,7 +59,7 @@ describe('MarkSoldModal', () => {
     const onSold = vi.fn()
     const user = userEvent.setup()
 
-    render(<MarkSoldModal lot={lot} project={project} onClose={vi.fn()} onSold={onSold} />)
+    render(<MarkSoldModal lot={{ ...lot, sales: { buyer_name: 'Existing Buyer' } }} project={project} onClose={vi.fn()} onSold={onSold} />)
 
     await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
     await user.type(screen.getByLabelText('Buyer Name'), 'Juan Dela Cruz')

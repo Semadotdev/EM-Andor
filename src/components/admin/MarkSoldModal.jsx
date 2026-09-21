@@ -79,6 +79,7 @@ export default function MarkSoldModal({ lot, project, onClose, onSold }) {
       delete lotFields.id
       delete lotFields.created_at
       delete lotFields.updated_at
+      delete lotFields.sales
       await recordSale({
         propertyId: lot.id,
         payload: { ...lotFields, status: 'sold', sold_by: sellerId },

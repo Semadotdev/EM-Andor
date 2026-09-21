@@ -171,8 +171,8 @@ export async function recordSale({ propertyId, payload, details }) {
   const saved = await savePropertyWithCommission({ mode: 'edit', propertyId, payload })
   try {
     await upsertSale(propertyId, details)
-  } catch {
-    throw new Error('Sale recorded, but the buyer details failed to save. Reopen the lot and use Edit Sale to retry.')
+  } catch (err) {
+    throw new Error('Sale recorded, but the buyer details failed to save. Reopen the lot and use Edit Sale to retry.', { cause: err })
   }
   return saved
 }

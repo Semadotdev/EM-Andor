@@ -11,7 +11,6 @@ const CSV_HEADERS = ['DATE', 'OR#', 'AMOUNT', 'SURCHARGE', 'INTEREST', 'PRINCIPA
 const inputCls =
   'w-full rounded-md border border-mist bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/40 transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20'
 
-const EDITABLE_FIELDS = ['entry_date', 'or_number', 'amount', 'surcharge', 'interest', 'remarks']
 
 const emptyPaymentForm = {
   entry_date: '',
@@ -50,11 +49,11 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
 
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !showEditSale && !confirmDelete) onClose()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  }, [onClose, showEditSale, confirmDelete])
 
   const load = () => {
     setState('loading')

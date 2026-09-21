@@ -255,6 +255,23 @@ describe('BuyerLedgerModal', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
+  it('does not close the ledger when Escape dismisses a nested dialog', async () => {
+    const onClose = vi.fn()
+    const user = userEvent.setup()
+
+    render(<BuyerLedgerModal lot={lot} project={project} onClose={onClose} onChanged={vi.fn()} />)
+
+    await screen.findByText('OR-1')
+    const row = screen.getAllByRole('row')[1]
+    await user.click(within(row).getByRole('button', { name: 'Delete' }))
+    await screen.findByRole('alertdialog')
+
+    await userEvent.keyboard('{Escape}')
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: /ledger/i })).toBeInTheDocument()
+  })
+
   it('closes on Escape', async () => {
     const onClose = vi.fn()
 
