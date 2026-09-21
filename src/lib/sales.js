@@ -2,6 +2,7 @@ import { supabase } from './supabase.js'
 import { createProperty, updateProperty, logActivity } from './api.js'
 import { buildCommissionRows, validateSale, MAX_COMMISSION_LEVELS } from './commissions.js'
 import { applyEligiblePromotions, fetchAllAgents, fetchCommissionRatesMap } from './agents.js'
+import { fetchProjectRatesMap } from './projects.js'
 
 export async function clearCommissionsForProperty(propertyId) {
   const { data, error } = await supabase.from('commissions').select('id, status').eq('property_id', propertyId)
@@ -33,10 +34,12 @@ export async function resolveChainForAgent(sellerId) {
 }
 
 async function createCommissionRows(property) {
-  const [rates, chain] = await Promise.all([
+  const [projectRates, globalRates, chain] = await Promise.all([
+    fetchProjectRatesMap(property.project_id),
     fetchCommissionRatesMap(),
     resolveChainForAgent(property.sold_by),
   ])
+  const rates = { ...globalRates, ...projectRates }
   const { rows, warnings } = buildCommissionRows(Number(property.price), chain, rates)
 
   for (const warning of warnings) {

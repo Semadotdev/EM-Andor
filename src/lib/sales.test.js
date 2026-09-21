@@ -12,10 +12,12 @@ vi.mock('./agents.js', () => ({
   applyEligiblePromotions: vi.fn(() => Promise.resolve([])),
   fetchCommissionRatesMap: vi.fn(),
 }))
+vi.mock('./projects.js', () => ({ fetchProjectRatesMap: vi.fn().mockResolvedValue({}) }))
 
 import { supabase } from './supabase.js'
 import { createProperty, updateProperty, logActivity } from './api.js'
 import { applyEligiblePromotions, fetchAllAgents, fetchCommissionRatesMap } from './agents.js'
+import { fetchProjectRatesMap } from './projects.js'
 
 function chain(result) {
   const c = {}
@@ -33,7 +35,10 @@ const property = { id: 'p1', name: 'Lot A', price: 1000000, status: 'sold', sold
 const soldPayload = { name: 'Lot A', price: 1000000, status: 'sold', sold_by: 'a1' }
 
 describe('sales', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    fetchProjectRatesMap.mockResolvedValue({})
+  })
 
   it('rejects a sold save without a price or seller', async () => {
     await expect(
@@ -59,6 +64,23 @@ describe('sales', () => {
     ])
     expect(applyEligiblePromotions).toHaveBeenCalled()
     expect(saved).toEqual(property)
+  })
+
+  it('project rates override global rates and missing project roles fall back to global', async () => {
+    createProperty.mockResolvedValue({ ...property, project_id: 'pr1' })
+    fetchAllAgents.mockResolvedValue([sub, direct])
+    fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.03, direct_agent: 0.015 })
+    fetchProjectRatesMap.mockResolvedValue({ sub_agent: 0.05 })
+    const insertChain = chain({ data: [{ id: 'c1' }, { id: 'c2' }], error: null })
+    supabase.from.mockImplementation(() => insertChain)
+
+    await savePropertyWithCommission({ mode: 'create', payload: soldPayload })
+
+    expect(fetchProjectRatesMap).toHaveBeenCalledWith('pr1')
+    expect(insertChain.insert).toHaveBeenCalledWith([
+      expect.objectContaining({ agent_id: 'a1', role_at_sale: 'sub_agent', rate: 0.05, amount: 50000 }),
+      expect.objectContaining({ agent_id: 'a2', role_at_sale: 'direct_agent', rate: 0.015, amount: 15000 }),
+    ])
   })
 
   it('saves an available property without generating commissions', async () => {
