@@ -3311,51 +3311,50 @@ function AgentDetail({ agent, onClose }) {
 }
 
 function AgentNode({ node, depth, eligibility, onView, onToggle, pending }) {
+  const eligible = eligibility?.get?.(node.id)
   return (
-    <li>
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-mist bg-white p-3" style={{ marginLeft: depth * 20 }}>
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-brand-deep">{node.name}</p>
-          <p className="text-xs text-ink/50">
-            {node.email}
-            {node.phone ? ` · ${node.phone}` : ''}
-          </p>
-        </div>
-        <span className={`${badgeCls} ${roleBadgeCls(node.role)}`}>{ROLE_LABELS[node.role] ?? node.role}</span>
-        {!node.is_active && <span className={`${badgeCls} bg-red-100 text-red-700`}>Inactive</span>}
-        {eligibility && <span className={`${badgeCls} bg-green-100 text-green-700`}>Eligible: {ROLE_LABELS[eligibility.eligibleFor]}</span>}
-        <button
-          onClick={() => onView(node)}
-          className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-        >
-          View
-        </button>
-        {node.role !== 'admin' && (
+    <>
+      <li>
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-mist bg-white p-3" style={{ marginLeft: depth * 20 }}>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-brand-deep">{node.name}</p>
+            <p className="text-xs text-ink/50">
+              {node.email}
+              {node.phone ? ` · ${node.phone}` : ''}
+            </p>
+          </div>
+          <span className={`${badgeCls} ${roleBadgeCls(node.role)}`}>{ROLE_LABELS[node.role] ?? node.role}</span>
+          {!node.is_active && <span className={`${badgeCls} bg-red-100 text-red-700`}>Inactive</span>}
+          {eligible && <span className={`${badgeCls} bg-green-100 text-green-700`}>Eligible: {ROLE_LABELS[eligible.eligibleFor]}</span>}
           <button
-            onClick={() => onToggle(node)}
-            disabled={Boolean(pending[node.id])}
-            className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand disabled:opacity-60"
+            onClick={() => onView(node)}
+            className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
           >
-            {node.is_active ? 'Deactivate' : 'Activate'}
+            View
           </button>
-        )}
-      </div>
-      {node.children.length > 0 && (
-        <ul className="mt-2 space-y-2">
-          {node.children.map((child) => (
-            <AgentNode
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              eligibility={eligibility}
-              onView={onView}
-              onToggle={onToggle}
-              pending={pending}
-            />
-          ))}
-        </ul>
-      )}
-    </li>
+          {node.role !== 'admin' && (
+            <button
+              onClick={() => onToggle(node)}
+              disabled={Boolean(pending[node.id])}
+              className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand disabled:opacity-60"
+            >
+              {node.is_active ? 'Deactivate' : 'Activate'}
+            </button>
+          )}
+        </div>
+      </li>
+      {node.children.map((child) => (
+        <AgentNode
+          key={child.id}
+          node={child}
+          depth={depth + 1}
+          eligibility={eligibility}
+          onView={onView}
+          onToggle={onToggle}
+          pending={pending}
+        />
+      ))}
+    </>
   )
 }
 
