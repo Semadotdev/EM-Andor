@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useOutletContext } from 'react-router-dom'
 import AdminLayout from './AdminLayout.jsx'
 import AdminLogin from './AdminLogin.jsx'
+import Dashboard from './Dashboard.jsx'
 import AdminProjects from './AdminProjects.jsx'
 import ProjectDetail from './ProjectDetail.jsx'
 import AdminAgents from './AdminAgents.jsx'
@@ -13,11 +14,6 @@ import AgentLots from './AgentLots.jsx'
 import AgentSales from './AgentSales.jsx'
 import AgentCommissions from './AgentCommissions.jsx'
 import AgentDownline from './AgentDownline.jsx'
-
-function RoleIndex() {
-  const { agent } = useOutletContext()
-  return <Navigate to={agent.role === 'admin' ? '/admin/projects' : '/admin/lots'} replace />
-}
 
 function AdminOnly({ children }) {
   const { agent } = useOutletContext()
@@ -36,7 +32,7 @@ export default function AdminApp() {
     <Routes>
       <Route path="login" element={<AdminLogin />} />
       <Route element={<AdminLayout />}>
-        <Route index element={<RoleIndex />} />
+        <Route index element={<Dashboard />} />
         <Route path="projects" element={<AdminOnly><AdminProjects /></AdminOnly>} />
         <Route path="projects/:id" element={<AdminOnly><ProjectDetail /></AdminOnly>} />
         <Route path="agents" element={<AdminOnly><AdminAgents /></AdminOnly>} />
@@ -49,7 +45,7 @@ export default function AdminApp() {
         <Route path="sales" element={<AgentOnly><AgentSales /></AgentOnly>} />
         <Route path="my-commissions" element={<AgentOnly><AgentCommissions /></AgentOnly>} />
         <Route path="downline" element={<AgentOnly><AgentDownline /></AgentOnly>} />
-        <Route path="*" element={<RoleIndex />} />
+        <Route path="*" element={<Navigate to="/admin" replace />} />
       </Route>
     </Routes>
   )

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Navigate, NavLink, Outlet } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { fetchCurrentAgent, fetchMyDownline } from '../../lib/agents.js'
 import { ROLE_LABELS } from '../../lib/agentMeta.js'
 import Logo from '../shared/Logo.jsx'
 import BrandLoader from '../shared/ui/BrandLoader.jsx'
 import { ToastProvider } from '../shared/ui'
-import DashboardStats from './DashboardStats.jsx'
-import AgentStats from './AgentStats.jsx'
+
+const DASHBOARD_ITEM = { to: '/admin', label: 'Dashboard', end: true }
 
 const ADMIN_GROUPS = [
   {
@@ -44,7 +44,7 @@ const navLinkCls = ({ isActive }) =>
 function SidebarNav({ isAdmin, showDownline, onNavigate }) {
   const link = (item) => (
     <li key={item.to}>
-      <NavLink to={item.to} className={navLinkCls} onClick={onNavigate}>
+      <NavLink to={item.to} end={item.end} className={navLinkCls} onClick={onNavigate}>
         {item.label}
       </NavLink>
     </li>
@@ -52,16 +52,21 @@ function SidebarNav({ isAdmin, showDownline, onNavigate }) {
 
   return (
     <nav aria-label={isAdmin ? 'Admin sections' : 'Agent sections'} className="space-y-6">
-      {isAdmin
-        ? ADMIN_GROUPS.map((group) => (
+      {isAdmin ? (
+        <>
+          <ul className="space-y-1">{link(DASHBOARD_ITEM)}</ul>
+          {ADMIN_GROUPS.map((group) => (
             <div key={group.label}>
               <p className="mb-2 px-3 text-xs font-bold uppercase tracking-wide text-ink/40">{group.label}</p>
               <ul className="space-y-1">{group.items.map(link)}</ul>
             </div>
-          ))
-        : (
-            <ul className="space-y-1">{AGENT_ITEMS.filter((item) => item.label !== 'My Downline' || showDownline).map(link)}</ul>
-          )}
+          ))}
+        </>
+      ) : (
+        <ul className="space-y-1">
+          {[DASHBOARD_ITEM, ...AGENT_ITEMS].filter((item) => item.label !== 'My Downline' || showDownline).map(link)}
+        </ul>
+      )}
     </nav>
   )
 }
@@ -73,7 +78,6 @@ export default function AdminLayout() {
   const [agentError, setAgentError] = useState(null)
   const [downline, setDownline] = useState([])
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const navigate = useNavigate()
 
   useEffect(() => {
     let mounted = true
@@ -183,12 +187,6 @@ export default function AdminLayout() {
           </aside>
 
           <main className="min-w-0 flex-1">
-            {isAdmin ? (
-              <DashboardStats onJumpToInquiries={() => navigate('/admin/inquiries')} />
-            ) : (
-              <AgentStats agent={agent} downlineCount={downline.length} />
-            )}
-
             <Outlet context={{ agent, downline }} />
           </main>
         </div>

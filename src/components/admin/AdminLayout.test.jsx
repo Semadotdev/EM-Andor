@@ -4,8 +4,6 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import AdminLayout from './AdminLayout.jsx'
 
-vi.mock('./DashboardStats.jsx', () => ({ default: () => <span>StatsPanel</span> }))
-vi.mock('./AgentStats.jsx', () => ({ default: () => <span>AgentStatsPanel</span> }))
 vi.mock('../shared/Logo.jsx', () => ({
   default: () => <span aria-label="E.M. Andor — home">Logo</span>,
 }))
@@ -68,6 +66,7 @@ describe('AdminLayout', () => {
     renderLayout()
 
     const nav = await screen.findByRole('navigation', { name: 'Admin sections' })
+    expect(within(nav).getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/admin')
     const groups = {
       Sales: ['Projects', 'Agents', 'Commissions'],
       Inbox: ['Inquiries', 'Notifications'],
@@ -91,6 +90,7 @@ describe('AdminLayout', () => {
     renderLayout()
 
     const nav = await screen.findByRole('navigation', { name: 'Agent sections' })
+    expect(within(nav).getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/admin')
     for (const label of ['Available Lots', 'My Sales', 'My Commissions', 'My Downline']) {
       expect(await within(nav).findByRole('link', { name: label })).toBeInTheDocument()
     }
@@ -119,22 +119,6 @@ describe('AdminLayout', () => {
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
 
     expect(supabase.auth.signOut).toHaveBeenCalled()
-  })
-
-  it('shows admin stats for admins', async () => {
-    renderLayout()
-
-    expect(await screen.findByText('StatsPanel')).toBeInTheDocument()
-    expect(screen.queryByText('AgentStatsPanel')).not.toBeInTheDocument()
-  })
-
-  it('shows agent stats for agents', async () => {
-    fetchCurrentAgent.mockResolvedValue({ id: 'a1', name: 'Ana', role: 'direct_agent', is_active: true })
-
-    renderLayout()
-
-    expect(await screen.findByText('AgentStatsPanel')).toBeInTheDocument()
-    expect(screen.queryByText('StatsPanel')).not.toBeInTheDocument()
   })
 
   it('shows the not-linked screen with sign out when no agent profile exists', async () => {

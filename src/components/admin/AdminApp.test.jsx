@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import AdminApp from './AdminApp.jsx'
 
 vi.mock('./AdminLogin.jsx', () => ({ default: () => <span>LoginPage</span> }))
+vi.mock('./Dashboard.jsx', () => ({ default: () => <span>DashboardPage</span> }))
 vi.mock('./AdminProjects.jsx', () => ({ default: () => <span>ProjectsPage</span> }))
 vi.mock('./ProjectDetail.jsx', () => ({ default: () => <span>ProjectDetailPage</span> }))
 vi.mock('./AdminAgents.jsx', () => ({ default: () => <span>AgentsPage</span> }))
@@ -16,8 +17,6 @@ vi.mock('./AgentLots.jsx', () => ({ default: () => <span>LotsPage</span> }))
 vi.mock('./AgentSales.jsx', () => ({ default: () => <span>SalesPage</span> }))
 vi.mock('./AgentCommissions.jsx', () => ({ default: () => <span>MyCommissionsPage</span> }))
 vi.mock('./AgentDownline.jsx', () => ({ default: () => <span>DownlinePage</span> }))
-vi.mock('./DashboardStats.jsx', () => ({ default: () => <span>StatsPanel</span> }))
-vi.mock('./AgentStats.jsx', () => ({ default: () => <span>AgentStatsPanel</span> }))
 vi.mock('../shared/Logo.jsx', () => ({ default: () => <span>Logo</span> }))
 
 vi.mock('../../lib/agents.js', () => ({
@@ -55,18 +54,18 @@ describe('AdminApp', () => {
     fetchCurrentAgent.mockResolvedValue({ id: 'admin1', name: 'Admin', role: 'admin', is_active: true })
   })
 
-  it('redirects admins from the index to /admin/projects', async () => {
+  it('renders the dashboard at the index for admins', async () => {
     renderApp('/admin')
 
-    expect(await screen.findByText('ProjectsPage')).toBeInTheDocument()
+    expect(await screen.findByText('DashboardPage')).toBeInTheDocument()
   })
 
-  it('redirects agents from the index to /admin/lots', async () => {
+  it('renders the dashboard at the index for agents', async () => {
     fetchCurrentAgent.mockResolvedValue({ id: 'a1', name: 'Ana', role: 'sub_agent', is_active: true })
 
     renderApp('/admin')
 
-    expect(await screen.findByText('LotsPage')).toBeInTheDocument()
+    expect(await screen.findByText('DashboardPage')).toBeInTheDocument()
   })
 
   it('renders the login page without the admin layout', async () => {
@@ -104,11 +103,9 @@ describe('AdminApp', () => {
     expect(screen.queryByText('LotsPage')).not.toBeInTheDocument()
   })
 
-  it('redirects unknown paths by role', async () => {
-    fetchCurrentAgent.mockResolvedValue({ id: 'a1', name: 'Ana', role: 'sub_agent', is_active: true })
-
+  it('redirects unknown paths to the dashboard', async () => {
     renderApp('/admin/does-not-exist')
 
-    expect(await screen.findByText('LotsPage')).toBeInTheDocument()
+    expect(await screen.findByText('DashboardPage')).toBeInTheDocument()
   })
 })
