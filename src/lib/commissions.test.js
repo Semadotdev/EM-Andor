@@ -26,6 +26,23 @@ describe('commissions', () => {
     expect(warnings).toEqual(['No commission rate configured for direct_agent; skipped Direct.'])
   })
 
+  it('skips a zero or negative rate and warns', () => {
+    const zero = buildCommissionRows(1000000, [sub], { sub_agent: 0 })
+    const negative = buildCommissionRows(1000000, [sub], { sub_agent: -0.01 })
+
+    expect(zero.rows).toEqual([])
+    expect(zero.warnings).toEqual(['No commission rate configured for sub_agent; skipped Sub.'])
+    expect(negative.rows).toEqual([])
+  })
+
+  it('never builds more than three levels', () => {
+    const fourth = { id: 'a4', name: 'Fourth', role: 'sub_agent' }
+    const { rows } = buildCommissionRows(1000000, [sub, direct, head, fourth], rates)
+
+    expect(rows).toHaveLength(3)
+    expect(rows.map((row) => row.agent_id)).toEqual(['a1', 'a2', 'a3'])
+  })
+
   it('de-duplicates agents and rounds amounts to centavos', () => {
     const { rows } = buildCommissionRows(333333, [{ ...sub }, sub], { sub_agent: 0.0333 })
 

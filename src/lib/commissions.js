@@ -25,20 +25,20 @@ export function buildCommissionRows(price, chain, rates) {
   const seen = new Set()
   const salePrice = Number(price)
 
-  for (const agent of chain) {
+  for (const agent of chain.slice(0, MAX_COMMISSION_LEVELS)) {
     if (!agent?.id || agent.role === 'admin' || seen.has(agent.id)) continue
     seen.add(agent.id)
-    const rate = rates?.[agent.role]
-    if (rate === null || rate === undefined) {
-      warnings.push(`No commission rate configured for ${agent.role}; skipped ${agent.name}.`)
+    const rate = Number(rates?.[agent.role])
+    if (!(rate > 0)) {
+      warnings.push(`No commission rate configured for ${agent.role}; skipped ${agent.name ?? agent.id}.`)
       continue
     }
     rows.push({
       agent_id: agent.id,
       role_at_sale: agent.role,
       sale_price: salePrice,
-      rate: Number(rate),
-      amount: Math.round(salePrice * Number(rate) * 100) / 100,
+      rate,
+      amount: Math.round(salePrice * rate * 100) / 100,
     })
   }
 
