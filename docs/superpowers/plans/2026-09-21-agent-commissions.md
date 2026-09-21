@@ -4177,7 +4177,7 @@ describe('AgentCommissions', () => {
 
     expect(await screen.findByText('Lot A')).toBeInTheDocument()
     expect(screen.getByText('₱ 45,000')).toBeInTheDocument()
-    expect(screen.getByText('₱ 15,000')).toBeInTheDocument()
+    expect(screen.getAllByText('₱ 15,000')).toHaveLength(2)
     expect(fetchCommissions).toHaveBeenCalledWith({ agentId: 'a1' })
   })
 
