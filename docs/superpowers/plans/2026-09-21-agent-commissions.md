@@ -3712,7 +3712,7 @@ export default function AdminCommissions() {
       await markCommissionPaid(confirmPaid.id)
       setCommissions((list) => list.map((c) => (c.id === confirmPaid.id ? { ...c, status: 'paid' } : c)))
       setConfirmPaid(null)
-    } catch {
+    } catch (err) {
       setError(err?.message === 'Commission is already paid.' ? err.message : 'Could not mark the commission paid. Please try again.')
     } finally {
       setSavingPaid(false)
