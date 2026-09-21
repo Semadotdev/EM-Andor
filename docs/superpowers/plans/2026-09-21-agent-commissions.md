@@ -2813,7 +2813,7 @@ Add to the existing `beforeEach`:
     fetchCurrentAgent.mockResolvedValue({ id: 'admin1', name: 'Admin', role: 'admin', is_active: true })
 ```
 
-Append these tests:
+Append these tests (also add `act` to the existing `@testing-library/react` import in the test file):
 
 ```js
   it('shows agent tabs for a sub agent and hides admin-only panels', async () => {
@@ -2854,8 +2854,11 @@ Append these tests:
     })
 
     const listener = supabase.auth.onAuthStateChange.mock.calls[0][0]
-    listener('TOKEN_REFRESHED', { user: { id: 'u1' } })
+    await act(async () => {
+      listener('TOKEN_REFRESHED', { user: { id: 'u1' } })
+    })
 
+    expect(fetchCurrentAgent).toHaveBeenCalledTimes(1)
     expect(screen.getByText('NotificationsPanel')).toBeInTheDocument()
   })
 ```
