@@ -194,75 +194,81 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
 
         {state === 'ready' && (
           <>
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-lg border border-mist bg-surface p-4 text-sm">
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                <p className="flex items-baseline gap-2">
-                  <span className="font-semibold text-ink/60">Buyer</span>
-                  <span className="font-bold text-brand-deep">{sale?.buyer_name ?? '—'}</span>
-                </p>
-                <p className="flex items-baseline gap-2">
-                  <span className="font-semibold text-ink/60">Project</span>
-                  <span className="text-ink/70">{project?.name ?? '—'}</span>
-                </p>
-                <p className="flex items-baseline gap-2">
-                  <span className="font-semibold text-ink/60">Remaining balance</span>
-                  <span className="font-bold text-brand-deep">{formatPrice(ledger.remainingBalance) ?? '—'}</span>
-                </p>
+            <div className="mb-5 rounded-lg border border-mist bg-surface p-4 text-sm">
+              <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                <div className="flex justify-between gap-4">
+                  <dt className="font-semibold text-brand-deep">Buyer</dt>
+                  <dd className="text-right text-ink/70">{sale?.buyer_name ?? '—'}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="font-semibold text-brand-deep">Project</dt>
+                  <dd className="text-right text-ink/70">{project?.name ?? '—'}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="font-semibold text-brand-deep">Remaining balance</dt>
+                  <dd className="text-right font-semibold text-ink">{formatPrice(ledger.remainingBalance) ?? '—'}</dd>
+                </div>
+              </dl>
+
+              <div
+                id="ledger-details"
+                className={`grid transition-[grid-template-rows] duration-300 ease-out ${showDetails ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+              >
+                <div className="overflow-hidden">
+                  {showDetails && (
+                    <dl className="grid gap-x-6 gap-y-3 pt-3 sm:grid-cols-2">
+                      <div className="flex justify-between gap-4">
+                        <dt className="font-semibold text-brand-deep">Blk/Lot</dt>
+                        <dd className="text-right text-ink/70">{lotLabel}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="font-semibold text-brand-deep">Area</dt>
+                        <dd className="text-right text-ink/70">
+                          {lot.lot_area_sqm != null ? `${Number(lot.lot_area_sqm).toLocaleString('en-PH')} sqm` : '—'}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="font-semibold text-brand-deep">Price/m²</dt>
+                        <dd className="text-right text-ink/70">
+                          {project?.price_per_sqm != null ? `${formatPrice(project.price_per_sqm)} / m²` : '—'}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="font-semibold text-brand-deep">TCP</dt>
+                        <dd className="text-right text-ink/70">{formatPrice(sale?.tcp) ?? '—'}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="font-semibold text-brand-deep">Downpayment</dt>
+                        <dd className="text-right text-ink/70">{formatPrice(sale?.downpayment) ?? '—'}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="font-semibold text-brand-deep">M.A.</dt>
+                        <dd className="text-right text-ink/70">{formatPrice(sale?.monthly_amortization) ?? '—'}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="font-semibold text-brand-deep">Terms</dt>
+                        <dd className="text-right text-ink/70">{sale?.terms_of_payment ?? '—'}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="font-semibold text-brand-deep">Buyer Address</dt>
+                        <dd className="text-right text-ink/70">{sale?.buyer_address ?? '—'}</dd>
+                      </div>
+                    </dl>
+                  )}
+                </div>
               </div>
+
               <button
                 type="button"
                 onClick={() => setShowDetails((shown) => !shown)}
                 aria-expanded={showDetails}
                 aria-controls="ledger-details"
-                className="rounded-md border border-mist bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/30 hover:text-brand"
+                className="-mx-4 -mb-4 mt-3 flex w-[calc(100%+2rem)] items-center justify-center gap-2 rounded-b-lg border-t border-mist bg-white/60 px-4 py-2.5 text-xs font-semibold text-ink/70 transition-colors hover:text-brand"
               >
-                {showDetails ? 'Hide details' : 'View details'}
-                <span aria-hidden="true" className="ml-1">
-                  {showDetails ? '▴' : '▾'}
-                </span>
+                {showDetails ? 'Show less' : 'Show more details'}
+                <span aria-hidden="true">{showDetails ? '▴' : '▾'}</span>
               </button>
             </div>
-
-            {showDetails && (
-              <dl id="ledger-details" className="mb-5 grid gap-x-6 gap-y-3 rounded-lg border border-mist bg-surface p-4 text-sm sm:grid-cols-2">
-                <div className="flex justify-between gap-4">
-                  <dt className="font-semibold text-brand-deep">Blk/Lot</dt>
-                  <dd className="text-right text-ink/70">{lotLabel}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="font-semibold text-brand-deep">Area</dt>
-                  <dd className="text-right text-ink/70">
-                    {lot.lot_area_sqm != null ? `${Number(lot.lot_area_sqm).toLocaleString('en-PH')} sqm` : '—'}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="font-semibold text-brand-deep">Price/m²</dt>
-                  <dd className="text-right text-ink/70">
-                    {project?.price_per_sqm != null ? `${formatPrice(project.price_per_sqm)} / m²` : '—'}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="font-semibold text-brand-deep">TCP</dt>
-                  <dd className="text-right text-ink/70">{formatPrice(sale?.tcp) ?? '—'}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="font-semibold text-brand-deep">Downpayment</dt>
-                  <dd className="text-right text-ink/70">{formatPrice(sale?.downpayment) ?? '—'}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="font-semibold text-brand-deep">M.A.</dt>
-                  <dd className="text-right text-ink/70">{formatPrice(sale?.monthly_amortization) ?? '—'}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="font-semibold text-brand-deep">Terms</dt>
-                  <dd className="text-right text-ink/70">{sale?.terms_of_payment ?? '—'}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="font-semibold text-brand-deep">Buyer Address</dt>
-                  <dd className="text-right text-ink/70">{sale?.buyer_address ?? '—'}</dd>
-                </div>
-              </dl>
-            )}
 
             <div className="mb-4 flex flex-wrap justify-end gap-3">
               <Button onClick={openAddPayment}>Add Payment</Button>

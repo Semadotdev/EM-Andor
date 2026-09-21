@@ -94,6 +94,8 @@ describe('BuyerLedgerModal', () => {
     render(<BuyerLedgerModal lot={lot} project={project} onClose={vi.fn()} onChanged={vi.fn()} />)
 
     expect(await screen.findByText('Juan Dela Cruz')).toBeInTheDocument()
+    expect(screen.getByText('Buyer')).toBeInTheDocument()
+    expect(screen.getByText('Project')).toBeInTheDocument()
     expect(screen.getByText('Andor Farm')).toBeInTheDocument()
     expect(screen.getByText('Remaining balance')).toBeInTheDocument()
     expect(screen.getAllByText('₱ 12,450').length).toBeGreaterThan(0)
@@ -103,18 +105,19 @@ describe('BuyerLedgerModal', () => {
       expect(screen.queryByText(value)).not.toBeInTheDocument()
     }
 
-    const toggle = screen.getByRole('button', { name: 'View details' })
+    const toggle = screen.getByRole('button', { name: /Show more details/ })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     await user.click(toggle)
 
-    expect(screen.getByRole('button', { name: 'Hide details' })).toHaveAttribute('aria-expanded', 'true')
-    expect(document.getElementById('ledger-details')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Show less/ })).toHaveAttribute('aria-expanded', 'true')
 
     for (const value of DETAIL_VALUES) {
       expect(screen.getByText(value)).toBeInTheDocument()
     }
 
-    await user.click(screen.getByRole('button', { name: 'Hide details' }))
+    await user.click(screen.getByRole('button', { name: /Show less/ }))
+
+    expect(screen.getByRole('button', { name: /Show more details/ })).toHaveAttribute('aria-expanded', 'false')
 
     for (const value of DETAIL_VALUES) {
       expect(screen.queryByText(value)).not.toBeInTheDocument()
