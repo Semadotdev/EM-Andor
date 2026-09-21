@@ -1609,7 +1609,11 @@ export async function savePropertyWithCommission({ mode, propertyId, payload }) 
     await createCommissionRows(saved)
   }
 
-  await applyEligiblePromotions()
+  try {
+    await applyEligiblePromotions()
+  } catch {
+    // The sale is recorded; promotions re-run on the next trigger.
+  }
   return saved
 }
 ```
@@ -1982,6 +1986,19 @@ Add state after the `mapNotice` state:
   const [agentsState, setAgentsState] = useState('idle')
 ```
 
+- [ ] **Step 1b: Reset the agent-load state when leaving sold**
+
+An agent-load failure is otherwise terminal (the effect only runs from `idle`). In the existing `setField` helper, add the reset:
+
+```js
+  const setField = (field) => (e) => {
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value
+    setForm((f) => ({ ...f, [field]: value }))
+    if (field === 'status' && value !== 'sold') setAgentsState('idle')
+    setErrors((errs) => ({ ...errs, [field]: undefined }))
+  }
+```
+
 - [ ] **Step 2: Load assignable agents when the status becomes sold**
 
 Add this effect after the existing Escape-key effect:
@@ -2078,6 +2095,9 @@ In the form JSX, immediately after the Status select's closing `</div>` (the blo
                 <option value="">
                   {agentsState === 'loading' ? 'Loading agents…' : agentsState === 'error' ? 'Could not load agents' : 'Select agent…'}
                 </option>
+                {sellerId && !agents.some((a) => a.id === sellerId) && (
+                  <option value={sellerId}>Current seller (inactive or unavailable)</option>
+                )}
                 {agents.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name} ({ROLE_LABELS[a.role] ?? a.role})
@@ -2112,7 +2132,7 @@ In the ConfirmModal summary list, after the Status row, add:
             <div className="flex justify-between gap-4">
               <dt className="font-semibold text-brand-deep shrink-0">Selling Agent</dt>
               <dd className="text-right text-ink/70 truncate">
-                {agents.find((a) => a.id === sellerId)?.name ?? '—'}
+                {agents.find((a) => a.id === sellerId)?.name ?? (sellerId ? 'Current seller (inactive)' : '—')}
               </dd>
             </div>
           )}
@@ -2244,12 +2264,45 @@ Append inside the existing `describe('PropertyForm', ...)` block:
 
     expect(await screen.findByText('Commission already paid — reverse payment first.')).toBeInTheDocument()
   })
+
+  it('sends an un-sell through the sale-aware save with a null seller', async () => {
+    savePropertyWithCommission.mockResolvedValue({ id: 'p7' })
+    const user = userEvent.setup()
+    const existing = { id: 'p7', ...payload, status: 'sold', sold_by: 'a1' }
+
+    render(<PropertyForm mode="edit" property={existing} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    await user.selectOptions(screen.getByLabelText('Status'), 'available')
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Save Changes' }))
+
+    expect(savePropertyWithCommission).toHaveBeenCalledWith({
+      mode: 'edit',
+      propertyId: 'p7',
+      payload: expect.objectContaining({ status: 'available', sold_by: null }),
+    })
+  })
+
+  it('shows field errors returned by the sales API', async () => {
+    savePropertyWithCommission.mockRejectedValue({ fieldErrors: { sold_by: 'Select an active selling agent.' } })
+    const user = userEvent.setup()
+    const existing = { id: 'p7', ...payload, status: 'sold', sold_by: 'a1' }
+
+    render(<PropertyForm mode="edit" property={existing} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Save Changes' }))
+
+    expect(await screen.findByText('Select an active selling agent.')).toBeInTheDocument()
+  })
 ```
 
 - [ ] **Step 9: Run the tests**
 
 Run: `npx vitest run src/components/admin/PropertyForm.test.jsx`
-Expected: PASS — all existing tests plus 3 new ones.
+Expected: PASS — all existing tests plus 5 new ones (18 total in the file).
 
 - [ ] **Step 10: Commit**
 
