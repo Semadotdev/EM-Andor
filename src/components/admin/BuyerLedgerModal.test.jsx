@@ -74,7 +74,7 @@ const payments = [
   },
 ]
 
-const DETAIL_VALUES = ['100 sqm', '₱ 1,000 / m²', '₱ 20,000', '₱ 4,000', '₱ 1,500', '12 months', 'Cebu City']
+const DETAIL_VALUES = ['Andor Farm', '100 sqm', '₱ 1,000 / m²', '₱ 20,000', '₱ 4,000', '₱ 1,500', '12 months', 'Cebu City']
 
 const CSV_HEADERS = ['DATE', 'OR#', 'AMOUNT', 'SURCHARGE', 'INTEREST', 'PRINCIPAL', 'BALANCE OF PRINCIPAL', 'REMARKS']
 
@@ -96,8 +96,7 @@ describe('BuyerLedgerModal', () => {
     expect(await screen.findByText('Juan Dela Cruz')).toBeInTheDocument()
     expect(screen.getByText('Buyer')).toBeInTheDocument()
     expect(screen.getByText('Block 1 Lot 1')).toBeInTheDocument()
-    expect(screen.getByText('Project')).toBeInTheDocument()
-    expect(screen.getByText('Andor Farm')).toBeInTheDocument()
+    expect(screen.queryByText('Project')).not.toBeInTheDocument()
     expect(screen.getByRole('dialog')).toHaveClass('max-w-6xl')
 
     for (const value of DETAIL_VALUES) {
