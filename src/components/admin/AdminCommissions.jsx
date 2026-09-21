@@ -242,8 +242,8 @@ export default function AdminCommissions() {
             </option>
           ))}
         </Select>
-        <Select label="Status" id="cf-status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="">All</option>
+        <Select id="cf-status" aria-label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="">All Status</option>
           <option value="earned">Earned</option>
           <option value="paid">Paid</option>
         </Select>
