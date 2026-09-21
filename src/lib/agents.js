@@ -62,6 +62,34 @@ export async function applyEligiblePromotions() {
   return promoted
 }
 
+export async function createAgent({ name, email, phone, role, uplineId, password }) {
+  const { data, error } = await supabase.functions.invoke('create-agent', {
+    body: {
+      name,
+      email,
+      phone: phone || null,
+      role,
+      upline_id: uplineId || null,
+      password,
+    },
+  })
+
+  if (error) {
+    let message = error.message
+    try {
+      const body = await error.context.json()
+      if (body?.error) message = body.error
+    } catch {
+      // keep the SDK message when the body cannot be read
+    }
+    throw new Error(message || 'Could not create the agent account.')
+  }
+  if (data?.error) throw new Error(data.error)
+
+  await applyEligiblePromotions()
+  return data.agent
+}
+
 export async function fetchCommissionRates() {
   const { data, error } = await supabase.from('commission_settings').select('*').order('role')
   if (error) throw error

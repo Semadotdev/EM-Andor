@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import {
   applyEligiblePromotions,
+  createAgent,
   fetchAllAgents,
   fetchCommissionRates,
   fetchCommissionRatesMap,
@@ -149,5 +150,41 @@ describe('agents', () => {
       to: 'direct_agent',
       counts: { ownSales: 5, directRecruits: 5 },
     })
+  })
+
+  it('createAgent invokes the edge function and returns the new agent', async () => {
+    const created = { id: 'a9', name: 'New', email: 'new@x.com', role: 'sub_agent' }
+    supabase.functions.invoke.mockResolvedValue({ data: { agent: created }, error: null })
+    supabase.from
+      .mockImplementationOnce(() => chain({ data: [], error: null }))
+      .mockImplementationOnce(() => chain({ data: [], error: null }))
+
+    const result = await createAgent({
+      name: 'New',
+      email: 'new@x.com',
+      phone: '0917',
+      role: 'sub_agent',
+      uplineId: 'a1',
+      password: 'secret123',
+    })
+
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('create-agent', {
+      body: { name: 'New', email: 'new@x.com', phone: '0917', role: 'sub_agent', upline_id: 'a1', password: 'secret123' },
+    })
+    expect(result).toEqual(created)
+  })
+
+  it('createAgent surfaces the edge function error body', async () => {
+    supabase.functions.invoke.mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Edge Function returned a non-2xx status code',
+        context: { json: async () => ({ error: 'Email already registered' }) },
+      },
+    })
+
+    await expect(
+      createAgent({ name: 'New', email: 'new@x.com', role: 'sub_agent', password: 'secret123' }),
+    ).rejects.toThrow('Email already registered')
   })
 })
