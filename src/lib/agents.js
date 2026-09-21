@@ -27,7 +27,13 @@ export async function setAgentActive(id, isActive) {
   const { data, error } = await supabase.from('agents').update({ is_active: isActive }).eq('id', id).select().single()
   if (error) throw error
   logActivity('agent', id, isActive ? 'activate' : 'deactivate').catch(() => {})
-  if (isActive) applyEligiblePromotions().catch(() => {})
+  if (isActive) {
+    try {
+      await applyEligiblePromotions()
+    } catch {
+      // Activation succeeded; promotions re-run on the next trigger.
+    }
+  }
   return data
 }
 

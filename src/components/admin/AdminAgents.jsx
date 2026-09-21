@@ -23,6 +23,14 @@ function AgentDetail({ agent, onClose }) {
   const [state, setState] = useState('loading')
 
   useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  useEffect(() => {
     let mounted = true
     Promise.all([fetchTeamSales([agent.id]), fetchCommissions({ agentId: agent.id })])
       .then(([s, c]) => {
@@ -170,6 +178,7 @@ export default function AdminAgents() {
 
   const load = useCallback(() => {
     setState('loading')
+    setError(null)
     Promise.all([fetchAllAgents(), fetchSoldCounts()])
       .then(([rows, counts]) => {
         setAgents(rows)
@@ -189,11 +198,13 @@ export default function AdminAgents() {
     const next = !confirmToggle.is_active
     const id = confirmToggle.id
     setToggling(true)
+    setError(null)
     setPending((p) => ({ ...p, [id]: true }))
     try {
       await setAgentActive(id, next)
       setAgents((list) => list.map((a) => (a.id === id ? { ...a, is_active: next } : a)))
       setConfirmToggle(null)
+      load()
     } catch {
       setError('Could not update the agent. Please try again.')
     } finally {

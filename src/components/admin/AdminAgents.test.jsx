@@ -73,4 +73,18 @@ describe('AdminAgents', () => {
 
     expect(setAgentActive).toHaveBeenCalledWith('a1', false)
   })
+
+  it('opens and closes the agent detail modal', async () => {
+    const user = userEvent.setup()
+
+    render(<AdminAgents />)
+
+    const row = (await screen.findByText('Ana Sub')).closest('li')
+    await user.click(within(row).getByRole('button', { name: 'View' }))
+
+    expect(await screen.findByRole('dialog', { name: 'Ana Sub details' })).toBeInTheDocument()
+
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Ana Sub details' })).not.toBeInTheDocument()
+  })
 })
