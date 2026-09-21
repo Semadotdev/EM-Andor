@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import AdminDashboard from './AdminDashboard.jsx'
@@ -204,8 +204,11 @@ describe('AdminDashboard', () => {
     })
 
     const listener = supabase.auth.onAuthStateChange.mock.calls[0][0]
-    listener('TOKEN_REFRESHED', { user: { id: 'u1' } })
+    await act(async () => {
+      listener('TOKEN_REFRESHED', { user: { id: 'u1' } })
+    })
 
+    expect(fetchCurrentAgent).toHaveBeenCalledTimes(1)
     expect(screen.getByText('NotificationsPanel')).toBeInTheDocument()
   })
 })
