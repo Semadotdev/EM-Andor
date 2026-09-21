@@ -30,4 +30,12 @@ describe('AgentCommissions', () => {
 
     expect(await screen.findByText('No commissions yet.')).toBeInTheDocument()
   })
+
+  it('shows an error state when the fetch fails', async () => {
+    fetchCommissions.mockRejectedValue(new Error('boom'))
+
+    render(<AgentCommissions agent={{ id: 'a1', name: 'Ana' }} />)
+
+    expect(await screen.findByText('Could not load your commissions. Please refresh.')).toBeInTheDocument()
+  })
 })
