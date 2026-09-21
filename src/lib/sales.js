@@ -108,7 +108,11 @@ export async function savePropertyWithCommission({ mode, propertyId, payload }) 
     await createCommissionRows(saved)
   }
 
-  await applyEligiblePromotions()
+  try {
+    await applyEligiblePromotions()
+  } catch {
+    // The sale is recorded; promotions re-run on the next trigger.
+  }
   return saved
 }
 

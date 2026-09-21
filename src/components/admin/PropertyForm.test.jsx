@@ -379,4 +379,37 @@ describe('PropertyForm', () => {
 
     expect(await screen.findByText('Commission already paid — reverse payment first.')).toBeInTheDocument()
   })
+
+  it('sends an un-sell through the sale-aware save with a null seller', async () => {
+    savePropertyWithCommission.mockResolvedValue({ id: 'p7' })
+    const user = userEvent.setup()
+    const existing = { id: 'p7', ...payload, status: 'sold', sold_by: 'a1' }
+
+    render(<PropertyForm mode="edit" property={existing} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    await user.selectOptions(screen.getByLabelText('Status'), 'available')
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Save Changes' }))
+
+    expect(savePropertyWithCommission).toHaveBeenCalledWith({
+      mode: 'edit',
+      propertyId: 'p7',
+      payload: expect.objectContaining({ status: 'available', sold_by: null }),
+    })
+  })
+
+  it('shows field errors returned by the sales API', async () => {
+    savePropertyWithCommission.mockRejectedValue({ fieldErrors: { sold_by: 'Select an active selling agent.' } })
+    const user = userEvent.setup()
+    const existing = { id: 'p7', ...payload, status: 'sold', sold_by: 'a1' }
+
+    render(<PropertyForm mode="edit" property={existing} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Save Changes' }))
+
+    expect(await screen.findByText('Select an active selling agent.')).toBeInTheDocument()
+  })
 })

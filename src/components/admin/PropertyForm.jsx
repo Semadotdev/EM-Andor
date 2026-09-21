@@ -71,6 +71,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
   const setField = (field) => (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value
     setForm((f) => ({ ...f, [field]: value }))
+    if (field === 'status' && value !== 'sold') setAgentsState('idle')
     setErrors((errs) => ({ ...errs, [field]: undefined }))
   }
 
@@ -433,6 +434,9 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
                 <option value="">
                   {agentsState === 'loading' ? 'Loading agents…' : agentsState === 'error' ? 'Could not load agents' : 'Select agent…'}
                 </option>
+                {sellerId && !agents.some((a) => a.id === sellerId) && (
+                  <option value={sellerId}>Current seller (inactive or unavailable)</option>
+                )}
                 {agents.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name} ({ROLE_LABELS[a.role] ?? a.role})
@@ -514,7 +518,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
             <div className="flex justify-between gap-4">
               <dt className="font-semibold text-brand-deep shrink-0">Selling Agent</dt>
               <dd className="text-right text-ink/70 truncate">
-                {agents.find((a) => a.id === sellerId)?.name ?? '—'}
+                {agents.find((a) => a.id === sellerId)?.name ?? (sellerId ? 'Current seller (inactive)' : '—')}
               </dd>
             </div>
           )}
