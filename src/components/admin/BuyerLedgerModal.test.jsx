@@ -98,6 +98,7 @@ describe('BuyerLedgerModal', () => {
     expect(screen.getByText('₱ 1,500')).toBeInTheDocument()
     expect(screen.getByText('12 months')).toBeInTheDocument()
     expect(screen.getByText('Cebu City')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toHaveClass('max-w-6xl')
     expect(fetchSale).toHaveBeenCalledWith('l1')
     expect(fetchPayments).toHaveBeenCalledWith('l1')
   })

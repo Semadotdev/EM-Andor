@@ -186,7 +186,7 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
   const lotLabel = `Block ${lot.block_no ?? '—'} Lot ${lot.lot_no ?? '—'}`
 
   return (
-    <Modal open onClose={onClose} label="Buyer ledger" size="xl">
+    <Modal open onClose={onClose} label="Buyer ledger" size="2xl">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="font-display text-xl font-extrabold text-brand-deep">Buyer's Ledger</h2>
         <button onClick={onClose} className="rounded-md px-2 py-1 text-ink/50 hover:text-ink" aria-label="Close">

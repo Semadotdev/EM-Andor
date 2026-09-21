@@ -49,6 +49,16 @@ describe('Modal', () => {
     expect(screen.getByRole('dialog')).toHaveClass('max-w-2xl')
   })
 
+  it('applies the 2xl size', () => {
+    render(
+      <Modal open onClose={vi.fn()} title="Extra wide" size="2xl">
+        Body
+      </Modal>,
+    )
+
+    expect(screen.getByRole('dialog')).toHaveClass('max-w-6xl')
+  })
+
   it('renders the footer slot', () => {
     render(
       <Modal open onClose={vi.fn()} title="Footer" footer={<button>Save</button>}>
