@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { fetchCommissions, fetchTeamSales } from '../../lib/sales.js'
 import { ROLE_LABELS } from '../../lib/agentMeta.js'
 import { formatPrice } from '../../lib/format.js'
+import { Badge, ErrorState, LoadingState, PageHeader } from '../shared/ui'
 
 export default function AgentDownline({ members: membersProp }) {
   const context = useOutletContext()
@@ -29,14 +30,10 @@ export default function AgentDownline({ members: membersProp }) {
 
   return (
     <div>
-      <h1 className="mb-6 font-display text-2xl font-extrabold text-brand-deep">My Downline</h1>
+      <PageHeader title="My Downline" description="Sales and commission activity of the agents under you." />
 
-      {state === 'loading' && <p className="py-10 text-center text-ink/60">Loading downline…</p>}
-      {state === 'error' && (
-        <p className="rounded-lg border border-mist bg-white p-10 text-center text-ink/60">
-          Could not load your downline. Please refresh.
-        </p>
-      )}
+      {state === 'loading' && <LoadingState label="Loading downline…" />}
+      {state === 'error' && <ErrorState message="Could not load your downline. Please refresh." />}
 
       {state === 'ready' && (
         <div className="space-y-4">
@@ -49,9 +46,9 @@ export default function AgentDownline({ members: membersProp }) {
             return (
               <div key={member.id} className="rounded-lg border border-mist bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
+                  <div className="flex items-center gap-2">
                     <p className="font-semibold text-brand-deep">{member.name}</p>
-                    <p className="text-xs text-ink/50">{ROLE_LABELS[member.role] ?? member.role}</p>
+                    <Badge tone="gray">{ROLE_LABELS[member.role] ?? member.role}</Badge>
                   </div>
                   <div className="flex flex-wrap gap-3 text-xs font-semibold text-ink/70">
                     <span>Sold Lots: {memberSales.length}</span>

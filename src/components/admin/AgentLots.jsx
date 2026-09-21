@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchProperties } from '../../lib/api.js'
 import { formatPrice } from '../../lib/format.js'
+import { Badge, EmptyState, ErrorState, LoadingState, PageHeader } from '../shared/ui'
 
 export default function AgentLots() {
   const [lots, setLots] = useState([])
@@ -22,20 +23,11 @@ export default function AgentLots() {
 
   return (
     <div>
-      <h1 className="mb-2 font-display text-2xl font-extrabold text-brand-deep">Available Lots</h1>
-      <p className="mb-6 text-sm text-ink/60">Lots you can sell. Coordinate with the admin to close a deal.</p>
+      <PageHeader title="Available Lots" description="Lots you can sell. Coordinate with the admin to close a deal." />
 
-      {state === 'loading' && <p className="py-10 text-center text-ink/60">Loading lots…</p>}
-      {state === 'error' && (
-        <p className="rounded-lg border border-mist bg-white p-10 text-center text-ink/60">
-          Could not load lots. Please refresh.
-        </p>
-      )}
-      {state === 'ready' && lots.length === 0 && (
-        <p className="rounded-lg border border-mist bg-white p-10 text-center text-ink/60">
-          No available lots right now.
-        </p>
-      )}
+      {state === 'loading' && <LoadingState label="Loading lots…" />}
+      {state === 'error' && <ErrorState message="Could not load lots. Please refresh." />}
+      {state === 'ready' && lots.length === 0 && <EmptyState message="No available lots right now." />}
 
       {state === 'ready' && lots.length > 0 && (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -49,7 +41,7 @@ export default function AgentLots() {
               <div className="space-y-1.5 p-4">
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="font-display font-bold text-brand-deep">{lot.name}</h2>
-                  <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-bold text-green-700">Available</span>
+                  <Badge tone="green">Available</Badge>
                 </div>
                 <p className="text-sm text-ink/60">{lot.location}</p>
                 <p className="text-sm font-semibold text-ink">{formatPrice(lot.price) ?? 'Price on request'}</p>

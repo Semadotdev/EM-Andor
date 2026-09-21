@@ -4,6 +4,9 @@ import { fetchCommissions } from '../../lib/sales.js'
 import { ROLE_LABELS } from '../../lib/agentMeta.js'
 import { formatPrice } from '../../lib/format.js'
 import { formatRate } from '../../lib/commissions.js'
+import { Badge, DataTable, ErrorState, LoadingState, PageHeader } from '../shared/ui'
+
+const commissionTone = (status) => (status === 'paid' ? 'green' : 'yellow')
 
 export default function AgentCommissions({ agent: agentProp }) {
   const context = useOutletContext()
@@ -28,16 +31,53 @@ export default function AgentCommissions({ agent: agentProp }) {
   const earned = rows.reduce((sum, c) => sum + Number(c.amount), 0)
   const paid = rows.filter((c) => c.status === 'paid').reduce((sum, c) => sum + Number(c.amount), 0)
 
+  const columns = [
+    { key: 'property', header: 'Property', className: 'font-semibold text-brand-deep', render: (row) => row.properties?.name ?? '—' },
+    {
+      key: 'level',
+      header: 'Level',
+      hideBelow: 'sm',
+      className: 'text-ink/70',
+      render: (row) => ROLE_LABELS[row.role_at_sale] ?? row.role_at_sale,
+    },
+    { key: 'rate', header: 'Rate', hideBelow: 'sm', className: 'text-ink/70', render: (row) => formatRate(row.rate) },
+    { key: 'amount', header: 'Amount', className: 'font-semibold text-ink', render: (row) => formatPrice(row.amount) ?? '—' },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (row) => <Badge tone={commissionTone(row.status)}>{row.status === 'paid' ? 'Paid' : 'Earned'}</Badge>,
+    },
+  ]
+
+  const commissionCard = (row) => (
+    <div className="rounded-lg border border-mist bg-white p-4">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="font-semibold text-brand-deep">{row.properties?.name ?? '—'}</p>
+        <Badge tone={commissionTone(row.status)}>{row.status === 'paid' ? 'Paid' : 'Earned'}</Badge>
+      </div>
+      <dl className="space-y-1 text-sm">
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Level</dt>
+          <dd className="text-ink/70">{ROLE_LABELS[row.role_at_sale] ?? row.role_at_sale}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Rate</dt>
+          <dd className="text-ink/70">{formatRate(row.rate)}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Amount</dt>
+          <dd className="font-semibold text-ink">{formatPrice(row.amount) ?? '—'}</dd>
+        </div>
+      </dl>
+    </div>
+  )
+
   return (
     <div>
-      <h1 className="mb-6 font-display text-2xl font-extrabold text-brand-deep">My Commissions</h1>
+      <PageHeader title="My Commissions" description="Your commission earnings and their payout status." />
 
-      {state === 'loading' && <p className="py-10 text-center text-ink/60">Loading commissions…</p>}
-      {state === 'error' && (
-        <p className="rounded-lg border border-mist bg-white p-10 text-center text-ink/60">
-          Could not load your commissions. Please refresh.
-        </p>
-      )}
+      {state === 'loading' && <LoadingState label="Loading commissions…" />}
+      {state === 'error' && <ErrorState message="Could not load your commissions. Please refresh." />}
 
       {state === 'ready' && (
         <>
@@ -56,38 +96,13 @@ export default function AgentCommissions({ agent: agentProp }) {
             </div>
           </div>
 
-          {rows.length === 0 ? (
-            <p className="rounded-lg border border-mist bg-white p-10 text-center text-ink/60">No commissions yet.</p>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border border-mist bg-white">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-mist bg-surface text-xs font-bold uppercase tracking-wide text-ink/60">
-                  <tr>
-                    <th className="px-4 py-3">Property</th>
-                    <th className="hidden px-4 py-3 sm:table-cell">Level</th>
-                    <th className="hidden px-4 py-3 sm:table-cell">Rate</th>
-                    <th className="px-4 py-3">Amount</th>
-                    <th className="px-4 py-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.id} className="border-b border-mist/70 last:border-0">
-                      <td className="px-4 py-3 font-semibold text-brand-deep">{row.properties?.name ?? '—'}</td>
-                      <td className="hidden px-4 py-3 text-ink/70 sm:table-cell">{ROLE_LABELS[row.role_at_sale] ?? row.role_at_sale}</td>
-                      <td className="hidden px-4 py-3 text-ink/70 sm:table-cell">{formatRate(row.rate)}</td>
-                      <td className="px-4 py-3 font-semibold text-ink">{formatPrice(row.amount) ?? '—'}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${row.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                          {row.status === 'paid' ? 'Paid' : 'Earned'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            columns={columns}
+            rows={rows}
+            getRowKey={(row) => row.id}
+            emptyMessage="No commissions yet."
+            mobileCard={commissionCard}
+          />
         </>
       )}
     </div>

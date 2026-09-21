@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import AgentCommissions from './AgentCommissions.jsx'
+import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/sales.js', () => ({ fetchCommissions: vi.fn() }))
 
@@ -22,9 +23,10 @@ describe('AgentCommissions', () => {
 
     render(<AgentCommissions agent={{ id: 'a1', name: 'Ana' }} />)
 
-    expect(await screen.findByText('Lot A')).toBeInTheDocument()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Lot A')).toBeInTheDocument()
     expect(screen.getByText('₱ 45,000')).toBeInTheDocument()
-    expect(screen.getAllByText('₱ 15,000')).toHaveLength(2)
+    expect(within(table).getByText('₱ 15,000')).toBeInTheDocument()
     expect(fetchCommissions).toHaveBeenCalledWith({ agentId: 'a1' })
   })
 
