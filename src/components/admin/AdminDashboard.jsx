@@ -71,19 +71,20 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => {
-    if (!session?.user) return
+    if (!session?.user?.id) return
     let mounted = true
     fetchCurrentAgent()
       .then((row) => {
         if (!mounted) return
         setAgent(row)
-        setTab(row.role === 'admin' ? 'properties' : 'lots')
+        setAgentError(null)
+        setTab((current) => current ?? (row.role === 'admin' ? 'properties' : 'lots'))
       })
       .catch(() => {
         if (mounted) setAgentError('Your account is not linked to an agent profile. Contact the administrator.')
       })
     return () => { mounted = false }
-  }, [session])
+  }, [session?.user?.id])
 
   useEffect(() => {
     if (!agent || agent.role === 'admin') return
@@ -141,7 +142,7 @@ export default function AdminDashboard() {
           <AgentStats agent={agent} downlineCount={downline.length} />
         )}
 
-        <nav className="mb-8 flex gap-2 overflow-x-auto pb-2 scrollbar-thin" aria-label="Admin sections">
+        <nav className="mb-8 flex gap-2 overflow-x-auto pb-2 scrollbar-thin" aria-label={isAdmin ? 'Admin sections' : 'Agent sections'}>
           {tabs.map((t) => (
             <button
               key={t.id}

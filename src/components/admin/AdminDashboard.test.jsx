@@ -188,4 +188,24 @@ describe('AdminDashboard', () => {
     await screen.findByText('AgentLotsPanel')
     expect(screen.queryByRole('button', { name: 'My Downline' })).not.toBeInTheDocument()
   })
+
+  it('keeps the selected tab across auth state events', async () => {
+    supabase.auth.getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } })
+    const user = userEvent.setup()
+
+    renderDashboard()
+
+    await waitFor(() => {
+      expect(screen.getByText('PropertiesPanel')).toBeInTheDocument()
+    })
+    await user.click(screen.getByRole('button', { name: 'Notifications' }))
+    await waitFor(() => {
+      expect(screen.getByText('NotificationsPanel')).toBeInTheDocument()
+    })
+
+    const listener = supabase.auth.onAuthStateChange.mock.calls[0][0]
+    listener('TOKEN_REFRESHED', { user: { id: 'u1' } })
+
+    expect(screen.getByText('NotificationsPanel')).toBeInTheDocument()
+  })
 })
