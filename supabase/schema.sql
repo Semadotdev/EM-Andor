@@ -177,30 +177,26 @@ create policy "agent read commissions" on public.commissions
 alter table public.properties enable row level security;
 alter table public.inquiries enable row level security;
 
--- ⚠️ IMPORTANT: replace the admin email below with the real admin account email
--- before running this file. The admin dashboard only works for this account.
--- Create the user in Supabase → Authentication → Users, then set their email here.
-do $$
-declare admin_email text := 'admin@gmail.com';
-begin
-  drop policy if exists "admin all on properties" on public.properties;
-  execute format(
-    'create policy "admin all on properties" on public.properties
-       for all to authenticated
-       using (auth.jwt() ->> ''email'' = %L)
-       with check (auth.jwt() ->> ''email'' = %L)',
-    admin_email, admin_email
+drop policy if exists "admin all on properties" on public.properties;
+create policy "admin all on properties" on public.properties
+  for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "agent read properties" on public.properties;
+create policy "agent read properties" on public.properties
+  for select to authenticated
+  using (
+    status = 'available'
+    or sold_by = public.current_agent_id()
+    or sold_by in (select public.get_downline(public.current_agent_id()))
   );
 
-  drop policy if exists "admin all on inquiries" on public.inquiries;
-  execute format(
-    'create policy "admin all on inquiries" on public.inquiries
-       for all to authenticated
-       using (auth.jwt() ->> ''email'' = %L)
-       with check (auth.jwt() ->> ''email'' = %L)',
-    admin_email, admin_email
-  );
-end $$;
+drop policy if exists "admin all on inquiries" on public.inquiries;
+create policy "admin all on inquiries" on public.inquiries
+  for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 drop policy if exists "public read pinned properties" on public.properties;
 create policy "public read pinned properties" on public.properties
@@ -220,19 +216,20 @@ create policy "public read property-images" on storage.objects
 
 drop policy if exists "admin read property-images" on storage.objects;
 create policy "admin read property-images" on storage.objects
-  for select to authenticated using (bucket_id = 'property-images');
+  for select to authenticated using (bucket_id = 'property-images' and public.is_admin());
 
 drop policy if exists "admin insert property-images" on storage.objects;
 create policy "admin insert property-images" on storage.objects
-  for insert to authenticated with check (bucket_id = 'property-images');
+  for insert to authenticated with check (bucket_id = 'property-images' and public.is_admin());
 
 drop policy if exists "admin update property-images" on storage.objects;
 create policy "admin update property-images" on storage.objects
-  for update to authenticated using (bucket_id = 'property-images') with check (bucket_id = 'property-images');
+  for update to authenticated using (bucket_id = 'property-images' and public.is_admin())
+  with check (bucket_id = 'property-images' and public.is_admin());
 
 drop policy if exists "admin delete property-images" on storage.objects;
 create policy "admin delete property-images" on storage.objects
-  for delete to authenticated using (bucket_id = 'property-images');
+  for delete to authenticated using (bucket_id = 'property-images' and public.is_admin());
 
 -- updated_at trigger
 create or replace function public.set_updated_at()
@@ -278,18 +275,11 @@ create table if not exists public.activity_log (
 
 alter table public.activity_log enable row level security;
 
-do $$
-declare admin_email text := 'admin@gmail.com';
-begin
-  drop policy if exists "admin all on activity_log" on public.activity_log;
-  execute format(
-    'create policy "admin all on activity_log" on public.activity_log
-       for all to authenticated
-       using (auth.jwt() ->> ''email'' = %L)
-       with check (auth.jwt() ->> ''email'' = %L)',
-    admin_email, admin_email
-  );
-end $$;
+drop policy if exists "admin all on activity_log" on public.activity_log;
+create policy "admin all on activity_log" on public.activity_log
+  for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- CMS Content table
 create table if not exists public.cms_content (
@@ -306,18 +296,11 @@ create table if not exists public.cms_content (
 
 alter table public.cms_content enable row level security;
 
-do $$
-declare admin_email text := 'admin@gmail.com';
-begin
-  drop policy if exists "admin all on cms_content" on public.cms_content;
-  execute format(
-    'create policy "admin all on cms_content" on public.cms_content
-       for all to authenticated
-       using (auth.jwt() ->> ''email'' = %L)
-       with check (auth.jwt() ->> ''email'' = %L)',
-    admin_email, admin_email
-  );
-end $$;
+drop policy if exists "admin all on cms_content" on public.cms_content;
+create policy "admin all on cms_content" on public.cms_content
+  for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 drop policy if exists "public read published cms_content" on public.cms_content;
 create policy "public read published cms_content" on public.cms_content
@@ -348,18 +331,11 @@ create table if not exists public.notification_settings (
 
 alter table public.notification_settings enable row level security;
 
-do $$
-declare admin_email text := 'admin@gmail.com';
-begin
-  drop policy if exists "admin all on notification_settings" on public.notification_settings;
-  execute format(
-    'create policy "admin all on notification_settings" on public.notification_settings
-       for all to authenticated
-       using (auth.jwt() ->> ''email'' = %L)
-       with check (auth.jwt() ->> ''email'' = %L)',
-    admin_email, admin_email
-  );
-end $$;
+drop policy if exists "admin all on notification_settings" on public.notification_settings;
+create policy "admin all on notification_settings" on public.notification_settings
+  for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 drop trigger if exists set_updated_at on public.notification_settings;
 create trigger set_updated_at before update on public.notification_settings
@@ -377,18 +353,11 @@ create table if not exists public.notification_history (
 
 alter table public.notification_history enable row level security;
 
-do $$
-declare admin_email text := 'admin@gmail.com';
-begin
-  drop policy if exists "admin all on notification_history" on public.notification_history;
-  execute format(
-    'create policy "admin all on notification_history" on public.notification_history
-       for all to authenticated
-       using (auth.jwt() ->> ''email'' = %L)
-       with check (auth.jwt() ->> ''email'' = %L)',
-    admin_email, admin_email
-  );
-end $$;
+drop policy if exists "admin all on notification_history" on public.notification_history;
+create policy "admin all on notification_history" on public.notification_history
+  for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- Seed default notification settings
 insert into public.notification_settings (notification_type, subject_template, body_template, recipients) values
@@ -396,3 +365,8 @@ insert into public.notification_settings (notification_type, subject_template, b
   ('status_change', 'Property Status Update: {property_name}', 'The status of {property_name} has been changed to {property_status}.', '{}'),
   ('property_sold', 'Property Sold: {property_name}', 'Congratulations! {property_name} has been marked as sold on {date}.', '{}')
 on conflict (notification_type) do nothing;
+
+-- Bootstrap the admin agent row after creating the login in Authentication → Users:
+-- insert into public.agents (user_id, email, name, role)
+-- select id, email, 'Admin', 'admin' from auth.users where email = 'admin@gmail.com'
+-- on conflict (email) do update set role = 'admin', user_id = excluded.user_id, is_active = true;
