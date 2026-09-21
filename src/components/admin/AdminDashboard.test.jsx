@@ -11,6 +11,17 @@ vi.mock('./AdminNotifications.jsx', () => ({ default: () => <span>NotificationsP
 vi.mock('./AdminActivityLog.jsx', () => ({ default: () => <span>ActivityLogPanel</span> }))
 vi.mock('./DashboardStats.jsx', () => ({ default: () => <span>StatsPanel</span> }))
 vi.mock('../shared/Logo.jsx', () => ({ default: () => <span>Logo</span> }))
+vi.mock('./AdminAgents.jsx', () => ({ default: () => <span>AgentsPanel</span> }))
+vi.mock('./AdminCommissions.jsx', () => ({ default: () => <span>AdminCommissionsPanel</span> }))
+vi.mock('./AgentStats.jsx', () => ({ default: () => <span>AgentStatsPanel</span> }))
+vi.mock('./AgentLots.jsx', () => ({ default: () => <span>AgentLotsPanel</span> }))
+vi.mock('./AgentSales.jsx', () => ({ default: () => <span>AgentSalesPanel</span> }))
+vi.mock('./AgentCommissions.jsx', () => ({ default: () => <span>AgentCommissionsPanel</span> }))
+vi.mock('./AgentDownline.jsx', () => ({ default: () => <span>AgentDownlinePanel</span> }))
+vi.mock('../../lib/agents.js', () => ({
+  fetchCurrentAgent: vi.fn(),
+  fetchMyDownline: vi.fn().mockResolvedValue([]),
+}))
 
 vi.mock('../../lib/supabase.js', () => ({
   supabase: {
@@ -23,6 +34,7 @@ vi.mock('../../lib/supabase.js', () => ({
 }))
 
 import { supabase } from '../../lib/supabase.js'
+import { fetchCurrentAgent, fetchMyDownline } from '../../lib/agents.js'
 
 function renderDashboard() {
   return render(
@@ -38,6 +50,7 @@ function renderDashboard() {
 describe('AdminDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    fetchCurrentAgent.mockResolvedValue({ id: 'admin1', name: 'Admin', role: 'admin', is_active: true })
   })
 
   it('redirects to /admin/login when there is no session', async () => {
@@ -151,5 +164,28 @@ describe('AdminDashboard', () => {
     await waitFor(() => {
       expect(screen.getByText('ActivityLogPanel')).toBeInTheDocument()
     })
+  })
+
+  it('shows agent tabs for a sub agent and hides admin-only panels', async () => {
+    supabase.auth.getSession.mockResolvedValue({ data: { session: { user: { id: 'u2' } } } })
+    fetchCurrentAgent.mockResolvedValue({ id: 'a1', name: 'Ana', role: 'sub_agent', is_active: true })
+    fetchMyDownline.mockResolvedValue([{ id: 'a2', name: 'Downline', role: 'sub_agent' }])
+
+    renderDashboard()
+
+    expect(await screen.findByText('AgentLotsPanel')).toBeInTheDocument()
+    expect(screen.getByText('AgentStatsPanel')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Properties' })).not.toBeInTheDocument()
+  })
+
+  it('shows the downline tab only when the agent has a downline', async () => {
+    supabase.auth.getSession.mockResolvedValue({ data: { session: { user: { id: 'u2' } } } })
+    fetchCurrentAgent.mockResolvedValue({ id: 'a1', name: 'Ana', role: 'sub_agent', is_active: true })
+    fetchMyDownline.mockResolvedValue([])
+
+    renderDashboard()
+
+    await screen.findByText('AgentLotsPanel')
+    expect(screen.queryByRole('button', { name: 'My Downline' })).not.toBeInTheDocument()
   })
 })
