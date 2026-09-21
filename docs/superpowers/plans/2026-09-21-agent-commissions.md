@@ -1323,7 +1323,7 @@ import { applyEligiblePromotions, fetchAllAgents, fetchCommissionRatesMap } from
 
 function chain(result) {
   const c = {}
-  for (const m of ['select', 'eq', 'order', 'update', 'delete', 'insert', 'single', 'neq', 'in', 'upsert', 'limit']) {
+  for (const m of ['select', 'eq', 'order', 'update', 'delete', 'insert', 'single', 'neq', 'in', 'upsert', 'limit', 'maybeSingle']) {
     c[m] = vi.fn(() => c)
   }
   c.then = (onFulfilled) => Promise.resolve(result).then(onFulfilled)
@@ -1653,7 +1653,8 @@ Append:
     expect(await fetchMySales('a1')).toEqual(sales)
     expect(supabase.from).toHaveBeenCalledWith('properties')
     expect(c.eq).toHaveBeenCalledWith('sold_by', 'a1')
-    expect(c.order).toHaveBeenCalledWith('sold_at', { ascending: false })
+    expect(c.eq).toHaveBeenCalledWith('status', 'sold')
+    expect(c.order).toHaveBeenCalledWith('sold_at', { ascending: false, nullsFirst: false })
   })
 
   it('fetchTeamSales returns nothing for an empty team', async () => {
@@ -1668,6 +1669,8 @@ Append:
 
     expect(await fetchTeamSales(['a1', 'a2'])).toEqual(sales)
     expect(c.in).toHaveBeenCalledWith('sold_by', ['a1', 'a2'])
+    expect(c.eq).toHaveBeenCalledWith('status', 'sold')
+    expect(c.order).toHaveBeenCalledWith('sold_at', { ascending: false, nullsFirst: false })
   })
 
   it('fetchCommissions applies agent and status filters', async () => {
@@ -1678,6 +1681,8 @@ Append:
     const result = await fetchCommissions({ agentId: 'a1', status: 'earned' })
 
     expect(result).toEqual(rows)
+    expect(c.select).toHaveBeenCalledWith('*, properties(name), agents(name, role)')
+    expect(c.order).toHaveBeenCalledWith('created_at', { ascending: false })
     expect(c.eq).toHaveBeenCalledWith('agent_id', 'a1')
     expect(c.eq).toHaveBeenCalledWith('status', 'earned')
   })
@@ -1693,7 +1698,14 @@ Append:
     expect(supabase.from).toHaveBeenCalledWith('commissions')
     expect(c.update).toHaveBeenCalledWith({ status: 'paid', paid_at: expect.any(String) })
     expect(c.eq).toHaveBeenCalledWith('id', 'c1')
+    expect(c.eq).toHaveBeenCalledWith('status', 'earned')
     expect(logActivity).toHaveBeenCalledWith('commission', 'c1', 'paid', { amount: 30000 })
+  })
+
+  it('markCommissionPaid rejects an already paid commission', async () => {
+    supabase.from.mockReturnValue(chain({ data: null, error: null }))
+
+    await expect(markCommissionPaid('c1')).rejects.toThrow('Commission is already paid.')
   })
 ```
 
@@ -1712,7 +1724,8 @@ export async function fetchMySales(agentId) {
     .from('properties')
     .select('*')
     .eq('sold_by', agentId)
-    .order('sold_at', { ascending: false })
+    .eq('status', 'sold')
+    .order('sold_at', { ascending: false, nullsFirst: false })
   if (error) throw error
   return data ?? []
 }
@@ -1723,7 +1736,8 @@ export async function fetchTeamSales(agentIds) {
     .from('properties')
     .select('*')
     .in('sold_by', agentIds)
-    .order('sold_at', { ascending: false })
+    .eq('status', 'sold')
+    .order('sold_at', { ascending: false, nullsFirst: false })
   if (error) throw error
   return data ?? []
 }
@@ -1745,9 +1759,11 @@ export async function markCommissionPaid(id) {
     .from('commissions')
     .update({ status: 'paid', paid_at: new Date().toISOString() })
     .eq('id', id)
+    .eq('status', 'earned')
     .select()
-    .single()
+    .maybeSingle()
   if (error) throw error
+  if (!data) throw new Error('Commission is already paid.')
   logActivity('commission', id, 'paid', { amount: data.amount }).catch(() => {})
   return data
 }
@@ -1756,7 +1772,7 @@ export async function markCommissionPaid(id) {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run src/lib/sales.test.js`
-Expected: PASS — 15 tests.
+Expected: PASS — 16 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -4146,6 +4162,7 @@ Expected: no matches (the bootstrap snippet uses `'admin@gmail.com'` only inside
 9. Promotion checks: record 5 own sales for a Sub Agent with 5 registered recruits (create the recruits through the Agents tab) and confirm the role flips to **Direct Agent** in the tree; confirm a Direct Agent with 5 Direct Agents in the downline flips to **Agent Head**.
 10. Sign in as an agent: confirm only the four agent tabs render, **Available Lots** lists available properties, and another agent's commissions are not visible.
 11. Un-sale a property whose commissions are all **Earned**: confirm the commission rows disappear. Mark one **Paid**, then attempt to un-sale: expect the "Commission already paid — reverse payment first." block.
+12. Legacy sold lots (sold before this feature) have no `sold_by`, so they do not appear in agent sales or commission totals. Attribute them by editing each sold lot in the admin Properties tab, selecting the selling agent, and saving — the sale-aware save stamps `sold_by`/`sold_at` and generates the commission rows.
 
 - [ ] **Step 5: Commit any fix-ups**
 
