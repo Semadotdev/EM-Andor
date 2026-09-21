@@ -1350,12 +1350,17 @@ describe('sales', () => {
     createProperty.mockResolvedValue(property)
     fetchAllAgents.mockResolvedValue([sub, direct])
     fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.03, direct_agent: 0.015 })
-    supabase.from.mockImplementation(() => chain({ data: [{ id: 'c1' }, { id: 'c2' }], error: null }))
+    const insertChain = chain({ data: [{ id: 'c1' }, { id: 'c2' }], error: null })
+    supabase.from.mockImplementation(() => insertChain)
 
     const saved = await savePropertyWithCommission({ mode: 'create', payload: soldPayload })
 
     expect(createProperty).toHaveBeenCalledWith(soldPayload)
     expect(supabase.from).toHaveBeenCalledWith('commissions')
+    expect(insertChain.insert).toHaveBeenCalledWith([
+      expect.objectContaining({ property_id: 'p1', agent_id: 'a1', role_at_sale: 'sub_agent', sale_price: 1000000, rate: 0.03, amount: 30000, status: 'earned' }),
+      expect.objectContaining({ property_id: 'p1', agent_id: 'a2', role_at_sale: 'direct_agent', rate: 0.015, amount: 15000, status: 'earned' }),
+    ])
     expect(applyEligiblePromotions).toHaveBeenCalled()
     expect(saved).toEqual(property)
   })
@@ -1375,10 +1380,11 @@ describe('sales', () => {
   it('un-selling clears earned commission rows', async () => {
     const existing = property
     updateProperty.mockResolvedValue({ ...property, status: 'available', sold_by: null })
+    const deleteChain = chain({ data: null, error: null })
     supabase.from
       .mockImplementationOnce(() => chain({ data: existing, error: null }))
       .mockImplementationOnce(() => chain({ data: [{ id: 'c1', status: 'earned' }], error: null }))
-      .mockImplementationOnce(() => chain({ data: null, error: null }))
+      .mockImplementationOnce(() => deleteChain)
 
     await savePropertyWithCommission({
       mode: 'edit',
@@ -1386,6 +1392,8 @@ describe('sales', () => {
       payload: { ...soldPayload, status: 'available', sold_by: null },
     })
 
+    expect(deleteChain.delete).toHaveBeenCalled()
+    expect(deleteChain.eq).toHaveBeenCalledWith('property_id', 'p1')
     expect(updateProperty).toHaveBeenCalledWith('p1', expect.objectContaining({ status: 'available' }))
   })
 
@@ -1422,14 +1430,19 @@ describe('sales', () => {
     updateProperty.mockResolvedValue({ ...property, sold_by: 'a1' })
     fetchAllAgents.mockResolvedValue([sub, direct])
     fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.03, direct_agent: 0.015 })
+    const insertChain = chain({ data: [{ id: 'c2' }, { id: 'c3' }], error: null })
     supabase.from
       .mockImplementationOnce(() => chain({ data: existing, error: null }))
       .mockImplementationOnce(() => chain({ data: [{ id: 'c1', status: 'earned' }], error: null }))
       .mockImplementationOnce(() => chain({ data: null, error: null }))
-      .mockImplementationOnce(() => chain({ data: [{ id: 'c2' }, { id: 'c3' }], error: null }))
+      .mockImplementationOnce(() => insertChain)
 
     await savePropertyWithCommission({ mode: 'edit', propertyId: 'p1', payload: soldPayload })
 
+    expect(insertChain.insert).toHaveBeenCalledWith([
+      expect.objectContaining({ property_id: 'p1', agent_id: 'a1', role_at_sale: 'sub_agent', rate: 0.03, amount: 30000, status: 'earned' }),
+      expect.objectContaining({ property_id: 'p1', agent_id: 'a2', role_at_sale: 'direct_agent', rate: 0.015, amount: 15000, status: 'earned' }),
+    ])
     expect(updateProperty).toHaveBeenCalledWith('p1', soldPayload)
   })
 })
