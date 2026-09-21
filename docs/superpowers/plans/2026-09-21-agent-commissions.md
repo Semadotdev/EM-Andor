@@ -746,10 +746,16 @@ create policy "admin delete property-images" on storage.objects
 At the very end of `supabase/schema.sql`, append:
 
 ```sql
--- Bootstrap the admin agent row after creating the login in Authentication → Users:
+-- Bootstrap the admin agent row after creating the login in Authentication → Users.
+-- Run this in the SAME maintenance session as this schema change: until it runs, the
+-- existing admin account has no access (all admin policies require public.is_admin()).
+-- If the select finds no matching auth user it inserts 0 rows and still reports success,
+-- leaving the admin locked out — always verify with the select below.
 -- insert into public.agents (user_id, email, name, role)
 -- select id, email, 'Admin', 'admin' from auth.users where email = 'admin@gmail.com'
 -- on conflict (email) do update set role = 'admin', user_id = excluded.user_id, is_active = true;
+-- verify (must return exactly 1 row: role = 'admin', is_active = true, user_id not null):
+-- select id, email, role, user_id, is_active from public.agents where email = 'admin@gmail.com';
 ```
 
 - [ ] **Step 7b: Move the `status` column addition before its first policy use**
