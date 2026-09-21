@@ -174,6 +174,9 @@ create policy "agent read commissions" on public.commissions
     or agent_id in (select public.get_downline(public.current_agent_id()))
   );
 
+-- Add status to properties
+alter table public.properties add column if not exists status text not null default 'available';
+
 alter table public.properties enable row level security;
 alter table public.inquiries enable row level security;
 
@@ -259,9 +262,6 @@ alter table public.inquiries add column if not exists updated_at timestamptz not
 drop trigger if exists set_updated_at on public.inquiries;
 create trigger set_updated_at before update on public.inquiries
   for each row execute function public.set_updated_at();
-
--- Add status to properties
-alter table public.properties add column if not exists status text not null default 'available';
 
 -- Activity log
 create table if not exists public.activity_log (
