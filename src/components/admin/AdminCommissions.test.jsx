@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import AdminCommissions from './AdminCommissions.jsx'
 
 vi.mock('../../lib/agents.js', () => ({
+  fetchAllAgents: vi.fn().mockResolvedValue([]),
   fetchCommissionRates: vi.fn(),
   updateCommissionRates: vi.fn(),
 }))
@@ -12,7 +13,7 @@ vi.mock('../../lib/sales.js', () => ({
   markCommissionPaid: vi.fn(),
 }))
 
-import { fetchCommissionRates, updateCommissionRates } from '../../lib/agents.js'
+import { fetchAllAgents, fetchCommissionRates, updateCommissionRates } from '../../lib/agents.js'
 import { fetchCommissions, markCommissionPaid } from '../../lib/sales.js'
 
 const rates = [
@@ -70,6 +71,35 @@ describe('AdminCommissions', () => {
     expect(updateCommissionRates).toHaveBeenCalledWith(
       expect.objectContaining({ sub_agent: 0.04 }),
     )
+  })
+
+  it('filters commissions by agent and searches by property', async () => {
+    const user = userEvent.setup()
+    fetchAllAgents.mockResolvedValue([{ id: 'a1', name: 'Ana Sub', role: 'sub_agent' }])
+
+    render(<AdminCommissions />)
+
+    await screen.findByText('Ana Sub')
+    await user.selectOptions(screen.getByLabelText('Filter by agent'), 'a1')
+
+    expect(fetchCommissions).toHaveBeenLastCalledWith({ agentId: 'a1' })
+
+    await user.type(screen.getByLabelText('Search by property'), 'Lot B')
+
+    expect(screen.queryByText('Ana Sub')).not.toBeInTheDocument()
+  })
+
+  it('rejects out-of-range rates before saving', async () => {
+    const user = userEvent.setup()
+
+    render(<AdminCommissions />)
+
+    const input = await screen.findByLabelText('Sub Agent rate (%)')
+    await user.clear(input)
+    await user.click(screen.getByRole('button', { name: 'Save Rates' }))
+
+    expect(await screen.findByText('Rates must be greater than 0 and at most 100.')).toBeInTheDocument()
+    expect(updateCommissionRates).not.toHaveBeenCalled()
   })
 
   it('shows a mark-paid failure inside the confirmation modal', async () => {

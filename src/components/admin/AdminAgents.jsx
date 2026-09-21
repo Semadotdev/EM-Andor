@@ -20,6 +20,7 @@ function roleBadgeCls(role) {
 function AgentDetail({ agent, onClose }) {
   const [sales, setSales] = useState([])
   const [commissions, setCommissions] = useState([])
+  const [team, setTeam] = useState([])
   const [state, setState] = useState('loading')
 
   useEffect(() => {
@@ -32,11 +33,12 @@ function AgentDetail({ agent, onClose }) {
 
   useEffect(() => {
     let mounted = true
-    Promise.all([fetchTeamSales([agent.id]), fetchCommissions({ agentId: agent.id })])
-      .then(([s, c]) => {
+    Promise.all([fetchTeamSales([agent.id]), fetchCommissions({ agentId: agent.id }), fetchAllAgents()])
+      .then(([s, c, all]) => {
         if (!mounted) return
         setSales(s)
         setCommissions(c)
+        setTeam(all.filter((a) => a.upline_id === agent.id))
         setState('ready')
       })
       .catch(() => {
@@ -110,6 +112,22 @@ function AgentDetail({ agent, onClose }) {
                 </ul>
               )}
             </div>
+
+            <div>
+              <h3 className="mb-2 font-display text-sm font-bold text-brand-deep">Downline</h3>
+              {team.length === 0 ? (
+                <p className="text-sm text-ink/60">No agents under this one.</p>
+              ) : (
+                <ul className="space-y-1 text-sm">
+                  {team.map((member) => (
+                    <li key={member.id} className="flex justify-between gap-4">
+                      <span className="text-ink/70">{member.name}</span>
+                      <span className="text-xs font-semibold uppercase text-ink/50">{ROLE_LABELS[member.role] ?? member.role}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -167,6 +185,7 @@ function AgentNode({ node, depth, eligibility, onView, onToggle, pending }) {
 
 export default function AdminAgents() {
   const [agents, setAgents] = useState([])
+  const [search, setSearch] = useState('')
   const [soldCounts, setSoldCounts] = useState({})
   const [state, setState] = useState('loading')
   const [error, setError] = useState(null)
@@ -191,7 +210,10 @@ export default function AdminAgents() {
   useEffect(load, [load])
 
   const eligibility = useMemo(() => eligibleAgents(agents, soldCounts), [agents, soldCounts])
-  const tree = useMemo(() => buildAgentTree(agents), [agents])
+  const filtered = search
+    ? agents.filter((a) => `${a.name} ${a.email}`.toLowerCase().includes(search.toLowerCase()))
+    : agents
+  const tree = useMemo(() => buildAgentTree(filtered), [filtered])
 
   const handleToggle = async () => {
     if (!confirmToggle || toggling) return
@@ -239,6 +261,19 @@ export default function AdminAgents() {
         <p className="rounded-lg border border-mist bg-white p-10 text-center text-ink/60">
           No agents yet. Click "Create Agent" to add the first one.
         </p>
+      )}
+
+      {state === 'ready' && agents.length > 0 && (
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="Search name or email…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search agents"
+            className="w-full rounded-md border border-mist px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/30 sm:max-w-sm"
+          />
+        </div>
       )}
 
       {state === 'ready' && agents.length > 0 && (

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchCommissionRates, updateCommissionRates } from '../../lib/agents.js'
+import { fetchAllAgents, fetchCommissionRates, updateCommissionRates } from '../../lib/agents.js'
 import { ROLE_LABELS } from '../../lib/agentMeta.js'
 import { fetchCommissions, markCommissionPaid } from '../../lib/sales.js'
 import { formatPrice } from '../../lib/format.js'
@@ -12,6 +12,9 @@ export default function AdminCommissions() {
   const [ratesMessage, setRatesMessage] = useState('')
   const [savingRates, setSavingRates] = useState(false)
   const [commissions, setCommissions] = useState([])
+  const [agents, setAgents] = useState([])
+  const [agentFilter, setAgentFilter] = useState('')
+  const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [state, setState] = useState('loading')
   const [confirmPaid, setConfirmPaid] = useState(null)
@@ -30,22 +33,42 @@ export default function AdminCommissions() {
 
   const loadCommissions = useCallback(() => {
     setState('loading')
-    fetchCommissions(statusFilter ? { status: statusFilter } : {})
+    const filters = {}
+    if (statusFilter) filters.status = statusFilter
+    if (agentFilter) filters.agentId = agentFilter
+    fetchCommissions(filters)
       .then((rows) => {
         setCommissions(rows)
         setState('ready')
       })
       .catch(() => setState('error'))
-  }, [statusFilter])
+  }, [statusFilter, agentFilter])
 
   useEffect(loadRates, [loadRates])
   useEffect(loadCommissions, [loadCommissions])
+
+  useEffect(() => {
+    let mounted = true
+    fetchAllAgents()
+      .then((rows) => { if (mounted) setAgents(rows.filter((a) => a.role !== 'admin')) })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [])
 
   const saveRates = async (e) => {
     e.preventDefault()
     if (savingRates) return
     setSavingRates(true)
     setRatesMessage('')
+    const invalid = Object.values(rateInputs).some((value) => {
+      const num = Number(value)
+      return value === '' || Number.isNaN(num) || num <= 0 || num > 100
+    })
+    if (invalid) {
+      setRatesMessage('Rates must be greater than 0 and at most 100.')
+      setSavingRates(false)
+      return
+    }
     try {
       const payload = Object.fromEntries(
         Object.entries(rateInputs).map(([role, value]) => [role, Number(value) / 100]),
@@ -73,6 +96,12 @@ export default function AdminCommissions() {
       setSavingPaid(false)
     }
   }
+
+  const visible = search
+    ? commissions.filter((row) => (row.properties?.name ?? '').toLowerCase().includes(search.toLowerCase()))
+    : commissions
+  const earnedTotal = visible.reduce((sum, c) => sum + Number(c.amount), 0)
+  const paidTotal = visible.filter((c) => c.status === 'paid').reduce((sum, c) => sum + Number(c.amount), 0)
 
   return (
     <div>
@@ -110,7 +139,20 @@ export default function AdminCommissions() {
         {ratesMessage && <p className="mt-3 text-sm font-medium text-ink/70">{ratesMessage}</p>}
       </form>
 
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <select
+          value={agentFilter}
+          onChange={(e) => setAgentFilter(e.target.value)}
+          aria-label="Filter by agent"
+          className="rounded-md border border-mist px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/30"
+        >
+          <option value="">All Agents</option>
+          {agents.map((agent) => (
+            <option key={agent.id} value={agent.id}>
+              {agent.name} ({ROLE_LABELS[agent.role] ?? agent.role})
+            </option>
+          ))}
+        </select>
         <label htmlFor="cf-status" className="text-sm font-semibold text-brand-deep">Status</label>
         <select
           id="cf-status"
@@ -122,6 +164,14 @@ export default function AdminCommissions() {
           <option value="earned">Earned</option>
           <option value="paid">Paid</option>
         </select>
+        <input
+          type="text"
+          placeholder="Search by property…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Search by property"
+          className="flex-1 rounded-md border border-mist px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/30"
+        />
       </div>
 
       {state === 'loading' && <p className="py-10 text-center text-ink/60">Loading commissions…</p>}
@@ -138,50 +188,62 @@ export default function AdminCommissions() {
       )}
 
       {state === 'ready' && commissions.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-mist bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-mist bg-surface text-xs font-bold uppercase tracking-wide text-ink/60">
-              <tr>
-                <th className="px-4 py-3">Agent</th>
-                <th className="px-4 py-3">Property</th>
-                <th className="hidden px-4 py-3 sm:table-cell">Rate</th>
-                <th className="px-4 py-3">Amount</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {commissions.map((row) => (
-                <tr key={row.id} className="border-b border-mist/70 last:border-0">
-                  <td className="px-4 py-3 font-semibold text-brand-deep">{row.agents?.name ?? '—'}</td>
-                  <td className="px-4 py-3 text-ink/70">{row.properties?.name ?? '—'}</td>
-                  <td className="hidden px-4 py-3 text-ink/70 sm:table-cell">
-                    {formatRate(row.rate)} <span className="text-xs text-ink/50">({ROLE_LABELS[row.role_at_sale] ?? row.role_at_sale})</span>
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-ink">{formatPrice(row.amount) ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${row.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                      {row.status === 'paid' ? 'Paid' : 'Earned'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {row.status === 'earned' && (
-                      <button
-                        onClick={() => {
-                          setPaidError(null)
-                          setConfirmPaid(row)
-                        }}
-                        className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-                      >
-                        Mark Paid
-                      </button>
-                    )}
-                  </td>
+        <>
+          <div className="mb-4 grid grid-cols-2 gap-3 sm:max-w-md">
+            <div className="rounded-lg border border-mist bg-white p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-ink/50">Earned</p>
+              <p className="mt-1 font-display text-lg font-extrabold text-brand-deep">{formatPrice(earnedTotal)}</p>
+            </div>
+            <div className="rounded-lg border border-mist bg-white p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-ink/50">Paid</p>
+              <p className="mt-1 font-display text-lg font-extrabold text-brand-deep">{formatPrice(paidTotal)}</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-mist bg-white">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-mist bg-surface text-xs font-bold uppercase tracking-wide text-ink/60">
+                <tr>
+                  <th className="px-4 py-3">Agent</th>
+                  <th className="px-4 py-3">Property</th>
+                  <th className="hidden px-4 py-3 sm:table-cell">Rate</th>
+                  <th className="px-4 py-3">Amount</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {visible.map((row) => (
+                  <tr key={row.id} className="border-b border-mist/70 last:border-0">
+                    <td className="px-4 py-3 font-semibold text-brand-deep">{row.agents?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-ink/70">{row.properties?.name ?? '—'}</td>
+                    <td className="hidden px-4 py-3 text-ink/70 sm:table-cell">
+                      {formatRate(row.rate)} <span className="text-xs text-ink/50">({ROLE_LABELS[row.role_at_sale] ?? row.role_at_sale})</span>
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-ink">{formatPrice(row.amount) ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${row.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                        {row.status === 'paid' ? 'Paid' : 'Earned'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {row.status === 'earned' && (
+                        <button
+                          onClick={() => {
+                            setPaidError(null)
+                            setConfirmPaid(row)
+                          }}
+                          className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
+                        >
+                          Mark Paid
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       <ConfirmModal

@@ -74,6 +74,18 @@ describe('AdminAgents', () => {
     expect(setAgentActive).toHaveBeenCalledWith('a1', false)
   })
 
+  it('searches agents by name', async () => {
+    const user = userEvent.setup()
+
+    render(<AdminAgents />)
+
+    await screen.findByText('Ana Sub')
+    await user.type(screen.getByLabelText('Search agents'), 'Rico')
+
+    expect(screen.getByText('Rico Recruit')).toBeInTheDocument()
+    expect(screen.queryByText('Ana Sub')).not.toBeInTheDocument()
+  })
+
   it('opens and closes the agent detail modal', async () => {
     const user = userEvent.setup()
 

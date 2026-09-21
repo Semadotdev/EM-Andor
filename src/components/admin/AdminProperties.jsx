@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Icon from '../shared/Icon.jsx'
 import ConfirmModal from '../shared/ConfirmModal.jsx'
 import PropertyForm from './PropertyForm.jsx'
-import { deleteProperty, fetchProperties, setPropertyPinned, bulkDeleteProperties, bulkUpdatePropertyStatus, bulkSetPropertyPinned } from '../../lib/api.js'
+import { deleteProperty, fetchProperties, setPropertyPinned, bulkDeleteProperties, bulkSetPropertyPinned } from '../../lib/api.js'
 import { exportToCSV } from '../../lib/csv.js'
 import { fetchAllAgents } from '../../lib/agents.js'
 import { formatPrice } from '../../lib/format.js'
@@ -135,22 +135,6 @@ export default function AdminProperties() {
       load()
     } catch {
       setError('Could not delete selected properties. Please try again.')
-    } finally {
-      setBulkProcessing(false)
-    }
-  }
-
-  const handleBulkStatus = async (status) => {
-    if (bulkProcessing) return
-    setBulkProcessing(true)
-    try {
-      await bulkUpdatePropertyStatus([...selected], status)
-      setProperties((list) =>
-        list.map((p) => (selected.has(p.id) ? { ...p, status } : p))
-      )
-      setSelected(new Set())
-    } catch {
-      setError('Could not update status. Please try again.')
     } finally {
       setBulkProcessing(false)
     }
@@ -293,20 +277,6 @@ export default function AdminProperties() {
               <>
                 <span className="text-sm font-semibold text-brand-deep">{selected.size} item{selected.size !== 1 ? 's' : ''} selected</span>
                 <div className="flex flex-wrap gap-2">
-                  <select
-                    onChange={(e) => {
-                      if (e.target.value) handleBulkStatus(e.target.value)
-                      e.target.value = ''
-                    }}
-                    defaultValue=""
-                    aria-label="Bulk status change"
-                    className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 outline-none focus:border-brand focus:ring-1 focus:ring-brand/30"
-                  >
-                    <option value="" disabled>Set Status</option>
-                    <option value="available">Available</option>
-                    <option value="reserved">Reserved</option>
-                    <option value="sold">Sold</option>
-                  </select>
                   <button
                     onClick={() => handleBulkPin(true)}
                     disabled={bulkProcessing}
