@@ -806,6 +806,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import {
   fetchAllAgents,
   fetchCommissionRates,
+  fetchCommissionRatesMap,
   fetchCurrentAgent,
   fetchMyDownline,
   setAgentActive,
@@ -822,6 +823,7 @@ vi.mock('./supabase.js', () => ({
 vi.mock('./api.js', () => ({ logActivity: vi.fn(() => Promise.resolve()) }))
 
 import { supabase } from './supabase.js'
+import { logActivity } from './api.js'
 
 function chain(result) {
   const c = {}
@@ -836,15 +838,21 @@ const admin = { id: 'admin1', user_id: 'u-admin', email: 'admin@x.com', name: 'A
 const sub = { id: 'a1', user_id: 'u1', email: 'sub@x.com', name: 'Sub', role: 'sub_agent', upline_id: null, is_active: true }
 
 describe('agents', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    supabase.auth.getUser.mockReset()
+  })
 
   it('fetchCurrentAgent resolves the signed-in user row', async () => {
     supabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } })
-    supabase.from.mockReturnValue(chain({ data: sub, error: null }))
+    const c = chain({ data: sub, error: null })
+    supabase.from.mockReturnValue(c)
 
     const result = await fetchCurrentAgent()
 
     expect(supabase.from).toHaveBeenCalledWith('agents')
+    expect(c.eq).toHaveBeenCalledWith('user_id', 'u1')
+    expect(c.single).toHaveBeenCalled()
     expect(result).toEqual(sub)
   })
 
@@ -868,12 +876,16 @@ describe('agents', () => {
   })
 
   it('setAgentActive updates the flag and logs it', async () => {
-    supabase.from.mockReturnValue(chain({ data: { ...sub, is_active: false }, error: null }))
+    const updated = { ...sub, is_active: false }
+    const c = chain({ data: updated, error: null })
+    supabase.from.mockReturnValue(c)
 
     const result = await setAgentActive('a1', false)
 
-    expect(result.is_active).toBe(false)
-    expect(supabase.from).toHaveBeenCalledWith('agents')
+    expect(c.update).toHaveBeenCalledWith({ is_active: false })
+    expect(c.eq).toHaveBeenCalledWith('id', 'a1')
+    expect(result).toEqual(updated)
+    expect(logActivity).toHaveBeenCalledWith('agent', 'a1', 'deactivate')
   })
 
   it('fetchCommissionRates returns configured rows', async () => {
@@ -883,12 +895,20 @@ describe('agents', () => {
     expect(await fetchCommissionRates()).toEqual(rows)
   })
 
+  it('fetchCommissionRatesMap coerces rates to numbers', async () => {
+    supabase.from.mockReturnValue(chain({ data: [{ role: 'sub_agent', rate: '0.0300' }], error: null }))
+
+    expect(await fetchCommissionRatesMap()).toEqual({ sub_agent: 0.03 })
+  })
+
   it('updateCommissionRates upserts by role', async () => {
-    supabase.from.mockReturnValue(chain({ data: [], error: null }))
+    const c = chain({ data: [], error: null })
+    supabase.from.mockReturnValue(c)
 
     await updateCommissionRates({ sub_agent: 0.05 })
 
     expect(supabase.from).toHaveBeenCalledWith('commission_settings')
+    expect(c.upsert).toHaveBeenCalledWith([{ role: 'sub_agent', rate: 0.05 }], { onConflict: 'role' })
   })
 })
 ```
@@ -1011,7 +1031,7 @@ export async function updateCommissionRates(rates) {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run src/lib/agents.test.js src/lib/agentMeta.test.js`
-Expected: PASS — 8 tests (6 data + 2 meta).
+Expected: PASS — 9 tests (7 data + 2 meta).
 
 - [ ] **Step 5: Commit**
 
@@ -1133,7 +1153,7 @@ export async function setAgentActive(id, isActive) {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run src/lib/agents.test.js`
-Expected: PASS — 8 tests.
+Expected: PASS — 9 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -1234,7 +1254,7 @@ export async function createAgent({ name, email, phone, role, uplineId, password
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run src/lib/agents.test.js`
-Expected: PASS — 10 tests.
+Expected: PASS — 11 tests.
 
 - [ ] **Step 5: Commit**
 
