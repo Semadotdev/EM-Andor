@@ -1794,7 +1794,7 @@ There is no Vitest coverage for this task (Deno runtime). Verification is manual
 - [ ] **Step 1: Write the function**
 
 ````ts
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.3'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -1826,29 +1826,57 @@ Deno.serve(async (req) => {
   if (userError || !userData?.user) return json({ error: 'Unauthorized' }, 401)
 
   const admin = createClient(supabaseUrl, serviceKey)
-  const { data: callerAgent } = await admin
+  const { data: callerAgent, error: callerError } = await admin
     .from('agents')
     .select('id, role, is_active')
     .eq('user_id', userData.user.id)
-    .single()
+    .maybeSingle()
 
+  if (callerError) {
+    console.error('create-agent: caller lookup failed', callerError)
+    return json({ error: 'Forbidden' }, 403)
+  }
   if (!callerAgent || callerAgent.role !== 'admin' || !callerAgent.is_active) {
     return json({ error: 'Forbidden' }, 403)
   }
 
-  let body: Record<string, string | null>
+  let body: Record<string, unknown>
   try {
     body = await req.json()
   } catch {
     return json({ error: 'Invalid JSON body' }, 400)
   }
 
-  const { name, email, phone, role, upline_id, password } = body ?? {}
+  const name = typeof body?.name === 'string' ? body.name.trim() : ''
+  const email = typeof body?.email === 'string' ? body.email.trim() : ''
+  const password = typeof body?.password === 'string' ? body.password : ''
+  const phone = typeof body?.phone === 'string' ? body.phone.trim() : null
+  const role = typeof body?.role === 'string' ? body.role : ''
+  const uplineId = typeof body?.upline_id === 'string' ? body.upline_id : null
+
   if (!name || !email || !password) {
     return json({ error: 'name, email, and password are required' }, 400)
   }
-  if (!role || !ALLOWED_ROLES.includes(role)) {
+  if (password.length < 6) {
+    return json({ error: 'Password must be at least 6 characters.' }, 400)
+  }
+  if (!ALLOWED_ROLES.includes(role)) {
     return json({ error: 'Invalid role' }, 400)
+  }
+
+  if (uplineId) {
+    const { data: upline, error: uplineError } = await admin
+      .from('agents')
+      .select('id, is_active')
+      .eq('id', uplineId)
+      .maybeSingle()
+    if (uplineError) {
+      console.error('create-agent: upline lookup failed', uplineError)
+      return json({ error: 'Could not verify the upline agent.' }, 500)
+    }
+    if (!upline || !upline.is_active) {
+      return json({ error: 'Select an active upline agent.' }, 400)
+    }
   }
 
   const { data: created, error: createError } = await admin.auth.admin.createUser({
@@ -1856,7 +1884,13 @@ Deno.serve(async (req) => {
     password,
     email_confirm: true,
   })
-  if (createError) return json({ error: createError.message }, 400)
+  if (createError) {
+    console.error('create-agent: createUser failed', createError)
+    const message = /already/i.test(createError.message)
+      ? 'Email already registered.'
+      : 'Could not create the login. Please try again.'
+    return json({ error: message }, 400)
+  }
 
   const { data: agentRow, error: insertError } = await admin
     .from('agents')
@@ -1864,16 +1898,21 @@ Deno.serve(async (req) => {
       user_id: created.user.id,
       email,
       name,
-      phone: phone || null,
+      phone,
       role,
-      upline_id: upline_id || null,
+      upline_id: uplineId,
     })
     .select()
     .single()
 
   if (insertError) {
-    await admin.auth.admin.deleteUser(created.user.id)
-    return json({ error: insertError.message }, 400)
+    const { error: deleteError } = await admin.auth.admin.deleteUser(created.user.id)
+    if (deleteError) console.error('create-agent: rollback deleteUser failed', deleteError)
+    console.error('create-agent: agents insert failed', insertError)
+    const message = insertError.code === '23503'
+      ? 'The selected upline agent no longer exists.'
+      : 'Could not create the agent profile. Please try again.'
+    return json({ error: message }, 400)
   }
 
   return json({ agent: agentRow })
