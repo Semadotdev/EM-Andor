@@ -4,7 +4,6 @@ import {
   bulkDeleteProperties,
   bulkSetInquiryRead,
   bulkSetPropertyPinned,
-  bulkUpdatePropertyStatus,
   createProperty,
   deleteInquiry,
   deleteProperty,
@@ -334,17 +333,6 @@ describe('api', () => {
 
     expect(supabase.from).toHaveBeenCalledWith('properties')
     expect(c.delete).toHaveBeenCalled()
-    expect(c.in).toHaveBeenCalledWith('id', ['p1', 'p2'])
-  })
-
-  it('bulkUpdatePropertyStatus updates status for multiple properties', async () => {
-    const c = makeChain()
-    c.in.mockResolvedValue({ error: null })
-    supabase.from.mockReturnValue(c)
-
-    await bulkUpdatePropertyStatus(['p1', 'p2'], 'sold')
-
-    expect(c.update).toHaveBeenCalledWith({ status: 'sold' })
     expect(c.in).toHaveBeenCalledWith('id', ['p1', 'p2'])
   })
 

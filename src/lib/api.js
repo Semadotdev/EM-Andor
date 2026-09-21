@@ -147,11 +147,6 @@ export async function bulkDeleteProperties(ids) {
   }
 }
 
-export async function bulkUpdatePropertyStatus(ids, status) {
-  const { error } = await supabase.from('properties').update({ status }).in('id', ids)
-  if (error) throw error
-}
-
 export async function bulkSetPropertyPinned(ids, pinned) {
   const { error } = await supabase.from('properties').update({ is_pinned: pinned }).in('id', ids)
   if (error) throw error
