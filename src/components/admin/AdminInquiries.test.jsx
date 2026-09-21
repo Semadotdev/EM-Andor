@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdminInquiries from './AdminInquiries.jsx'
+import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/api.js', () => ({
   fetchInquiries: vi.fn(),
@@ -23,6 +24,8 @@ const sample = [
   { id: 'q2', name: 'Maria Santos', email: 'maria@example.com', phone: '09181234567', project_type: null, message: 'Lot inquiry', is_read: true, created_at: '2026-08-16T02:00:00Z' },
 ]
 
+const findTable = () => screen.findByRole('table')
+
 describe('AdminInquiries', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -32,9 +35,19 @@ describe('AdminInquiries', () => {
   it('lists inquiries with names and types', async () => {
     render(<AdminInquiries />)
 
-    expect(await screen.findByText('Juan Dela Cruz')).toBeInTheDocument()
-    expect(screen.getByText('Maria Santos')).toBeInTheDocument()
-    expect(screen.getByText('Residential Construction')).toBeInTheDocument()
+    const table = await findTable()
+    expect(within(table).getByText('Juan Dela Cruz')).toBeInTheDocument()
+    expect(within(table).getByText('Maria Santos')).toBeInTheDocument()
+    expect(within(table).getByText('Residential Construction')).toBeInTheDocument()
+  })
+
+  it('shows contact details and the full message', async () => {
+    render(<AdminInquiries />)
+
+    const table = await findTable()
+    expect(within(table).getByText('maria@example.com')).toBeInTheDocument()
+    expect(within(table).getByText('09181234567')).toBeInTheDocument()
+    expect(within(table).getByText('Lot inquiry')).toBeInTheDocument()
   })
 
   it('marks an unread inquiry as read', async () => {
@@ -43,11 +56,13 @@ describe('AdminInquiries', () => {
 
     render(<AdminInquiries />)
 
-    const readButtons = await screen.findAllByRole('button', { name: 'Mark read' })
+    const table = await findTable()
+    const readButtons = within(table).getAllByRole('button', { name: 'Mark read' })
     await user.click(readButtons[0])
 
     expect(setInquiryRead).toHaveBeenCalledWith('q1', true)
-    expect(screen.getAllByRole('button', { name: 'Mark unread' })).toHaveLength(2)
+    expect(within(table).getAllByRole('button', { name: 'Mark unread' })).toHaveLength(2)
+    expect(await screen.findByText('Inquiry marked as read.')).toBeInTheDocument()
   })
 
   it('deletes an inquiry after confirmation', async () => {
@@ -56,27 +71,16 @@ describe('AdminInquiries', () => {
 
     render(<AdminInquiries />)
 
-    await screen.findByText('Maria Santos')
-    const mariaCard = screen.getByText('Maria Santos').closest('li')
-    const deleteButton = within(mariaCard).getByRole('button', { name: 'Delete' })
+    const table = await findTable()
+    const mariaRow = within(table).getByText('Maria Santos').closest('tr')
+    const deleteButton = within(mariaRow).getByRole('button', { name: 'Delete' })
     await user.click(deleteButton)
 
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
 
     expect(deleteInquiry).toHaveBeenCalledWith('q2')
-  })
-
-  it('expands an inquiry to show full details', async () => {
-    const user = userEvent.setup()
-
-    render(<AdminInquiries />)
-
-    await user.click(await screen.findByText('Maria Santos'))
-
-    expect(screen.getByText('maria@example.com')).toBeInTheDocument()
-    expect(screen.getByText('09181234567')).toBeInTheDocument()
-    expect(screen.getByText('Lot inquiry')).toBeInTheDocument()
+    expect(await screen.findByText('Inquiry deleted.')).toBeInTheDocument()
   })
 
   it('reverts the read toggle on failure and shows an error', async () => {
@@ -85,11 +89,12 @@ describe('AdminInquiries', () => {
 
     render(<AdminInquiries />)
 
-    const readButtons = await screen.findAllByRole('button', { name: 'Mark read' })
+    const table = await findTable()
+    const readButtons = within(table).getAllByRole('button', { name: 'Mark read' })
     await user.click(readButtons[0])
 
     expect(await screen.findByText(/Could not update status/)).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Mark read' })).toHaveLength(1)
+    expect(within(table).getAllByRole('button', { name: 'Mark read' })).toHaveLength(1)
   })
 
   it('ignores a read toggle while a status request is in flight', async () => {
@@ -99,12 +104,13 @@ describe('AdminInquiries', () => {
 
     render(<AdminInquiries />)
 
-    const readButtons = await screen.findAllByRole('button', { name: 'Mark read' })
+    const table = await findTable()
+    const readButtons = within(table).getAllByRole('button', { name: 'Mark read' })
     await user.click(readButtons[0])
 
     expect(setInquiryRead).toHaveBeenCalledTimes(1)
     resolve()
-    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Mark unread' })).toHaveLength(2))
+    await waitFor(() => expect(within(table).getAllByRole('button', { name: 'Mark unread' })).toHaveLength(2))
   })
 
   it('keeps an inquiry when delete fails and shows an error', async () => {
@@ -113,14 +119,15 @@ describe('AdminInquiries', () => {
 
     render(<AdminInquiries />)
 
-    const deleteButtons = await screen.findAllByRole('button', { name: 'Delete' })
+    const table = await findTable()
+    const deleteButtons = within(table).getAllByRole('button', { name: 'Delete' })
     await user.click(deleteButtons[0])
 
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
 
     expect(await screen.findByText(/Could not delete inquiry/)).toBeInTheDocument()
-    expect(screen.getByText('Juan Dela Cruz')).toBeInTheDocument()
+    expect(within(table).getByText('Juan Dela Cruz')).toBeInTheDocument()
   })
 
   it('shows a retry state when loading fails', async () => {
@@ -132,7 +139,8 @@ describe('AdminInquiries', () => {
 
     expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Retry' }))
-    expect(await screen.findByText('Juan Dela Cruz')).toBeInTheDocument()
+    const table = await findTable()
+    expect(within(table).getByText('Juan Dela Cruz')).toBeInTheDocument()
   })
 
   it('shows bulk action toolbar when items are selected', async () => {
@@ -140,7 +148,7 @@ describe('AdminInquiries', () => {
 
     render(<AdminInquiries />)
 
-    await screen.findByText('Juan Dela Cruz')
+    await findTable()
     const checkboxes = screen.getAllByRole('checkbox', { name: /Select/i })
     await user.click(checkboxes[1])
 
@@ -153,7 +161,7 @@ describe('AdminInquiries', () => {
 
     render(<AdminInquiries />)
 
-    await screen.findByText('Juan Dela Cruz')
+    await findTable()
     const selectAll = screen.getByRole('checkbox', { name: 'Select all inquiries' })
     await user.click(selectAll)
 
@@ -166,7 +174,7 @@ describe('AdminInquiries', () => {
 
     render(<AdminInquiries />)
 
-    await screen.findByText('Juan Dela Cruz')
+    await findTable()
     const selectAll = screen.getByRole('checkbox', { name: 'Select all inquiries' })
     await user.click(selectAll)
 
@@ -175,6 +183,21 @@ describe('AdminInquiries', () => {
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete All' }))
 
     expect(bulkDeleteInquiries).toHaveBeenCalledWith(['q1', 'q2'])
+    expect(await screen.findByText('Selected inquiries deleted.')).toBeInTheDocument()
+  })
+
+  it('bulk marks selected inquiries as read', async () => {
+    bulkSetInquiryRead.mockResolvedValue(undefined)
+    const user = userEvent.setup()
+
+    render(<AdminInquiries />)
+
+    await findTable()
+    await user.click(screen.getByRole('checkbox', { name: 'Select all inquiries' }))
+    await user.click(screen.getByRole('button', { name: 'Mark All Read' }))
+
+    expect(bulkSetInquiryRead).toHaveBeenCalledWith(['q1', 'q2'], true)
+    expect(await screen.findByText('Inquiries marked as read.')).toBeInTheDocument()
   })
 
   it('exports CSV with all inquiries', async () => {
@@ -182,7 +205,7 @@ describe('AdminInquiries', () => {
 
     render(<AdminInquiries />)
 
-    await screen.findByText('Juan Dela Cruz')
+    await findTable()
     await user.click(screen.getByText('Export CSV'))
 
     expect(exportToCSV).toHaveBeenCalledWith(

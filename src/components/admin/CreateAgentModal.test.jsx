@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CreateAgentModal from './CreateAgentModal.jsx'
+import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/agents.js', () => ({ createAgent: vi.fn() }))
 
@@ -39,6 +40,7 @@ describe('CreateAgentModal', () => {
       password: 'secret123',
     })
     expect(onCreated).toHaveBeenCalled()
+    expect(await screen.findByText('Agent created.')).toBeInTheDocument()
   })
 
   it('shows the error returned by the edge function', async () => {

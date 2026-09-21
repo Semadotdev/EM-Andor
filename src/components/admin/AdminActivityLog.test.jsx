@@ -62,7 +62,7 @@ describe('AdminActivityLog', () => {
   it('shows filter dropdowns and search', async () => {
     render(<AdminActivityLog />)
 
-    await screen.findByText('Create')
+    await screen.findByRole('table')
     expect(screen.getByLabelText('Search by record ID')).toBeInTheDocument()
     expect(screen.getByLabelText('Filter by action')).toBeInTheDocument()
     expect(screen.getByLabelText('Filter by table')).toBeInTheDocument()
@@ -73,7 +73,7 @@ describe('AdminActivityLog', () => {
     const user = userEvent.setup()
 
     render(<AdminActivityLog />)
-    await screen.findByText('Create')
+    await screen.findByRole('table')
 
     await user.selectOptions(screen.getByLabelText('Filter by action'), 'create')
 
@@ -88,7 +88,7 @@ describe('AdminActivityLog', () => {
     const user = userEvent.setup()
 
     render(<AdminActivityLog />)
-    await screen.findByText('Create')
+    await screen.findByRole('table')
 
     await user.selectOptions(screen.getByLabelText('Filter by table'), 'property')
 
@@ -104,7 +104,7 @@ describe('AdminActivityLog', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
     render(<AdminActivityLog />)
-    await screen.findByText('Create')
+    await screen.findByRole('table')
 
     await user.type(screen.getByLabelText('Search by record ID'), 'abc')
     vi.advanceTimersByTime(300)
@@ -121,7 +121,7 @@ describe('AdminActivityLog', () => {
     const user = userEvent.setup()
 
     render(<AdminActivityLog />)
-    await screen.findByText('Create')
+    await screen.findByRole('table')
 
     await user.selectOptions(screen.getByLabelText('Sort activity log'), 'oldest')
 
@@ -170,7 +170,7 @@ describe('AdminActivityLog', () => {
     const user = userEvent.setup()
 
     render(<AdminActivityLog />)
-    await screen.findByText('Create')
+    await screen.findByRole('table')
 
     await user.click(screen.getByText('Export CSV'))
 
@@ -200,7 +200,7 @@ describe('AdminActivityLog', () => {
     const user = userEvent.setup()
 
     render(<AdminActivityLog />)
-    await screen.findByText('Create')
+    await screen.findByRole('table')
 
     await user.selectOptions(screen.getByLabelText('Filter by action'), 'delete')
     await waitFor(() => {

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MarkSoldModal from './MarkSoldModal.jsx'
+import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/agents.js', () => ({ fetchAllAgents: vi.fn() }))
 vi.mock('../../lib/sales.js', () => ({ recordSale: vi.fn() }))
@@ -93,6 +94,7 @@ describe('MarkSoldModal', () => {
       },
     })
     expect(onSold).toHaveBeenCalled()
+    expect(await screen.findByText('Sale recorded.')).toBeInTheDocument()
   })
 
   it('requires a seller before saving', async () => {

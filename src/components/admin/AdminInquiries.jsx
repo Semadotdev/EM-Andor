@@ -1,14 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import ConfirmModal from '../shared/ConfirmModal.jsx'
 import { deleteInquiry, fetchInquiries, setInquiryRead, bulkDeleteInquiries, bulkSetInquiryRead } from '../../lib/api.js'
 import { exportToCSV } from '../../lib/csv.js'
+import {
+  Badge,
+  Button,
+  Checkbox,
+  ConfirmModal,
+  DataTable,
+  ErrorState,
+  Input,
+  LoadingState,
+  PageHeader,
+  Select,
+  useToast,
+} from '../shared/ui'
+
+const readTone = (isRead) => (isRead ? 'green' : 'yellow')
 
 export default function AdminInquiries() {
+  const { showToast } = useToast()
   const [inquiries, setInquiries] = useState([])
   const [totalCount, setTotalCount] = useState(0)
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState(null)
-  const [expanded, setExpanded] = useState(null)
   const [pendingReads, setPendingReads] = useState({})
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -47,8 +61,6 @@ export default function AdminInquiries() {
     return () => clearTimeout(debounceRef.current)
   }, [searchInput])
 
-  useEffect(load, [load])
-
   useEffect(() => {
     setSelected(new Set())
   }, [search, readFilter])
@@ -62,6 +74,7 @@ export default function AdminInquiries() {
     setInquiries((list) => list.map((x) => (x.id === inquiry.id ? { ...x, is_read: next } : x)))
     try {
       await setInquiryRead(inquiry.id, next)
+      showToast(next ? 'Inquiry marked as read.' : 'Inquiry marked as unread.')
     } catch {
       setInquiries((list) => list.map((x) => (x.id === inquiry.id ? { ...x, is_read: prev } : x)))
       setError('Could not update status. Please try again.')
@@ -77,6 +90,7 @@ export default function AdminInquiries() {
     try {
       await deleteInquiry(confirmDelete.id)
       setConfirmDelete(null)
+      showToast('Inquiry deleted.')
       load()
     } catch {
       setError('Could not delete inquiry. Please try again.')
@@ -111,6 +125,7 @@ export default function AdminInquiries() {
       await bulkDeleteInquiries([...selected])
       setSelected(new Set())
       setConfirmBulkDelete(false)
+      showToast('Selected inquiries deleted.')
       load()
     } catch {
       setError('Could not delete selected inquiries. Please try again.')
@@ -128,6 +143,7 @@ export default function AdminInquiries() {
         list.map((q) => (selected.has(q.id) ? { ...q, is_read: isRead } : q))
       )
       setSelected(new Set())
+      showToast(isRead ? 'Inquiries marked as read.' : 'Inquiries marked as unread.')
     } catch {
       setError('Could not update read status. Please try again.')
     } finally {
@@ -154,48 +170,141 @@ export default function AdminInquiries() {
     exportToCSV(headers, rows, `inquiries-export-${date}.csv`)
   }
 
-  return (
-    <div>
-      <div className="mb-6 flex items-center gap-4">
+  const rowActions = (inquiry) => (
+    <div className="flex flex-wrap justify-end gap-2">
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={() => toggleRead(inquiry)}
+        disabled={Boolean(pendingReads[inquiry.id])}
+        aria-pressed={inquiry.is_read}
+      >
+        {inquiry.is_read ? 'Mark unread' : 'Mark read'}
+      </Button>
+      <Button size="sm" variant="danger" onClick={() => setConfirmDelete(inquiry)}>
+        Delete
+      </Button>
+    </div>
+  )
+
+  const columns = [
+    {
+      key: 'select',
+      header: '',
+      render: (inquiry) => (
         <input
           type="checkbox"
-          checked={selected.size === inquiries.length && inquiries.length > 0}
-          onChange={toggleSelectAll}
-          aria-label="Select all inquiries"
+          checked={selected.has(inquiry.id)}
+          onChange={() => toggleSelect(inquiry.id)}
+          aria-label={`Select inquiry from ${inquiry.name}`}
           className="size-4 rounded border-mist text-brand focus:ring-brand/30"
         />
-        <h1 className="font-display text-2xl font-extrabold text-brand-deep">Inquiries</h1>
+      ),
+    },
+    {
+      key: 'name',
+      header: 'Name',
+      className: 'font-semibold text-brand-deep',
+      render: (inquiry) => (
+        <span className="flex items-center gap-2">
+          {!inquiry.is_read && <span className="size-2 rounded-full bg-brand" aria-hidden="true" />}
+          {inquiry.name}
+        </span>
+      ),
+    },
+    { key: 'type', header: 'Type', className: 'text-ink/70', render: (inquiry) => inquiry.project_type || 'General' },
+    {
+      key: 'property',
+      header: 'Property',
+      hideBelow: 'lg',
+      className: 'text-ink/70',
+      render: (inquiry) => inquiry.property_name || '—',
+    },
+    {
+      key: 'contact',
+      header: 'Contact',
+      hideBelow: 'md',
+      className: 'text-ink/70',
+      render: (inquiry) => (
+        <>
+          <span className="block">{inquiry.email}</span>
+          <span className="block text-xs text-ink/50">{inquiry.phone}</span>
+        </>
+      ),
+    },
+    {
+      key: 'message',
+      header: 'Message',
+      hideBelow: 'lg',
+      className: 'text-ink/70',
+      render: (inquiry) => <span className="block max-w-xs whitespace-pre-wrap">{inquiry.message}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (inquiry) => <Badge tone={readTone(inquiry.is_read)}>{inquiry.is_read ? 'Read' : 'Unread'}</Badge>,
+    },
+    { key: 'actions', header: 'Actions', className: 'text-right', render: rowActions },
+  ]
+
+  const inquiryCard = (inquiry) => (
+    <div className="rounded-lg border border-mist bg-white p-4">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="flex items-center gap-2 font-semibold text-brand-deep">
+          {!inquiry.is_read && <span className="size-2 rounded-full bg-brand" aria-hidden="true" />}
+          {inquiry.name}
+        </p>
+        <Badge tone={readTone(inquiry.is_read)}>{inquiry.is_read ? 'Read' : 'Unread'}</Badge>
       </div>
+      <dl className="mb-3 space-y-1 text-sm">
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Type</dt>
+          <dd className="text-ink/70">{inquiry.project_type || 'General'}</dd>
+        </div>
+        {inquiry.property_name && (
+          <div className="flex justify-between gap-3">
+            <dt className="text-ink/50">Property</dt>
+            <dd className="text-ink/70">{inquiry.property_name}</dd>
+          </div>
+        )}
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Email</dt>
+          <dd className="text-ink/70">{inquiry.email}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Phone</dt>
+          <dd className="text-ink/70">{inquiry.phone}</dd>
+        </div>
+      </dl>
+      <p className="mb-3 whitespace-pre-wrap text-sm text-ink/70">{inquiry.message}</p>
+      {rowActions(inquiry)}
+    </div>
+  )
+
+  return (
+    <div>
+      <PageHeader title="Inquiries" description="Submissions from the public contact form." />
 
       <div className="mb-4 flex flex-col gap-3 rounded-lg border border-mist bg-white p-4 sm:flex-row sm:items-center">
-        <input
-          type="text"
-          placeholder="Search name, email, or message…"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          aria-label="Search inquiries"
-          className="flex-1 rounded-md border border-mist px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/30"
-        />
-        <select
-          value={readFilter}
-          onChange={(e) => setReadFilter(e.target.value)}
-          aria-label="Filter by read status"
-          className="rounded-md border border-mist px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/30"
-        >
+        <div className="min-w-0 flex-1">
+          <Input
+            type="text"
+            placeholder="Search name, email, or message…"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            aria-label="Search inquiries"
+          />
+        </div>
+        <Select aria-label="Filter by read status" value={readFilter} onChange={(e) => setReadFilter(e.target.value)}>
           <option value="">All</option>
           <option value="unread">Unread</option>
           <option value="read">Read</option>
-        </select>
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          aria-label="Sort inquiries"
-          className="rounded-md border border-mist px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/30"
-        >
+        </Select>
+        <Select aria-label="Sort inquiries" value={sort} onChange={(e) => setSort(e.target.value)}>
           <option value="newest">Newest</option>
           <option value="oldest">Oldest</option>
           <option value="name_asc">Name: A → Z</option>
-        </select>
+        </Select>
         {(search || readFilter || sort !== 'newest') && (
           <button
             onClick={() => {
@@ -217,51 +326,32 @@ export default function AdminInquiries() {
         </p>
       )}
 
-      {status === 'loading' && <p className="py-10 text-center text-ink/60">Loading inquiries…</p>}
+      {status === 'loading' && <LoadingState label="Loading inquiries…" />}
 
-      {status === 'error' && (
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-mist bg-white p-10 text-center">
-          <p className="text-ink/70">Could not load inquiries.</p>
-          <button onClick={load} className="btn btn-gold">
-            Retry
-          </button>
-        </div>
-      )}
+      {status === 'error' && <ErrorState message="Could not load inquiries." onRetry={load} />}
 
-      {status === 'ready' && inquiries.length === 0 && (
-        <p className="rounded-lg border border-mist bg-white p-10 text-center text-ink/60">
-          {search || readFilter ? 'No inquiries match your filters.' : 'No inquiries yet. Submissions from the contact form will appear here.'}
-        </p>
-      )}
-
-      {status === 'ready' && inquiries.length > 0 && (
+      {status === 'ready' && (
         <>
           <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-brand/20 bg-brand/5 p-3">
+            <Checkbox
+              id="inquiries-select-all"
+              label="Select all inquiries"
+              checked={selected.size === inquiries.length && inquiries.length > 0}
+              onChange={toggleSelectAll}
+            />
             {selected.size > 0 ? (
               <>
                 <span className="text-sm font-semibold text-brand-deep">{selected.size} item{selected.size !== 1 ? 's' : ''} selected</span>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handleBulkRead(true)}
-                    disabled={bulkProcessing}
-                    className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand disabled:opacity-60"
-                  >
+                  <Button size="sm" variant="secondary" onClick={() => handleBulkRead(true)} disabled={bulkProcessing}>
                     Mark All Read
-                  </button>
-                  <button
-                    onClick={() => handleBulkRead(false)}
-                    disabled={bulkProcessing}
-                    className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand disabled:opacity-60"
-                  >
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => handleBulkRead(false)} disabled={bulkProcessing}>
                     Mark All Unread
-                  </button>
-                  <button
-                    onClick={() => setConfirmBulkDelete(true)}
-                    disabled={bulkProcessing}
-                    className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-60"
-                  >
+                  </Button>
+                  <Button size="sm" variant="danger" onClick={() => setConfirmBulkDelete(true)} disabled={bulkProcessing}>
                     Delete Selected
-                  </button>
+                  </Button>
                 </div>
                 <button
                   onClick={deselectAll}
@@ -271,91 +361,26 @@ export default function AdminInquiries() {
                 </button>
               </>
             ) : null}
-            <button
-              onClick={exportInquiriesCSV}
-              className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-            >
+            <Button size="sm" variant="secondary" className={selected.size > 0 ? '' : 'ml-auto'} onClick={exportInquiriesCSV}>
               Export CSV
-            </button>
+            </Button>
           </div>
 
           <p className="mb-3 text-xs font-semibold text-ink/50">
             Showing {inquiries.length} of {totalCount} inquiries
           </p>
-          <ul className="space-y-4">
-          {inquiries.map((inquiry) => {
-            const isExpanded = expanded === inquiry.id
-            return (
-              <li
-                key={inquiry.id}
-                className={`rounded-lg border bg-white p-5 ${inquiry.is_read ? 'border-mist' : 'border-brand/40 ring-1 ring-brand/20'}`}
-              >
-                <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(inquiry.id)}
-                    onChange={() => toggleSelect(inquiry.id)}
-                    aria-label={`Select inquiry from ${inquiry.name}`}
-                    className="mt-1 size-4 shrink-0 rounded border-mist text-brand focus:ring-brand/30"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <button className="text-left" onClick={() => setExpanded(isExpanded ? null : inquiry.id)} aria-expanded={isExpanded}>
-                        <span className="flex items-center gap-2">
-                          {!inquiry.is_read && <span className="size-2 rounded-full bg-brand" aria-hidden="true" />}
-                          <span className="font-semibold text-brand-deep">{inquiry.name}</span>
-                          <span className="text-sm text-ink/50">
-                            · <span>{inquiry.project_type || 'General'}</span>
-                          </span>
-                          {inquiry.property_name && (
-                            <span className="rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-semibold text-brand">
-                              {inquiry.property_name}
-                            </span>
-                          )}
-                        </span>
-                        <span className="mt-0.5 block text-xs text-ink/50">
-                          {new Date(inquiry.created_at).toLocaleString('en-PH')}
-                        </span>
-                      </button>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => toggleRead(inquiry)}
-                          disabled={Boolean(pendingReads[inquiry.id])}
-                          aria-pressed={inquiry.is_read}
-                          className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-                        >
-                          {inquiry.is_read ? 'Mark unread' : 'Mark read'}
-                        </button>
-                        <button
-                          onClick={() => setConfirmDelete(inquiry)}
-                          className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                    {isExpanded && (
-                      <div className="mt-4 rounded-md bg-surface p-4 text-sm leading-relaxed text-ink/80">
-                        {inquiry.property_name && (
-                          <p className="mb-2">
-                            <span className="font-semibold text-brand-deep">Property:</span> {inquiry.property_name}
-                          </p>
-                        )}
-                        <p>
-                          <span className="font-semibold text-brand-deep">Email:</span> {inquiry.email}
-                        </p>
-                        <p className="mt-1">
-                          <span className="font-semibold text-brand-deep">Phone:</span> {inquiry.phone}
-                        </p>
-                        <p className="mt-3 whitespace-pre-wrap">{inquiry.message}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+
+          <DataTable
+            columns={columns}
+            rows={inquiries}
+            getRowKey={(inquiry) => inquiry.id}
+            emptyMessage={
+              search || readFilter
+                ? 'No inquiries match your filters.'
+                : 'No inquiries yet. Submissions from the contact form will appear here.'
+            }
+            mobileCard={inquiryCard}
+          />
         </>
       )}
 

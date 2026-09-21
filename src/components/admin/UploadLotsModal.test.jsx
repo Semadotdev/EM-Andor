@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import UploadLotsModal from './UploadLotsModal.jsx'
+import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/excel.js', () => ({
   readLotsFile: vi.fn(),
@@ -60,6 +61,7 @@ describe('UploadLotsModal', () => {
 
     expect(createLots).toHaveBeenCalledWith('pr1', project, rows)
     expect(onImported).toHaveBeenCalledWith(1)
+    expect(await screen.findByText('Imported 1 lot.')).toBeInTheDocument()
   })
 
   it('disables import and shows row errors for an invalid file', async () => {

@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
-
-const inputCls =
-  'w-full rounded-md border border-mist bg-white px-4 py-3 text-sm text-ink placeholder:text-ink/40 transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20'
+import { Input } from '../shared/ui'
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('')
@@ -43,32 +41,22 @@ export default function AdminLogin() {
         )}
 
         <div className="mt-6 space-y-4">
-          <div>
-            <label htmlFor="admin-email" className="mb-1.5 block text-sm font-semibold text-brand-deep">
-              Email
-            </label>
-            <input
-              id="admin-email"
-              type="email"
-              autoComplete="email"
-              className={inputCls}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div>
-            <label htmlFor="admin-password" className="mb-1.5 block text-sm font-semibold text-brand-deep">
-              Password
-            </label>
-            <input
-              id="admin-password"
-              type="password"
-              autoComplete="current-password"
-              className={inputCls}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+          <Input
+            id="admin-email"
+            type="email"
+            autoComplete="email"
+            label="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Input
+            id="admin-password"
+            type="password"
+            autoComplete="current-password"
+            label="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
         </div>
 
         <button type="submit" disabled={submitting} className="btn btn-gold mt-7 w-full disabled:opacity-60">

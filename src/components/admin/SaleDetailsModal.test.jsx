@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SaleDetailsModal from './SaleDetailsModal.jsx'
+import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/sales.js', () => ({ fetchSale: vi.fn(), upsertSale: vi.fn() }))
 
@@ -77,6 +78,7 @@ describe('SaleDetailsModal', () => {
       terms_of_payment: '12 months',
     })
     expect(onSaved).toHaveBeenCalled()
+    expect(await screen.findByText('Sale details saved.')).toBeInTheDocument()
   })
 
   it('requires a buyer name before saving', async () => {

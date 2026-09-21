@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import ConfirmModal from '../shared/ConfirmModal.jsx'
 import { deleteLot, fetchProject, fetchProjectLots, updateLot } from '../../lib/projects.js'
 import { setPropertyPinned } from '../../lib/api.js'
 import { fetchAllAgents } from '../../lib/agents.js'
@@ -9,6 +8,19 @@ import BuyerLedgerModal from './BuyerLedgerModal.jsx'
 import CreateProjectModal from './CreateProjectModal.jsx'
 import MarkSoldModal from './MarkSoldModal.jsx'
 import UploadLotsModal from './UploadLotsModal.jsx'
+import {
+  Badge,
+  Button,
+  ConfirmModal,
+  DataTable,
+  ErrorState,
+  Input,
+  LoadingState,
+  Modal,
+  PageHeader,
+  statusTone,
+  useToast,
+} from '../shared/ui'
 
 const TYPE_LABELS = {
   farm_lot: 'Farm Lot',
@@ -17,19 +29,13 @@ const TYPE_LABELS = {
   development: 'Development',
 }
 
-const inputCls =
-  'w-full rounded-md border border-mist bg-white px-4 py-3 text-sm text-ink placeholder:text-ink/40 transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20'
-
 const isDuplicateKey = (err) =>
   err?.code === '23505' || String(err?.message ?? '').includes('duplicate key')
 
-function statusBadgeCls(status) {
-  if (status === 'sold') return 'bg-red-100 text-red-700'
-  if (status === 'reserved') return 'bg-yellow-100 text-yellow-700'
-  return 'bg-green-100 text-green-700'
-}
+const statusLabel = (status) => (status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Available')
 
 function EditLotModal({ lot, project, onClose, onSaved }) {
+  const { showToast } = useToast()
   const [form, setForm] = useState({
     block_no: lot.block_no ?? '',
     lot_no: lot.lot_no ?? '',
@@ -37,14 +43,6 @@ function EditLotModal({ lot, project, onClose, onSaved }) {
   })
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
 
   const setField = (field) => (e) => {
     setForm((f) => ({ ...f, [field]: e.target.value }))
@@ -67,6 +65,7 @@ function EditLotModal({ lot, project, onClose, onSaved }) {
     setError(null)
     try {
       await updateLot(lot, project, { block_no: form.block_no.trim(), lot_no: form.lot_no.trim(), area })
+      showToast('Lot updated.')
       onSaved()
     } catch (err) {
       if (isDuplicateKey(err)) setError('Block/Lot already exists in this project.')
@@ -77,68 +76,54 @@ function EditLotModal({ lot, project, onClose, onSaved }) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-brand-deep/60 p-4"
-      onClick={saving ? undefined : onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-lg bg-white p-6 sm:p-8"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Edit lot"
-      >
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="font-display text-xl font-extrabold text-brand-deep">Edit Lot</h2>
-          <button onClick={onClose} className="rounded-md px-2 py-1 text-ink/50 hover:text-ink" aria-label="Close">
-            ✕
-          </button>
-        </div>
-
-        {error && (
-          <p role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
-            {error}
-          </p>
-        )}
-
-        <form onSubmit={submit} noValidate className="grid gap-5 sm:grid-cols-3">
-          <div>
-            <label htmlFor="el-block" className="mb-1.5 block text-sm font-semibold text-brand-deep">Block</label>
-            <input id="el-block" autoFocus className={inputCls} value={form.block_no} onChange={setField('block_no')} />
-          </div>
-          <div>
-            <label htmlFor="el-lot" className="mb-1.5 block text-sm font-semibold text-brand-deep">Lot</label>
-            <input id="el-lot" className={inputCls} value={form.lot_no} onChange={setField('lot_no')} />
-          </div>
-          <div>
-            <label htmlFor="el-area" className="mb-1.5 block text-sm font-semibold text-brand-deep">Area (sqm)</label>
-            <input id="el-area" type="number" min="0" step="any" className={inputCls} value={form.area} onChange={setField('area')} />
-          </div>
-
-          <div className="mt-2 flex flex-wrap justify-end gap-3 sm:col-span-3">
-            <button type="button" onClick={onClose} disabled={saving} className="btn border border-mist bg-white text-ink/70 hover:border-brand/30 hover:text-brand disabled:opacity-60">
-              Cancel
-            </button>
-            <button type="submit" disabled={saving} className="btn btn-gold disabled:opacity-60">
-              {saving ? 'Saving…' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
+    <Modal open onClose={onClose} label="Edit lot" size="md" busy={saving}>
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="font-display text-xl font-extrabold text-brand-deep">Edit Lot</h2>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={saving}
+          className="rounded-md px-2 py-1 text-ink/50 transition-colors hover:text-ink disabled:opacity-60"
+          aria-label="Close"
+        >
+          ✕
+        </button>
       </div>
-    </div>
+
+      {error && (
+        <p role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+          {error}
+        </p>
+      )}
+
+      <form onSubmit={submit} noValidate className="grid gap-5 sm:grid-cols-3">
+        <Input id="el-block" autoFocus label="Block" value={form.block_no} onChange={setField('block_no')} />
+        <Input id="el-lot" label="Lot" value={form.lot_no} onChange={setField('lot_no')} />
+        <Input id="el-area" type="number" min="0" step="any" label="Area (sqm)" value={form.area} onChange={setField('area')} />
+
+        <div className="mt-2 flex flex-wrap justify-end gap-3 sm:col-span-3">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? 'Saving…' : 'Save Changes'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 
 export default function ProjectDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const [currentProject, setCurrentProject] = useState(null)
   const [projectState, setProjectState] = useState('loading')
   const [lots, setLots] = useState([])
   const [agentNames, setAgentNames] = useState({})
   const [state, setState] = useState('loading')
   const [error, setError] = useState(null)
-  const [notice, setNotice] = useState('')
   const [pendingPins, setPendingPins] = useState({})
   const [showUpload, setShowUpload] = useState(false)
   const [showEditProject, setShowEditProject] = useState(false)
@@ -208,6 +193,7 @@ export default function ProjectDetail() {
       await deleteLot(confirmDelete.id)
       setLots((list) => list.filter((x) => x.id !== confirmDelete.id))
       setConfirmDelete(null)
+      showToast('Lot deleted.')
     } catch (err) {
       setDeleteError(err?.message || 'Could not delete the lot. Please try again.')
     } finally {
@@ -226,11 +212,127 @@ export default function ProjectDetail() {
     load()
   }
 
+  const sortedLots = useMemo(
+    () =>
+      [...lots].sort((a, b) => {
+        const block = String(a.block_no ?? '').localeCompare(String(b.block_no ?? ''), undefined, { numeric: true })
+        if (block !== 0) return block
+        return String(a.lot_no ?? '').localeCompare(String(b.lot_no ?? ''), undefined, { numeric: true })
+      }),
+    [lots],
+  )
+
   const counts = {
     total: lots.length,
     available: lots.filter((lot) => lot.status === 'available').length,
     sold: lots.filter((lot) => lot.status === 'sold').length,
   }
+
+  const lotActions = (lot) => (
+    <div className="flex flex-wrap justify-end gap-2">
+      <Button
+        size="sm"
+        variant={lot.is_pinned ? 'gold' : 'secondary'}
+        onClick={() => togglePin(lot)}
+        disabled={Boolean(pendingPins[lot.id])}
+        aria-pressed={lot.is_pinned}
+      >
+        {lot.is_pinned ? 'Pinned' : 'Pin'}
+      </Button>
+      {lot.status === 'available' && (
+        <Button size="sm" variant="secondary" onClick={() => setMarkSoldLot(lot)}>
+          Mark Sold
+        </Button>
+      )}
+      {lot.status === 'sold' && (
+        <Button size="sm" variant="secondary" onClick={() => setLedgerLot(lot)}>
+          Ledger
+        </Button>
+      )}
+      {lot.status === 'available' && (
+        <Button size="sm" variant="secondary" onClick={() => setEditTarget(lot)}>
+          Edit
+        </Button>
+      )}
+      {lot.status === 'available' && (
+        <Button
+          size="sm"
+          variant="danger"
+          onClick={() => {
+            setDeleteError(null)
+            setConfirmDelete(lot)
+          }}
+        >
+          Delete
+        </Button>
+      )}
+    </div>
+  )
+
+  const lotColumns = [
+    { key: 'block', header: 'Block', className: 'font-semibold text-brand-deep', render: (lot) => lot.block_no ?? '—' },
+    { key: 'lot', header: 'Lot', className: 'text-ink/70', render: (lot) => lot.lot_no ?? '—' },
+    {
+      key: 'area',
+      header: 'Area',
+      className: 'text-ink/70',
+      render: (lot) => (lot.lot_area_sqm != null ? `${Number(lot.lot_area_sqm).toLocaleString('en-PH')} sqm` : '—'),
+    },
+    { key: 'price', header: 'Price', className: 'font-semibold text-ink', render: (lot) => formatPrice(lot.price) ?? '—' },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (lot) => <Badge tone={statusTone(lot.status)}>{statusLabel(lot.status)}</Badge>,
+    },
+    {
+      key: 'buyer',
+      header: 'Buyer',
+      className: 'text-ink/70',
+      render: (lot) => lot.sales?.buyer_name ?? lot.sales?.[0]?.buyer_name ?? '—',
+    },
+    {
+      key: 'soldBy',
+      header: 'Sold by',
+      hideBelow: 'sm',
+      className: 'text-ink/70',
+      render: (lot) => (lot.status === 'sold' ? (agentNames[lot.sold_by] ?? '—') : '—'),
+    },
+    { key: 'actions', header: 'Actions', className: 'text-right', render: lotActions },
+  ]
+
+  const lotCard = (lot) => (
+    <div className="rounded-lg border border-mist bg-white p-4">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="font-semibold text-brand-deep">
+          Block {lot.block_no ?? '—'} Lot {lot.lot_no ?? '—'}
+        </p>
+        <Badge tone={statusTone(lot.status)}>{statusLabel(lot.status)}</Badge>
+      </div>
+      <dl className="mb-3 space-y-1 text-sm">
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Area</dt>
+          <dd className="text-ink/70">
+            {lot.lot_area_sqm != null ? `${Number(lot.lot_area_sqm).toLocaleString('en-PH')} sqm` : '—'}
+          </dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Price</dt>
+          <dd className="font-semibold text-ink">{formatPrice(lot.price) ?? '—'}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Buyer</dt>
+          <dd className="text-ink/70">{lot.sales?.buyer_name ?? lot.sales?.[0]?.buyer_name ?? '—'}</dd>
+        </div>
+        {lot.status === 'sold' && (
+          <div className="flex justify-between gap-3">
+            <dt className="text-ink/50">Sold by</dt>
+            <dd className="text-ink/70">{agentNames[lot.sold_by] ?? '—'}</dd>
+          </div>
+        )}
+      </dl>
+      {lotActions(lot)}
+    </div>
+  )
 
   const backButton = (
     <button
@@ -245,7 +347,7 @@ export default function ProjectDetail() {
     return (
       <div>
         {backButton}
-        <p className="py-10 text-center text-ink/60">Loading project…</p>
+        <LoadingState label="Loading project…" />
       </div>
     )
   }
@@ -254,10 +356,7 @@ export default function ProjectDetail() {
     return (
       <div>
         {backButton}
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-mist bg-white p-10 text-center">
-          <p className="text-ink/70">Could not load this project.</p>
-          <button onClick={loadProject} className="btn btn-gold">Retry</button>
-        </div>
+        <ErrorState message="Could not load this project." onRetry={loadProject} />
       </div>
     )
   }
@@ -266,28 +365,24 @@ export default function ProjectDetail() {
     <div>
       {backButton}
 
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-extrabold text-brand-deep">{currentProject.name}</h1>
-          <p className="mt-1 text-sm text-ink/70">
-            {TYPE_LABELS[currentProject.type] ?? currentProject.type} · {currentProject.address} · {formatPrice(currentProject.price_per_sqm) ?? '—'} / m²
-          </p>
-          <p className="mt-2 flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-wide text-ink/50">
-            <span>{counts.total} lots</span>
-            <span>{counts.available} available</span>
-            <span>{counts.sold} sold</span>
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => setShowEditProject(true)}
-            className="btn border border-mist bg-white text-ink/70 hover:border-brand/30 hover:text-brand"
-          >
-            Edit Project
-          </button>
-          <button onClick={() => setShowUpload(true)} className="btn btn-gold">Upload Lots</button>
-        </div>
-      </div>
+      <PageHeader
+        title={currentProject.name}
+        description={`${TYPE_LABELS[currentProject.type] ?? currentProject.type} · ${currentProject.address} · ${formatPrice(currentProject.price_per_sqm) ?? '—'} / m²`}
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => setShowEditProject(true)}>
+              Edit Project
+            </Button>
+            <Button onClick={() => setShowUpload(true)}>Upload Lots</Button>
+          </>
+        }
+      />
+
+      <p className="mb-6 flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-wide text-ink/50">
+        <span>{counts.total} lots</span>
+        <span>{counts.available} available</span>
+        <span>{counts.sold} sold</span>
+      </p>
 
       {error && (
         <p role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
@@ -295,118 +390,18 @@ export default function ProjectDetail() {
         </p>
       )}
 
-      {notice && (
-        <p role="status" className="mb-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700">
-          {notice}
-        </p>
-      )}
+      {state === 'loading' && <LoadingState label="Loading lots…" />}
 
-      {state === 'loading' && <p className="py-10 text-center text-ink/60">Loading lots…</p>}
+      {state === 'error' && <ErrorState message="Could not load lots." onRetry={load} />}
 
-      {state === 'error' && (
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-mist bg-white p-10 text-center">
-          <p className="text-ink/70">Could not load lots.</p>
-          <button onClick={load} className="btn btn-gold">Retry</button>
-        </div>
-      )}
-
-      {state === 'ready' && lots.length === 0 && (
-        <p className="rounded-lg border border-mist bg-white p-10 text-center text-ink/60">
-          No lots yet. Click "Upload Lots" to import them from Excel.
-        </p>
-      )}
-
-      {state === 'ready' && lots.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-mist bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-mist bg-surface text-xs font-bold uppercase tracking-wide text-ink/60">
-              <tr>
-                <th className="px-4 py-3">Block</th>
-                <th className="px-4 py-3">Lot</th>
-                <th className="px-4 py-3">Area</th>
-                <th className="px-4 py-3">Price</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Buyer</th>
-                <th className="hidden px-4 py-3 sm:table-cell">Sold by</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lots.map((lot) => (
-                <tr key={lot.id} className="border-b border-mist/70 last:border-0">
-                  <td className="px-4 py-3 font-semibold text-brand-deep">{lot.block_no ?? '—'}</td>
-                  <td className="px-4 py-3 text-ink/70">{lot.lot_no ?? '—'}</td>
-                  <td className="px-4 py-3 text-ink/70">
-                    {lot.lot_area_sqm != null ? `${Number(lot.lot_area_sqm).toLocaleString('en-PH')} sqm` : '—'}
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-ink">{formatPrice(lot.price) ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${statusBadgeCls(lot.status)}`}>
-                      {lot.status ? lot.status.charAt(0).toUpperCase() + lot.status.slice(1) : 'Available'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-ink/70">
-                    {lot.sales?.buyer_name ?? lot.sales?.[0]?.buyer_name ?? '—'}
-                  </td>
-                  <td className="hidden px-4 py-3 text-ink/70 sm:table-cell">
-                    {lot.status === 'sold' ? (agentNames[lot.sold_by] ?? '—') : '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <button
-                        onClick={() => togglePin(lot)}
-                        disabled={Boolean(pendingPins[lot.id])}
-                        aria-pressed={lot.is_pinned}
-                        className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60 ${
-                          lot.is_pinned
-                            ? 'border-gold bg-gold text-brand-deep'
-                            : 'border-mist text-ink/70 hover:border-brand/40 hover:text-brand'
-                        }`}
-                      >
-                        {lot.is_pinned ? 'Pinned' : 'Pin'}
-                      </button>
-                      {lot.status === 'available' && (
-                        <button
-                          onClick={() => setMarkSoldLot(lot)}
-                          className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-                        >
-                          Mark Sold
-                        </button>
-                      )}
-                      {lot.status === 'sold' && (
-                        <button
-                          onClick={() => setLedgerLot(lot)}
-                          className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-                        >
-                          Ledger
-                        </button>
-                      )}
-                      {lot.status === 'available' && (
-                        <button
-                          onClick={() => setEditTarget(lot)}
-                          className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-                        >
-                          Edit
-                        </button>
-                      )}
-                      {lot.status === 'available' && (
-                        <button
-                          onClick={() => {
-                            setDeleteError(null)
-                            setConfirmDelete(lot)
-                          }}
-                          className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {state === 'ready' && (
+        <DataTable
+          columns={lotColumns}
+          rows={sortedLots}
+          getRowKey={(lot) => lot.id}
+          emptyMessage='No lots yet. Click "Upload Lots" to import them from Excel.'
+          mobileCard={lotCard}
+        />
       )}
 
       {showEditProject && (
@@ -442,9 +437,8 @@ export default function ProjectDetail() {
         <UploadLotsModal
           project={currentProject}
           onClose={() => setShowUpload(false)}
-          onImported={(count) => {
+          onImported={() => {
             setShowUpload(false)
-            setNotice(`Imported ${count} lot${count === 1 ? '' : 's'}.`)
             load()
           }}
         />

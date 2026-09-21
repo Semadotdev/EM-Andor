@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react'
 import Icon from '../shared/Icon.jsx'
 import { fetchPropertyStats, fetchInquiryStats, fetchRecentInquiries } from '../../lib/api.js'
-
-const statCardCls = 'rounded-lg border border-mist bg-white p-5 flex items-center gap-4'
-const iconCls = 'size-10 shrink-0 grid place-items-center rounded-full'
+import { LoadingState, StatCard } from '../shared/ui'
 
 export default function DashboardStats({ onJumpToInquiries }) {
   const [propertyStats, setPropertyStats] = useState(null)
@@ -28,7 +26,7 @@ export default function DashboardStats({ onJumpToInquiries }) {
   }, [])
 
   if (loading) {
-    return <p className="py-6 text-center text-ink/50 text-sm">Loading stats…</p>
+    return <LoadingState label="Loading stats…" />
   }
 
   const typeLabels = {
@@ -42,42 +40,10 @@ export default function DashboardStats({ onJumpToInquiries }) {
   return (
     <div className="mb-8 space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className={statCardCls}>
-          <span className={`${iconCls} bg-brand/10 text-brand`}>
-            <Icon name="residential" className="size-5" />
-          </span>
-          <div>
-            <p className="text-2xl font-extrabold text-brand-deep">{propertyStats?.total ?? 0}</p>
-            <p className="text-xs font-semibold text-ink/50 uppercase tracking-wide">Total Lots</p>
-          </div>
-        </div>
-        <div className={statCardCls}>
-          <span className={`${iconCls} bg-gold/20 text-yellow-700`}>
-            <Icon name="gallery" className="size-5" />
-          </span>
-          <div>
-            <p className="text-2xl font-extrabold text-brand-deep">{propertyStats?.projects ?? 0}</p>
-            <p className="text-xs font-semibold text-ink/50 uppercase tracking-wide">Projects</p>
-          </div>
-        </div>
-        <div className={statCardCls}>
-          <span className={`${iconCls} bg-blue-100 text-blue-600`}>
-            <Icon name="detail" className="size-5" />
-          </span>
-          <div>
-            <p className="text-2xl font-extrabold text-brand-deep">{inquiryStats?.total ?? 0}</p>
-            <p className="text-xs font-semibold text-ink/50 uppercase tracking-wide">Total Inquiries</p>
-          </div>
-        </div>
-        <div className={statCardCls}>
-          <span className={`${iconCls} bg-red-100 text-red-600`}>
-            <Icon name="safety" className="size-5" />
-          </span>
-          <div>
-            <p className="text-2xl font-extrabold text-brand-deep">{inquiryStats?.unread ?? 0}</p>
-            <p className="text-xs font-semibold text-ink/50 uppercase tracking-wide">Unread</p>
-          </div>
-        </div>
+        <StatCard icon={<Icon name="residential" className="size-5" />} label="Total Lots" value={propertyStats?.total ?? 0} tone="brand" />
+        <StatCard icon={<Icon name="gallery" className="size-5" />} label="Projects" value={propertyStats?.projects ?? 0} tone="gold" />
+        <StatCard icon={<Icon name="detail" className="size-5" />} label="Total Inquiries" value={inquiryStats?.total ?? 0} tone="blue" />
+        <StatCard icon={<Icon name="safety" className="size-5" />} label="Unread" value={inquiryStats?.unread ?? 0} tone="red" />
       </div>
 
       {propertyStats?.types && Object.keys(propertyStats.types).length > 0 && (

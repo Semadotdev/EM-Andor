@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdminAgents from './AdminAgents.jsx'
+import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/agents.js', () => ({
   fetchAllAgents: vi.fn(),
@@ -72,6 +73,7 @@ describe('AdminAgents', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Deactivate' }))
 
     expect(setAgentActive).toHaveBeenCalledWith('a1', false)
+    expect(await screen.findByText('Agent deactivated.')).toBeInTheDocument()
   })
 
   it('searches agents by name', async () => {

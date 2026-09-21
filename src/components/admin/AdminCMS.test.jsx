@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdminCMS from './AdminCMS.jsx'
+import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/api.js', () => ({
   fetchCMSContentList: vi.fn(),
@@ -73,6 +74,7 @@ describe('AdminCMS', () => {
       title: 'Home Hero Section',
       status: 'draft',
     }))
+    expect(await screen.findByText('Content saved.')).toBeInTheDocument()
   })
 
   it('toggles status between draft and published', async () => {

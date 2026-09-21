@@ -4,9 +4,23 @@ import { ROLE_LABELS } from '../../lib/agentMeta.js'
 import { fetchCommissions, markCommissionPaid } from '../../lib/sales.js'
 import { formatPrice } from '../../lib/format.js'
 import { COMMISSION_ROLES, formatRate } from '../../lib/commissions.js'
-import ConfirmModal from '../shared/ConfirmModal.jsx'
+import {
+  Badge,
+  Button,
+  ConfirmModal,
+  DataTable,
+  ErrorState,
+  Input,
+  LoadingState,
+  PageHeader,
+  Select,
+  useToast,
+} from '../shared/ui'
+
+const commissionTone = (status) => (status === 'paid' ? 'green' : 'yellow')
 
 export default function AdminCommissions() {
+  const { showToast } = useToast()
   const [rateInputs, setRateInputs] = useState({})
   const [ratesState, setRatesState] = useState('loading')
   const [ratesMessage, setRatesMessage] = useState('')
@@ -74,7 +88,7 @@ export default function AdminCommissions() {
         Object.entries(rateInputs).map(([role, value]) => [role, Number(value) / 100]),
       )
       await updateCommissionRates(payload)
-      setRatesMessage('Rates saved.')
+      showToast('Rates saved.')
     } catch {
       setRatesMessage('Could not save the rates. Please try again.')
     } finally {
@@ -90,6 +104,7 @@ export default function AdminCommissions() {
       await markCommissionPaid(confirmPaid.id)
       setCommissions((list) => list.map((c) => (c.id === confirmPaid.id ? { ...c, status: 'paid' } : c)))
       setConfirmPaid(null)
+      showToast('Commission marked as paid.')
     } catch (err) {
       setPaidError(err?.message === 'Commission is already paid.' ? err.message : 'Could not mark the commission paid. Please try again.')
     } finally {
@@ -103,146 +118,168 @@ export default function AdminCommissions() {
   const earnedTotal = visible.reduce((sum, c) => sum + Number(c.amount), 0)
   const paidTotal = visible.filter((c) => c.status === 'paid').reduce((sum, c) => sum + Number(c.amount), 0)
 
+  const columns = [
+    { key: 'agent', header: 'Agent', className: 'font-semibold text-brand-deep', render: (row) => row.agents?.name ?? '—' },
+    { key: 'property', header: 'Property', className: 'text-ink/70', render: (row) => row.properties?.name ?? '—' },
+    {
+      key: 'rate',
+      header: 'Rate',
+      hideBelow: 'sm',
+      className: 'text-ink/70',
+      render: (row) => (
+        <>
+          {formatRate(row.rate)} <span className="text-xs text-ink/50">({ROLE_LABELS[row.role_at_sale] ?? row.role_at_sale})</span>
+        </>
+      ),
+    },
+    { key: 'amount', header: 'Amount', className: 'font-semibold text-ink', render: (row) => formatPrice(row.amount) ?? '—' },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (row) => <Badge tone={commissionTone(row.status)}>{row.status === 'paid' ? 'Paid' : 'Earned'}</Badge>,
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'text-right',
+      render: (row) =>
+        row.status === 'earned' ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setPaidError(null)
+              setConfirmPaid(row)
+            }}
+          >
+            Mark Paid
+          </Button>
+        ) : null,
+    },
+  ]
+
+  const commissionCard = (row) => (
+    <div className="rounded-lg border border-mist bg-white p-4">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="font-semibold text-brand-deep">{row.agents?.name ?? '—'}</p>
+        <Badge tone={commissionTone(row.status)}>{row.status === 'paid' ? 'Paid' : 'Earned'}</Badge>
+      </div>
+      <dl className="mb-3 space-y-1 text-sm">
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Property</dt>
+          <dd className="text-ink/70">{row.properties?.name ?? '—'}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Rate</dt>
+          <dd className="text-ink/70">
+            {formatRate(row.rate)} ({ROLE_LABELS[row.role_at_sale] ?? row.role_at_sale})
+          </dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Amount</dt>
+          <dd className="font-semibold text-ink">{formatPrice(row.amount) ?? '—'}</dd>
+        </div>
+      </dl>
+      {row.status === 'earned' && (
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => {
+            setPaidError(null)
+            setConfirmPaid(row)
+          }}
+        >
+          Mark Paid
+        </Button>
+      )}
+    </div>
+  )
+
+  const hasFilters = Boolean(search || statusFilter || agentFilter)
+
   return (
     <div>
-      <h1 className="mb-6 font-display text-2xl font-extrabold text-brand-deep">Commissions</h1>
+      <PageHeader title="Commissions" description="Rates, earned amounts, and payouts across the agent network." />
 
       <form onSubmit={saveRates} className="mb-8 rounded-lg border border-mist bg-white p-5">
         <h2 className="mb-1 font-display text-sm font-bold text-brand-deep">Rates</h2>
         <p className="mb-4 text-xs text-ink/50">Percent of the lot price paid to each level. Existing commissions keep their original rate.</p>
-        {ratesState === 'loading' && <p className="text-sm text-ink/60">Loading rates…</p>}
+        {ratesState === 'loading' && <LoadingState label="Loading rates…" />}
         {ratesState === 'error' && <p className="text-sm text-ink/60">Could not load rates.</p>}
         {ratesState === 'ready' && (
           <div className="flex flex-wrap items-end gap-4">
             {COMMISSION_ROLES.map((role) => (
-              <div key={role}>
-                <label htmlFor={`rate-${role}`} className="mb-1.5 block text-sm font-semibold text-brand-deep">
-                  {ROLE_LABELS[role]} rate (%)
-                </label>
-                <input
-                  id={`rate-${role}`}
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  className="w-32 rounded-md border border-mist px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/30"
-                  value={rateInputs[role] ?? ''}
-                  onChange={(e) => setRateInputs((inputs) => ({ ...inputs, [role]: e.target.value }))}
-                />
-              </div>
+              <Input
+                key={role}
+                id={`rate-${role}`}
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                className="w-32"
+                label={`${ROLE_LABELS[role]} rate (%)`}
+                value={rateInputs[role] ?? ''}
+                onChange={(e) => setRateInputs((inputs) => ({ ...inputs, [role]: e.target.value }))}
+              />
             ))}
-            <button type="submit" disabled={savingRates} className="btn btn-gold disabled:opacity-60">
+            <Button type="submit" disabled={savingRates}>
               {savingRates ? 'Saving…' : 'Save Rates'}
-            </button>
+            </Button>
           </div>
         )}
         {ratesMessage && <p className="mt-3 text-sm font-medium text-ink/70">{ratesMessage}</p>}
       </form>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <select
-          value={agentFilter}
-          onChange={(e) => setAgentFilter(e.target.value)}
-          aria-label="Filter by agent"
-          className="rounded-md border border-mist px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/30"
-        >
+        <Select aria-label="Filter by agent" value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)}>
           <option value="">All Agents</option>
           {agents.map((agent) => (
             <option key={agent.id} value={agent.id}>
               {agent.name} ({ROLE_LABELS[agent.role] ?? agent.role})
             </option>
           ))}
-        </select>
-        <label htmlFor="cf-status" className="text-sm font-semibold text-brand-deep">Status</label>
-        <select
-          id="cf-status"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-md border border-mist px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/30"
-        >
+        </Select>
+        <Select label="Status" id="cf-status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="">All</option>
           <option value="earned">Earned</option>
           <option value="paid">Paid</option>
-        </select>
-        <input
-          type="text"
-          placeholder="Search by property…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          aria-label="Search by property"
-          className="flex-1 rounded-md border border-mist px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/30"
-        />
+        </Select>
+        <div className="min-w-0 flex-1">
+          <Input
+            type="text"
+            placeholder="Search by property…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search by property"
+          />
+        </div>
       </div>
 
-      {state === 'loading' && <p className="py-10 text-center text-ink/60">Loading commissions…</p>}
+      {state === 'loading' && <LoadingState label="Loading commissions…" />}
 
-      {state === 'error' && (
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-mist bg-white p-10 text-center">
-          <p className="text-ink/70">Could not load commissions.</p>
-          <button onClick={loadCommissions} className="btn btn-gold">Retry</button>
-        </div>
-      )}
+      {state === 'error' && <ErrorState message="Could not load commissions." onRetry={loadCommissions} />}
 
-      {state === 'ready' && commissions.length === 0 && (
-        <p className="rounded-lg border border-mist bg-white p-10 text-center text-ink/60">No commissions yet.</p>
-      )}
-
-      {state === 'ready' && commissions.length > 0 && (
+      {state === 'ready' && (
         <>
-          <div className="mb-4 grid grid-cols-2 gap-3 sm:max-w-md">
-            <div className="rounded-lg border border-mist bg-white p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-ink/50">Earned</p>
-              <p className="mt-1 font-display text-lg font-extrabold text-brand-deep">{formatPrice(earnedTotal)}</p>
+          {commissions.length > 0 && (
+            <div className="mb-4 grid grid-cols-2 gap-3 sm:max-w-md">
+              <div className="rounded-lg border border-mist bg-white p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-ink/50">Earned</p>
+                <p className="mt-1 font-display text-lg font-extrabold text-brand-deep">{formatPrice(earnedTotal)}</p>
+              </div>
+              <div className="rounded-lg border border-mist bg-white p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-ink/50">Paid</p>
+                <p className="mt-1 font-display text-lg font-extrabold text-brand-deep">{formatPrice(paidTotal)}</p>
+              </div>
             </div>
-            <div className="rounded-lg border border-mist bg-white p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-ink/50">Paid</p>
-              <p className="mt-1 font-display text-lg font-extrabold text-brand-deep">{formatPrice(paidTotal)}</p>
-            </div>
-          </div>
-          <div className="overflow-x-auto rounded-lg border border-mist bg-white">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-mist bg-surface text-xs font-bold uppercase tracking-wide text-ink/60">
-                <tr>
-                  <th className="px-4 py-3">Agent</th>
-                  <th className="px-4 py-3">Property</th>
-                  <th className="hidden px-4 py-3 sm:table-cell">Rate</th>
-                  <th className="px-4 py-3">Amount</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((row) => (
-                  <tr key={row.id} className="border-b border-mist/70 last:border-0">
-                    <td className="px-4 py-3 font-semibold text-brand-deep">{row.agents?.name ?? '—'}</td>
-                    <td className="px-4 py-3 text-ink/70">{row.properties?.name ?? '—'}</td>
-                    <td className="hidden px-4 py-3 text-ink/70 sm:table-cell">
-                      {formatRate(row.rate)} <span className="text-xs text-ink/50">({ROLE_LABELS[row.role_at_sale] ?? row.role_at_sale})</span>
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-ink">{formatPrice(row.amount) ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${row.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                        {row.status === 'paid' ? 'Paid' : 'Earned'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {row.status === 'earned' && (
-                        <button
-                          onClick={() => {
-                            setPaidError(null)
-                            setConfirmPaid(row)
-                          }}
-                          className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-                        >
-                          Mark Paid
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          )}
+          <DataTable
+            columns={columns}
+            rows={visible}
+            getRowKey={(row) => row.id}
+            emptyMessage={hasFilters ? 'No commissions match your filters.' : 'No commissions yet.'}
+            mobileCard={commissionCard}
+          />
         </>
       )}
 

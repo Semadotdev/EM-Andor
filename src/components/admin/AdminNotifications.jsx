@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import Icon from '../shared/Icon.jsx'
 import { fetchNotificationSettings, updateNotificationSettings, sendTestEmail, fetchNotificationHistory } from '../../lib/api.js'
+import {
+  Badge,
+  Button,
+  Checkbox,
+  DataTable,
+  ErrorState,
+  Input,
+  LoadingState,
+  PageHeader,
+  Textarea,
+  useToast,
+} from '../shared/ui'
 
 const TYPE_LABELS = {
   new_inquiry: 'New Inquiry Received',
@@ -38,10 +50,8 @@ const sampleData = {
   date: new Date().toLocaleDateString('en-PH'),
 }
 
-const inputCls =
-  'w-full rounded-md border border-mist bg-white px-4 py-3 text-sm text-ink placeholder:text-ink/40 transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20'
-
 export default function AdminNotifications() {
+  const { showToast } = useToast()
   const [settings, setSettings] = useState([])
   const [history, setHistory] = useState([])
   const [status, setStatus] = useState('loading')
@@ -77,6 +87,7 @@ export default function AdminNotifications() {
     )
     try {
       await updateNotificationSettings(setting.notification_type, { enabled: next })
+      showToast('Notification setting updated.')
     } catch {
       setSettings((list) =>
         list.map((s) => (s.notification_type === setting.notification_type ? { ...s, enabled: !next } : s))
@@ -111,6 +122,7 @@ export default function AdminNotifications() {
         enabled: form.enabled,
         recipients,
       })
+      showToast('Notification settings saved.')
       setEditingType(null)
       load()
     } catch {
@@ -141,25 +153,96 @@ export default function AdminNotifications() {
     setForm((f) => ({ ...f, [field]: e.target.value }))
   }
 
+  const settingsColumns = [
+    {
+      key: 'type',
+      header: 'Notification Type',
+      render: (setting) => (
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-md bg-brand/10 text-brand">
+            <Icon name="mail" className="size-5" />
+          </span>
+          <div>
+            <p className="font-semibold text-brand-deep">
+              {TYPE_LABELS[setting.notification_type] ?? setting.notification_type}
+            </p>
+            <p className="text-xs text-ink/50">{setting.notification_type}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'description',
+      header: 'Description',
+      hideBelow: 'md',
+      className: 'text-ink/60',
+      render: (setting) => TYPE_DESCRIPTIONS[setting.notification_type] ?? '',
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (setting) => (
+        <button
+          onClick={() => handleToggle(setting)}
+          aria-pressed={setting.enabled}
+          className="inline-flex rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          <Badge tone={setting.enabled ? 'green' : 'gray'}>
+            {setting.enabled ? 'Enabled' : 'Disabled'}
+          </Badge>
+        </button>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'text-right',
+      render: (setting) => (
+        <Button size="sm" variant="secondary" onClick={() => handleEdit(setting)}>
+          Edit Template
+        </Button>
+      ),
+    },
+  ]
+
+  const historyColumns = [
+    {
+      key: 'type',
+      header: 'Type',
+      render: (entry) => (
+        <Badge tone="brand">{TYPE_LABELS[entry.notification_type] ?? entry.notification_type}</Badge>
+      ),
+    },
+    { key: 'recipient', header: 'Recipient', className: 'text-ink/70', render: (entry) => entry.recipient },
+    { key: 'subject', header: 'Subject', hideBelow: 'sm', className: 'text-ink/60', render: (entry) => entry.subject || '—' },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (entry) => <Badge tone={entry.status === 'sent' ? 'green' : 'red'}>{entry.status === 'sent' ? 'Sent' : 'Failed'}</Badge>,
+    },
+    {
+      key: 'date',
+      header: 'Date',
+      hideBelow: 'md',
+      className: 'text-ink/50',
+      render: (entry) => new Date(entry.created_at).toLocaleString('en-PH'),
+    },
+  ]
+
   if (editingType) {
     const previewSubject = replaceVariables(form.subject_template, sampleData)
     const previewBody = replaceVariables(form.body_template, sampleData)
 
     return (
       <div>
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setEditingType(null)}
-              className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-            >
+        <PageHeader
+          title={`Edit: ${TYPE_LABELS[editingType.notification_type] ?? editingType.notification_type}`}
+          actions={
+            <Button variant="secondary" size="sm" onClick={() => setEditingType(null)}>
               ← Back
-            </button>
-            <h2 className="font-display text-xl font-extrabold text-brand-deep">
-              Edit: {TYPE_LABELS[editingType.notification_type] ?? editingType.notification_type}
-            </h2>
-          </div>
-        </div>
+            </Button>
+          }
+        />
 
         {error && (
           <p role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
@@ -177,58 +260,38 @@ export default function AdminNotifications() {
           <div className="rounded-lg border border-mist bg-white p-6">
             <h3 className="mb-4 font-display text-lg font-bold text-brand-deep">Template Settings</h3>
             <div className="grid gap-5">
-              <div>
-                <label htmlFor="notif-enabled" className="mb-1.5 flex items-center gap-3">
-                  <input
-                    id="notif-enabled"
-                    type="checkbox"
-                    checked={form.enabled}
-                    onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))}
-                    className="size-4 rounded border-mist text-brand focus:ring-brand/30"
-                  />
-                  <span className="text-sm font-semibold text-brand-deep">Enabled</span>
-                </label>
-              </div>
+              <Checkbox
+                id="notif-enabled"
+                label="Enabled"
+                checked={form.enabled}
+                onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))}
+              />
 
-              <div>
-                <label htmlFor="notif-subject" className="mb-1.5 block text-sm font-semibold text-brand-deep">
-                  Subject Line
-                </label>
-                <input
-                  id="notif-subject"
-                  className={inputCls}
-                  value={form.subject_template}
-                  onChange={setField('subject_template')}
-                  placeholder="e.g., New Inquiry: {property_name}"
-                />
-              </div>
+              <Input
+                id="notif-subject"
+                label="Subject Line"
+                value={form.subject_template}
+                onChange={setField('subject_template')}
+                placeholder="e.g., New Inquiry: {property_name}"
+              />
 
-              <div>
-                <label htmlFor="notif-body" className="mb-1.5 block text-sm font-semibold text-brand-deep">
-                  Body Content
-                </label>
-                <textarea
-                  id="notif-body"
-                  rows="8"
-                  className={`${inputCls} resize-y`}
-                  value={form.body_template}
-                  onChange={setField('body_template')}
-                  placeholder="Enter email body content..."
-                />
-              </div>
+              <Textarea
+                id="notif-body"
+                rows="8"
+                className="resize-y"
+                label="Body Content"
+                value={form.body_template}
+                onChange={setField('body_template')}
+                placeholder="Enter email body content..."
+              />
 
-              <div>
-                <label htmlFor="notif-recipients" className="mb-1.5 block text-sm font-semibold text-brand-deep">
-                  Recipients (comma-separated)
-                </label>
-                <input
-                  id="notif-recipients"
-                  className={inputCls}
-                  value={form.recipients}
-                  onChange={setField('recipients')}
-                  placeholder="admin@example.com, team@example.com"
-                />
-              </div>
+              <Input
+                id="notif-recipients"
+                label="Recipients (comma-separated)"
+                value={form.recipients}
+                onChange={setField('recipients')}
+                placeholder="admin@example.com, team@example.com"
+              />
 
               <div className="rounded-md bg-surface p-3">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink/50">Available Variables</p>
@@ -244,37 +307,25 @@ export default function AdminNotifications() {
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setEditingType(null)}
-                className="rounded-md border border-mist bg-white px-4 py-2 text-sm font-semibold text-ink/70 transition-colors hover:border-brand/30 hover:text-brand"
-              >
+              <Button variant="secondary" onClick={() => setEditingType(null)}>
                 Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="rounded-md bg-gold px-4 py-2 text-sm font-semibold text-brand-deep transition-colors hover:bg-gold/90 disabled:opacity-60"
-              >
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
                 {saving ? 'Saving…' : 'Save Changes'}
-              </button>
+              </Button>
             </div>
           </div>
 
           <div className="rounded-lg border border-mist bg-white p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="font-display text-lg font-bold text-brand-deep">Preview</h3>
-              <button
+              <Button
+                size="sm"
+                variant={previewEnabled ? 'primary' : 'secondary'}
                 onClick={() => setPreviewEnabled(!previewEnabled)}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  previewEnabled
-                    ? 'bg-brand text-white'
-                    : 'border border-mist text-ink/70 hover:border-brand/40 hover:text-brand'
-                }`}
               >
                 {previewEnabled ? 'Hide Preview' : 'Show Preview'}
-              </button>
+              </Button>
             </div>
 
             {previewEnabled && (
@@ -297,21 +348,18 @@ export default function AdminNotifications() {
             <div className="mt-6">
               <h4 className="mb-3 text-sm font-semibold text-brand-deep">Send Test Email</h4>
               <div className="flex gap-2">
-                <input
-                  type="email"
-                  placeholder="test@example.com"
-                  value={testEmail}
-                  onChange={(e) => setTestEmail(e.target.value)}
-                  className="flex-1 rounded-md border border-mist px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/30"
-                  aria-label="Test email recipient"
-                />
-                <button
-                  onClick={handleSendTest}
-                  disabled={!testEmail.trim() || sendingTest}
-                  className="rounded-md border border-brand bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-deep disabled:opacity-60"
-                >
+                <div className="min-w-0 flex-1">
+                  <Input
+                    type="email"
+                    placeholder="test@example.com"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                    aria-label="Test email recipient"
+                  />
+                </div>
+                <Button onClick={handleSendTest} disabled={!testEmail.trim() || sendingTest}>
                   {sendingTest ? 'Sending…' : 'Send Test'}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -322,10 +370,7 @@ export default function AdminNotifications() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="font-display text-2xl font-extrabold text-brand-deep">Notifications</h1>
-        <p className="mt-1 text-sm text-ink/60">Configure email notification preferences and templates</p>
-      </div>
+      <PageHeader title="Notifications" description="Configure email notification preferences and templates" />
 
       <div className="mb-6 flex gap-2">
         <button
@@ -356,125 +401,26 @@ export default function AdminNotifications() {
         </p>
       )}
 
-      {status === 'loading' && <p className="py-10 text-center text-ink/60">Loading notifications…</p>}
+      {status === 'loading' && <LoadingState label="Loading notifications…" />}
 
-      {status === 'error' && (
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-mist bg-white p-10 text-center">
-          <p className="text-ink/70">Could not load notification settings.</p>
-          <button onClick={load} className="btn btn-gold">Retry</button>
-        </div>
+      {status === 'error' && <ErrorState message="Could not load notification settings." onRetry={load} />}
+
+      {status === 'ready' && activeTab === 'settings' && (
+        <DataTable
+          columns={settingsColumns}
+          rows={settings}
+          getRowKey={(setting) => setting.notification_type}
+          emptyMessage="No notification settings found. Run the database migration to seed default settings."
+        />
       )}
 
-      {status === 'ready' && activeTab === 'settings' && settings.length === 0 && (
-        <p className="rounded-lg border border-mist bg-white p-10 text-center text-ink/60">
-          No notification settings found. Run the database migration to seed default settings.
-        </p>
-      )}
-
-      {status === 'ready' && activeTab === 'settings' && settings.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-mist bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-mist bg-surface text-xs font-bold uppercase tracking-wide text-ink/60">
-              <tr>
-                <th className="px-4 py-3">Notification Type</th>
-                <th className="hidden px-4 py-3 md:table-cell">Description</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {settings.map((setting) => (
-                <tr key={setting.notification_type} className="border-b border-mist/70 last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="grid size-10 shrink-0 place-items-center rounded-md bg-brand/10 text-brand">
-                        <Icon name="mail" className="size-5" />
-                      </span>
-                      <div>
-                        <p className="font-semibold text-brand-deep">
-                          {TYPE_LABELS[setting.notification_type] ?? setting.notification_type}
-                        </p>
-                        <p className="text-xs text-ink/50">{setting.notification_type}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="hidden px-4 py-3 text-ink/60 md:table-cell">
-                    {TYPE_DESCRIPTIONS[setting.notification_type] ?? ''}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => handleToggle(setting)}
-                      aria-pressed={setting.enabled}
-                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold transition-colors ${
-                        setting.enabled
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      <span className={`size-2 rounded-full ${setting.enabled ? 'bg-green-500' : 'bg-gray-400'}`} />
-                      {setting.enabled ? 'Enabled' : 'Disabled'}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => handleEdit(setting)}
-                      className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-                    >
-                      Edit Template
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {status === 'ready' && activeTab === 'history' && history.length === 0 && (
-        <p className="rounded-lg border border-mist bg-white p-10 text-center text-ink/60">
-          No notifications sent yet. Send a test email from the Settings tab to see history here.
-        </p>
-      )}
-
-      {status === 'ready' && activeTab === 'history' && history.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-mist bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-mist bg-surface text-xs font-bold uppercase tracking-wide text-ink/60">
-              <tr>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Recipient</th>
-                <th className="hidden px-4 py-3 sm:table-cell">Subject</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="hidden px-4 py-3 md:table-cell">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((entry) => (
-                <tr key={entry.id} className="border-b border-mist/70 last:border-0">
-                  <td className="px-4 py-3">
-                    <span className="inline-flex rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-semibold text-brand">
-                      {TYPE_LABELS[entry.notification_type] ?? entry.notification_type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-ink/70">{entry.recipient}</td>
-                  <td className="hidden px-4 py-3 text-ink/60 sm:table-cell">{entry.subject || '—'}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                      entry.status === 'sent'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}>
-                      {entry.status === 'sent' ? 'Sent' : 'Failed'}
-                    </span>
-                  </td>
-                  <td className="hidden px-4 py-3 text-ink/50 md:table-cell">
-                    {new Date(entry.created_at).toLocaleString('en-PH')}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {status === 'ready' && activeTab === 'history' && (
+        <DataTable
+          columns={historyColumns}
+          rows={history}
+          getRowKey={(entry) => entry.id}
+          emptyMessage="No notifications sent yet. Send a test email from the Settings tab to see history here."
+        />
       )}
     </div>
   )

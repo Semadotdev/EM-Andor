@@ -1,8 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BuyerLedgerModal from './BuyerLedgerModal.jsx'
 import { buildLedger, ledgerCsvRows } from '../../lib/ledger.js'
+import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/sales.js', () => ({
   fetchSale: vi.fn(),
@@ -139,6 +140,7 @@ describe('BuyerLedgerModal', () => {
     })
     expect(fetchPayments).toHaveBeenCalledTimes(2)
     expect(onChanged).toHaveBeenCalled()
+    expect(await screen.findByText('Payment added.')).toBeInTheDocument()
   })
 
   it('blocks adding a payment without a date or a positive amount', async () => {

@@ -1,16 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import ConfirmModal from '../shared/ConfirmModal.jsx'
 import { buildLedger, ledgerCsvRows } from '../../lib/ledger.js'
 import { exportToCSV } from '../../lib/csv.js'
 import { createPayment, deletePayment, fetchPayments, fetchSale, updatePayment } from '../../lib/sales.js'
 import { formatPrice } from '../../lib/format.js'
+import { Button, ConfirmModal, ErrorState, Input, LoadingState, Modal, useToast } from '../shared/ui'
 import SaleDetailsModal from './SaleDetailsModal.jsx'
 
 const CSV_HEADERS = ['DATE', 'OR#', 'AMOUNT', 'SURCHARGE', 'INTEREST', 'PRINCIPAL', 'BALANCE OF PRINCIPAL', 'REMARKS']
-
-const inputCls =
-  'w-full rounded-md border border-mist bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/40 transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20'
-
 
 const emptyPaymentForm = {
   entry_date: '',
@@ -32,6 +28,7 @@ function Money({ value }) {
 }
 
 export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
+  const { showToast } = useToast()
   const [sale, setSale] = useState(null)
   const [payments, setPayments] = useState([])
   const [state, setState] = useState('loading')
@@ -46,14 +43,6 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
   const [showEditSale, setShowEditSale] = useState(false)
 
   const ledger = useMemo(() => buildLedger(payments, sale?.tcp), [payments, sale?.tcp])
-
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape' && !showEditSale && !confirmDelete) onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose, showEditSale, confirmDelete])
 
   const load = () => {
     setState('loading')
@@ -103,6 +92,7 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
       })
       setAddForm(emptyPaymentForm)
       await reloadPayments()
+      showToast('Payment added.')
       onChanged?.()
     } catch {
       setAddError('Could not add the payment. Please try again.')
@@ -153,6 +143,7 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
       })
       setEditForm(null)
       await reloadPayments()
+      showToast('Payment updated.')
       onChanged?.()
     } catch {
       setEditErrors({ form: 'Could not save the payment. Please try again.' })
@@ -166,6 +157,7 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
       await deletePayment(confirmDelete.id)
       setConfirmDelete(null)
       await reloadPayments()
+      showToast('Payment deleted.')
       onChanged?.()
     } catch {
       setConfirmDelete(null)
@@ -194,32 +186,18 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
   const lotLabel = `Block ${lot.block_no ?? '—'} Lot ${lot.lot_no ?? '—'}`
 
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-brand-deep/60 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-4xl rounded-lg bg-white p-6 sm:p-8"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Buyer ledger"
-      >
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="font-display text-xl font-extrabold text-brand-deep">Buyer's Ledger</h2>
-          <button onClick={onClose} className="rounded-md px-2 py-1 text-ink/50 hover:text-ink" aria-label="Close">
-            ✕
-          </button>
-        </div>
+    <Modal open onClose={onClose} label="Buyer ledger" size="xl">
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="font-display text-xl font-extrabold text-brand-deep">Buyer's Ledger</h2>
+        <button onClick={onClose} className="rounded-md px-2 py-1 text-ink/50 hover:text-ink" aria-label="Close">
+          ✕
+        </button>
+      </div>
 
-        {state === 'loading' && <p className="py-10 text-center text-ink/60">Loading ledger…</p>}
+      <div>
+        {state === 'loading' && <LoadingState label="Loading ledger…" />}
 
-        {state === 'error' && (
-          <div className="flex flex-col items-center gap-4 rounded-lg border border-mist bg-white p-10 text-center">
-            <p className="text-ink/70">Could not load the ledger.</p>
-            <button onClick={load} className="btn btn-gold">Retry</button>
-          </div>
-        )}
+        {state === 'error' && <ErrorState message="Could not load the ledger." onRetry={load} />}
 
         {state === 'ready' && (
           <>
@@ -271,18 +249,12 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
             </dl>
 
             <div className="mb-4 flex flex-wrap justify-end gap-3">
-              <button
-                onClick={() => setShowEditSale(true)}
-                className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-              >
+              <Button variant="secondary" size="sm" onClick={() => setShowEditSale(true)}>
                 Edit Sale
-              </button>
-              <button
-                onClick={exportCsv}
-                className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-              >
+              </Button>
+              <Button variant="secondary" size="sm" onClick={exportCsv}>
                 Export CSV
-              </button>
+              </Button>
             </div>
 
             <div className="overflow-x-auto rounded-lg border border-mist">
@@ -313,45 +285,38 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
                       {editForm?.id === row.id ? (
                         <>
                           <td className="px-3 py-2">
-                            <input
+                            <Input
                               type="date"
                               aria-label="DATE"
-                              className={inputCls}
                               value={editForm.entry_date}
                               onChange={setEditField('entry_date')}
                             />
                           </td>
                           <td className="px-3 py-2">
-                            <input aria-label="OR#" className={inputCls} value={editForm.or_number} onChange={setEditField('or_number')} />
+                            <Input aria-label="OR#" value={editForm.or_number} onChange={setEditField('or_number')} />
                           </td>
                           <td className="px-3 py-2">
-                            <input type="number" min="0" step="any" aria-label="AMOUNT" className={inputCls} value={editForm.amount} onChange={setEditField('amount')} />
+                            <Input type="number" min="0" step="any" aria-label="AMOUNT" value={editForm.amount} onChange={setEditField('amount')} />
                           </td>
                           <td className="px-3 py-2">
-                            <input type="number" min="0" step="any" aria-label="SURCHARGE" className={inputCls} value={editForm.surcharge} onChange={setEditField('surcharge')} />
+                            <Input type="number" min="0" step="any" aria-label="SURCHARGE" value={editForm.surcharge} onChange={setEditField('surcharge')} />
                           </td>
                           <td className="px-3 py-2">
-                            <input type="number" min="0" step="any" aria-label="INTEREST" className={inputCls} value={editForm.interest} onChange={setEditField('interest')} />
+                            <Input type="number" min="0" step="any" aria-label="INTEREST" value={editForm.interest} onChange={setEditField('interest')} />
                           </td>
                           <td className="px-3 py-2 font-semibold text-ink"><Money value={row.principal} /></td>
                           <td className="px-3 py-2 font-semibold text-ink"><Money value={row.balance} /></td>
                           <td className="px-3 py-2">
-                            <input aria-label="REMARKS" className={inputCls} value={editForm.remarks} onChange={setEditField('remarks')} />
+                            <Input aria-label="REMARKS" value={editForm.remarks} onChange={setEditField('remarks')} />
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex flex-wrap justify-end gap-2">
-                              <button
-                                onClick={submitEdit}
-                                className="rounded-md border border-brand/40 px-3 py-1.5 text-xs font-semibold text-brand transition-colors hover:bg-brand/5"
-                              >
+                              <Button size="sm" onClick={submitEdit}>
                                 Save
-                              </button>
-                              <button
-                                onClick={() => setEditForm(null)}
-                                className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-                              >
+                              </Button>
+                              <Button size="sm" variant="secondary" onClick={() => setEditForm(null)}>
                                 Cancel
-                              </button>
+                              </Button>
                             </div>
                             {Object.entries(editErrors)
                               .filter(([, message]) => message)
@@ -374,18 +339,12 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
                           <td className="px-3 py-3 text-ink/70">{row.remarks || '—'}</td>
                           <td className="px-3 py-3">
                             <div className="flex flex-wrap justify-end gap-2">
-                              <button
-                                onClick={() => startEdit(row)}
-                                className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-                              >
+                              <Button size="sm" variant="secondary" onClick={() => startEdit(row)}>
                                 Edit
-                              </button>
-                              <button
-                                onClick={() => setConfirmDelete(row)}
-                                className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50"
-                              >
+                              </Button>
+                              <Button size="sm" variant="danger" onClick={() => setConfirmDelete(row)}>
                                 Delete
-                              </button>
+                              </Button>
                             </div>
                           </td>
                         </>
@@ -418,42 +377,27 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
               )}
 
               <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                <div>
-                  <label htmlFor="bl-date" className="mb-1 block text-xs font-semibold text-brand-deep">DATE</label>
-                  <input id="bl-date" type="date" className={inputCls} value={addForm.entry_date} onChange={setAddField('entry_date')} />
-                  {addErrors.entry_date && (
-                    <p className="mt-1 text-xs font-medium text-red-600" role="alert">{addErrors.entry_date}</p>
-                  )}
-                </div>
-                <div>
-                  <label htmlFor="bl-or" className="mb-1 block text-xs font-semibold text-brand-deep">OR#</label>
-                  <input id="bl-or" className={inputCls} value={addForm.or_number} onChange={setAddField('or_number')} />
-                </div>
-                <div>
-                  <label htmlFor="bl-amount" className="mb-1 block text-xs font-semibold text-brand-deep">AMOUNT</label>
-                  <input id="bl-amount" type="number" min="0" step="any" className={inputCls} value={addForm.amount} onChange={setAddField('amount')} />
-                  {addErrors.amount && (
-                    <p className="mt-1 text-xs font-medium text-red-600" role="alert">{addErrors.amount}</p>
-                  )}
-                </div>
-                <div>
-                  <label htmlFor="bl-surcharge" className="mb-1 block text-xs font-semibold text-brand-deep">SURCHARGE</label>
-                  <input id="bl-surcharge" type="number" min="0" step="any" className={inputCls} value={addForm.surcharge} onChange={setAddField('surcharge')} />
-                </div>
-                <div>
-                  <label htmlFor="bl-interest" className="mb-1 block text-xs font-semibold text-brand-deep">INTEREST</label>
-                  <input id="bl-interest" type="number" min="0" step="any" className={inputCls} value={addForm.interest} onChange={setAddField('interest')} />
-                </div>
-                <div>
-                  <label htmlFor="bl-remarks" className="mb-1 block text-xs font-semibold text-brand-deep">REMARKS</label>
-                  <input id="bl-remarks" className={inputCls} value={addForm.remarks} onChange={setAddField('remarks')} />
-                </div>
+                <Input id="bl-date" type="date" label="DATE" value={addForm.entry_date} onChange={setAddField('entry_date')} error={addErrors.entry_date} />
+                <Input id="bl-or" label="OR#" value={addForm.or_number} onChange={setAddField('or_number')} />
+                <Input
+                  id="bl-amount"
+                  type="number"
+                  min="0"
+                  step="any"
+                  label="AMOUNT"
+                  value={addForm.amount}
+                  onChange={setAddField('amount')}
+                  error={addErrors.amount}
+                />
+                <Input id="bl-surcharge" type="number" min="0" step="any" label="SURCHARGE" value={addForm.surcharge} onChange={setAddField('surcharge')} />
+                <Input id="bl-interest" type="number" min="0" step="any" label="INTEREST" value={addForm.interest} onChange={setAddField('interest')} />
+                <Input id="bl-remarks" label="REMARKS" value={addForm.remarks} onChange={setAddField('remarks')} />
               </div>
 
               <div className="mt-3 flex justify-end">
-                <button type="submit" disabled={adding} className="btn btn-gold disabled:opacity-60">
+                <Button type="submit" disabled={adding}>
                   {adding ? 'Adding…' : 'Add Payment'}
-                </button>
+                </Button>
               </div>
             </form>
           </>
@@ -482,6 +426,6 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
           loading={deleting}
         />
       </div>
-    </div>
+    </Modal>
   )
 }

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdminCommissions from './AdminCommissions.jsx'
+import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/agents.js', () => ({
   fetchAllAgents: vi.fn().mockResolvedValue([]),
@@ -39,9 +40,10 @@ describe('AdminCommissions', () => {
   it('lists commissions with agent and property names', async () => {
     render(<AdminCommissions />)
 
-    expect(await screen.findByText('Ana Sub')).toBeInTheDocument()
-    expect(screen.getAllByText('Lot A').length).toBe(2)
-    expect(screen.getByText('₱ 30,000')).toBeInTheDocument()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Ana Sub')).toBeInTheDocument()
+    expect(within(table).getAllByText('Lot A').length).toBe(2)
+    expect(within(table).getByText('₱ 30,000')).toBeInTheDocument()
   })
 
   it('marks an earned commission paid after confirmation', async () => {
@@ -49,16 +51,17 @@ describe('AdminCommissions', () => {
 
     render(<AdminCommissions />)
 
-    await screen.findByText('Ana Sub')
-    const row = screen.getByText('Ana Sub').closest('tr')
+    const table = await screen.findByRole('table')
+    const row = within(table).getByText('Ana Sub').closest('tr')
     await user.click(within(row).getByRole('button', { name: 'Mark Paid' }))
     const dialog = await screen.findByRole('alertdialog')
     await user.click(within(dialog).getByRole('button', { name: 'Mark Paid' }))
 
     expect(markCommissionPaid).toHaveBeenCalledWith('c1')
+    expect(await screen.findByText('Commission marked as paid.')).toBeInTheDocument()
   })
 
-  it('saves edited rates as fractions', async () => {
+  it('saves edited rates as fractions and confirms with a toast', async () => {
     const user = userEvent.setup()
 
     render(<AdminCommissions />)
@@ -71,6 +74,7 @@ describe('AdminCommissions', () => {
     expect(updateCommissionRates).toHaveBeenCalledWith(
       expect.objectContaining({ sub_agent: 0.04 }),
     )
+    expect(await screen.findByText('Rates saved.')).toBeInTheDocument()
   })
 
   it('filters commissions by agent and searches by property', async () => {
@@ -79,7 +83,8 @@ describe('AdminCommissions', () => {
 
     render(<AdminCommissions />)
 
-    await screen.findByText('Ana Sub')
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Ana Sub')).toBeInTheDocument()
     await user.selectOptions(screen.getByLabelText('Filter by agent'), 'a1')
 
     expect(fetchCommissions).toHaveBeenLastCalledWith({ agentId: 'a1' })
@@ -108,8 +113,8 @@ describe('AdminCommissions', () => {
 
     render(<AdminCommissions />)
 
-    await screen.findByText('Ana Sub')
-    const row = screen.getByText('Ana Sub').closest('tr')
+    const table = await screen.findByRole('table')
+    const row = within(table).getByText('Ana Sub').closest('tr')
     await user.click(within(row).getByRole('button', { name: 'Mark Paid' }))
     const dialog = await screen.findByRole('alertdialog')
     await user.click(within(dialog).getByRole('button', { name: 'Mark Paid' }))

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CreateProjectModal from './CreateProjectModal.jsx'
+import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/agents.js', () => ({ fetchCommissionRates: vi.fn() }))
 vi.mock('../../lib/projects.js', () => ({
@@ -73,6 +74,7 @@ describe('CreateProjectModal', () => {
       rates: { sub_agent: 0.03, direct_agent: 0.015, agent_head: 0.05 },
     })
     expect(onCreated).toHaveBeenCalled()
+    expect(await screen.findByText('Project created.')).toBeInTheDocument()
   })
 
   it('shows inline validation and skips the call when fields are missing', async () => {

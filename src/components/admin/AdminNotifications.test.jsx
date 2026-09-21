@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdminNotifications from './AdminNotifications.jsx'
+import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/api.js', () => ({
   fetchNotificationSettings: vi.fn(),
@@ -100,6 +101,7 @@ describe('AdminNotifications', () => {
     expect(updateNotificationSettings).toHaveBeenCalledWith('new_inquiry', expect.objectContaining({
       subject_template: 'Custom Subject: {property_name}',
     }))
+    expect(await screen.findByText('Notification settings saved.')).toBeInTheDocument()
   })
 
   it('sends a test email', async () => {

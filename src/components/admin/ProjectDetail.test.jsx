@@ -1,8 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ProjectDetail from './ProjectDetail.jsx'
+import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/projects.js', () => ({
   fetchProject: vi.fn(),
@@ -104,20 +105,21 @@ describe('ProjectDetail', () => {
   it('lists the lots with status, price, and selling agent', async () => {
     renderDetail()
 
-    expect(await screen.findByText('Ana Agent')).toBeInTheDocument()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Ana Agent')).toBeInTheDocument()
     expect(screen.getByText('2 lots')).toBeInTheDocument()
     expect(screen.getByText('1 available')).toBeInTheDocument()
     expect(screen.getByText('1 sold')).toBeInTheDocument()
-    expect(screen.getByText('Available')).toBeInTheDocument()
-    expect(screen.getByText('Sold')).toBeInTheDocument()
-    expect(screen.getAllByText('₱ 100,000')).toHaveLength(2)
-    expect(screen.getAllByText('100 sqm')).toHaveLength(2)
-    expect(screen.getAllByRole('button', { name: 'Mark Sold' })).toHaveLength(1)
-    expect(screen.getAllByRole('button', { name: 'Delete' })).toHaveLength(1)
-    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(1)
-    expect(screen.getByText('Buyer')).toBeInTheDocument()
-    expect(screen.getByText('Juan Dela Cruz')).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Ledger' })).toHaveLength(1)
+    expect(within(table).getByText('Available')).toBeInTheDocument()
+    expect(within(table).getByText('Sold')).toBeInTheDocument()
+    expect(within(table).getAllByText('₱ 100,000')).toHaveLength(2)
+    expect(within(table).getAllByText('100 sqm')).toHaveLength(2)
+    expect(within(table).getAllByRole('button', { name: 'Mark Sold' })).toHaveLength(1)
+    expect(within(table).getAllByRole('button', { name: 'Delete' })).toHaveLength(1)
+    expect(within(table).getAllByRole('button', { name: 'Edit' })).toHaveLength(1)
+    expect(within(table).getByText('Buyer')).toBeInTheDocument()
+    expect(within(table).getByText('Juan Dela Cruz')).toBeInTheDocument()
+    expect(within(table).getAllByRole('button', { name: 'Ledger' })).toHaveLength(1)
   })
 
   it('reads the buyer name from an array-shaped sales relation', async () => {
@@ -125,7 +127,8 @@ describe('ProjectDetail', () => {
 
     renderDetail()
 
-    expect(await screen.findByText('Maria Santos')).toBeInTheDocument()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Maria Santos')).toBeInTheDocument()
   })
 
   it('shows a dash when a sold lot has no buyer on file', async () => {
@@ -133,7 +136,7 @@ describe('ProjectDetail', () => {
 
     renderDetail()
 
-    await screen.findByText('Sold')
+    await screen.findByRole('table')
     const row = screen.getAllByRole('row')[1]
     const cells = within(row).getAllByRole('cell')
 
@@ -145,7 +148,8 @@ describe('ProjectDetail', () => {
 
     renderDetail()
 
-    await user.click(await screen.findByRole('button', { name: 'Ledger' }))
+    const ledgerButtons = await screen.findAllByRole('button', { name: 'Ledger' })
+    await user.click(ledgerButtons[0])
 
     expect(screen.getByRole('dialog', { name: 'Buyer ledger' })).toBeInTheDocument()
 
@@ -159,13 +163,14 @@ describe('ProjectDetail', () => {
 
     renderDetail()
 
-    const pinButtons = await screen.findAllByRole('button', { name: 'Pin' })
+    const table = await screen.findByRole('table')
+    const pinButtons = within(table).getAllByRole('button', { name: 'Pin' })
     expect(pinButtons).toHaveLength(1)
 
     await user.click(pinButtons[0])
 
     expect(setPropertyPinned).toHaveBeenCalledWith('l1', true)
-    expect(screen.getAllByRole('button', { name: 'Pinned' })).toHaveLength(2)
+    expect(within(table).getAllByRole('button', { name: 'Pinned' })).toHaveLength(2)
   })
 
   it('reverts the pin toggle on failure and shows an error', async () => {
@@ -174,11 +179,12 @@ describe('ProjectDetail', () => {
 
     renderDetail()
 
-    const pinButtons = await screen.findAllByRole('button', { name: 'Pin' })
+    const table = await screen.findByRole('table')
+    const pinButtons = within(table).getAllByRole('button', { name: 'Pin' })
     await user.click(pinButtons[0])
 
     expect(await screen.findByText(/Could not update pin status/)).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: 'Pin' })).toHaveLength(1)
+    expect(within(table).getAllByRole('button', { name: 'Pin' })).toHaveLength(1)
   })
 
   it('opens the mark sold modal and reloads the lots after a sale', async () => {
@@ -189,7 +195,8 @@ describe('ProjectDetail', () => {
 
     renderDetail()
 
-    await user.click(await screen.findByRole('button', { name: 'Mark Sold' }))
+    const markSoldButtons = await screen.findAllByRole('button', { name: 'Mark Sold' })
+    await user.click(markSoldButtons[0])
     expect(screen.getByRole('dialog', { name: 'Mark lot sold' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Confirm sale' }))
@@ -208,7 +215,8 @@ describe('ProjectDetail', () => {
 
     renderDetail()
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
+    await user.click(editButtons[0])
     const dialog = await screen.findByRole('dialog', { name: 'Edit lot' })
 
     await user.clear(within(dialog).getByLabelText('Block'))
@@ -220,7 +228,8 @@ describe('ProjectDetail', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Save Changes' }))
 
     expect(updateLot).toHaveBeenCalledWith(availableLot, project, { block_no: '2', lot_no: '5', area: 120 })
-    expect(await screen.findByText('120 sqm')).toBeInTheDocument()
+    expect(await screen.findAllByText('120 sqm')).toHaveLength(2)
+    expect(await screen.findByText('Lot updated.')).toBeInTheDocument()
   })
 
   it('translates a unique violation on edit into a friendly message', async () => {
@@ -245,12 +254,14 @@ describe('ProjectDetail', () => {
 
     renderDetail()
 
-    await user.click(await screen.findByRole('button', { name: 'Delete' }))
+    const deleteButtons = await screen.findAllByRole('button', { name: 'Delete' })
+    await user.click(deleteButtons[0])
     const dialog = await screen.findByRole('alertdialog')
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
 
     expect(deleteLot).toHaveBeenCalledWith('l1')
     expect(screen.queryAllByRole('button', { name: 'Delete' })).toHaveLength(0)
+    expect(await screen.findByText('Lot deleted.')).toBeInTheDocument()
   })
 
   it('shows the delete block message verbatim when the lot cannot be deleted', async () => {
@@ -259,7 +270,8 @@ describe('ProjectDetail', () => {
 
     renderDetail()
 
-    await user.click(await screen.findByRole('button', { name: 'Delete' }))
+    const deleteButtons = await screen.findAllByRole('button', { name: 'Delete' })
+    await user.click(deleteButtons[0])
     const dialog = await screen.findByRole('alertdialog')
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
 
@@ -271,7 +283,7 @@ describe('ProjectDetail', () => {
 
     renderDetail()
 
-    await screen.findByText('Ana Agent')
+    await screen.findByRole('table')
     await user.click(screen.getByRole('button', { name: 'Upload Lots' }))
 
     expect(screen.getByRole('dialog', { name: 'Upload lots' })).toBeInTheDocument()
@@ -299,7 +311,7 @@ describe('ProjectDetail', () => {
 
     renderDetail()
 
-    await screen.findByText('Ana Agent')
+    await screen.findByRole('table')
     await user.click(screen.getByRole('button', { name: '← Projects' }))
 
     expect(await screen.findByText('ProjectsListPage')).toBeInTheDocument()
