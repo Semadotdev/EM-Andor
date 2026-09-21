@@ -42,7 +42,7 @@ export default function AgentLots() {
           {lots.map((lot) => (
             <article key={lot.id} className="overflow-hidden rounded-lg border border-mist bg-white shadow-card">
               {lot.image_url ? (
-                <img src={lot.image_url} alt="" className="h-40 w-full object-cover" />
+                <img src={lot.image_url} alt="" loading="lazy" className="h-40 w-full object-cover" />
               ) : (
                 <div className="grid h-40 place-items-center bg-mist text-sm text-ink/40">No image</div>
               )}

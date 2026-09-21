@@ -28,4 +28,12 @@ describe('AgentSales', () => {
 
     expect(await screen.findByText('You have no sold lots yet.')).toBeInTheDocument()
   })
+
+  it('shows an error state when the fetch fails', async () => {
+    fetchMySales.mockRejectedValue(new Error('boom'))
+
+    render(<AgentSales agent={{ id: 'a1', name: 'Ana' }} />)
+
+    expect(await screen.findByText('Could not load your sales. Please refresh.')).toBeInTheDocument()
+  })
 })

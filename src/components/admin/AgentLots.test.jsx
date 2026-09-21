@@ -19,6 +19,7 @@ describe('AgentLots', () => {
 
     expect(await screen.findByText('Andor Ridge Lot A')).toBeInTheDocument()
     expect(screen.getByText('₱ 1,500,000')).toBeInTheDocument()
+    expect(screen.getByText('No image')).toBeInTheDocument()
     expect(fetchProperties).toHaveBeenCalledWith({ status: 'available', sort: 'newest' })
   })
 
@@ -28,5 +29,13 @@ describe('AgentLots', () => {
     render(<AgentLots />)
 
     expect(await screen.findByText('No available lots right now.')).toBeInTheDocument()
+  })
+
+  it('shows an error state when the fetch fails', async () => {
+    fetchProperties.mockRejectedValue(new Error('boom'))
+
+    render(<AgentLots />)
+
+    expect(await screen.findByText('Could not load lots. Please refresh.')).toBeInTheDocument()
   })
 })
