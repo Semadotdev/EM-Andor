@@ -152,7 +152,7 @@ export default function AdminLayout() {
   return (
     <ToastProvider>
       <div className="min-h-screen bg-surface">
-        <header className="border-b border-mist bg-white">
+        <header className="sticky top-0 z-40 border-b border-mist bg-white">
           <div className="container-wide flex items-center justify-between gap-4 py-4">
             <div className="flex min-w-0 items-center gap-3">
               <button
@@ -181,8 +181,8 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        <div className="container-wide flex gap-8 py-8">
-          <aside className="hidden w-56 shrink-0 lg:block">
+        <div className="container-wide flex items-start gap-8 py-8">
+          <aside className="sticky top-[4.75rem] hidden max-h-[calc(100vh-5.75rem)] w-56 shrink-0 overflow-y-auto lg:block">
             <SidebarNav isAdmin={isAdmin} showDownline={downline.length > 0} />
           </aside>
 
@@ -199,7 +199,7 @@ export default function AdminLayout() {
               aria-label="Navigation"
               className="absolute inset-y-0 left-0 flex w-72 max-w-[80%] flex-col gap-6 overflow-y-auto bg-white p-4 shadow-lift"
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="sticky top-0 z-10 flex items-center justify-between gap-3 bg-white">
                 <Logo variant="dark" noLink />
                 <button
                   onClick={() => setDrawerOpen(false)}
