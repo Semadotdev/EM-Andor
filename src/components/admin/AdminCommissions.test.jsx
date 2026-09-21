@@ -71,4 +71,19 @@ describe('AdminCommissions', () => {
       expect.objectContaining({ sub_agent: 0.04 }),
     )
   })
+
+  it('shows a mark-paid failure inside the confirmation modal', async () => {
+    markCommissionPaid.mockRejectedValue(new Error('Commission is already paid.'))
+    const user = userEvent.setup()
+
+    render(<AdminCommissions />)
+
+    await screen.findByText('Ana Sub')
+    const row = screen.getByText('Ana Sub').closest('tr')
+    await user.click(within(row).getByRole('button', { name: 'Mark Paid' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Mark Paid' }))
+
+    expect(await within(dialog).findByText('Commission is already paid.')).toBeInTheDocument()
+  })
 })

@@ -16,13 +16,14 @@ export default function AdminCommissions() {
   const [state, setState] = useState('loading')
   const [error, setError] = useState(null)
   const [confirmPaid, setConfirmPaid] = useState(null)
+  const [paidError, setPaidError] = useState(null)
   const [savingPaid, setSavingPaid] = useState(false)
 
   const loadRates = useCallback(() => {
     setRatesState('loading')
     fetchCommissionRates()
       .then((rows) => {
-        setRateInputs(Object.fromEntries(rows.map((r) => [r.role, String(Number(r.rate) * 100)])))
+        setRateInputs(Object.fromEntries(rows.map((r) => [r.role, String(+(Number(r.rate) * 100).toFixed(2))])))
         setRatesState('ready')
       })
       .catch(() => setRatesState('error'))
@@ -64,12 +65,13 @@ export default function AdminCommissions() {
     if (!confirmPaid || savingPaid) return
     setSavingPaid(true)
     setError(null)
+    setPaidError(null)
     try {
       await markCommissionPaid(confirmPaid.id)
       setCommissions((list) => list.map((c) => (c.id === confirmPaid.id ? { ...c, status: 'paid' } : c)))
       setConfirmPaid(null)
     } catch (err) {
-      setError(err?.message === 'Commission is already paid.' ? err.message : 'Could not mark the commission paid. Please try again.')
+      setPaidError(err?.message === 'Commission is already paid.' ? err.message : 'Could not mark the commission paid. Please try again.')
     } finally {
       setSavingPaid(false)
     }
@@ -174,7 +176,10 @@ export default function AdminCommissions() {
                   <td className="px-4 py-3 text-right">
                     {row.status === 'earned' && (
                       <button
-                        onClick={() => setConfirmPaid(row)}
+                        onClick={() => {
+                          setPaidError(null)
+                          setConfirmPaid(row)
+                        }}
                         className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
                       >
                         Mark Paid
@@ -196,7 +201,13 @@ export default function AdminCommissions() {
         message={confirmPaid ? `Mark ${formatPrice(confirmPaid.amount)} for ${confirmPaid.agents?.name ?? 'this agent'} as paid?` : ''}
         confirmLabel="Mark Paid"
         loading={savingPaid}
-      />
+      >
+        {paidError && (
+          <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+            {paidError}
+          </p>
+        )}
+      </ConfirmModal>
     </div>
   )
 }
