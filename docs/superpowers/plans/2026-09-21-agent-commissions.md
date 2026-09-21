@@ -4470,7 +4470,7 @@ Expected: no matches (the bootstrap snippet uses `'admin@gmail.com'` only inside
 10. Sign in as an agent: confirm only the four agent tabs render, **Available Lots** lists available properties, and another agent's commissions are not visible.
 11. Un-sale a property whose commissions are all **Earned**: confirm the commission rows disappear. Mark one **Paid**, then attempt to un-sale: expect the "Commission already paid — reverse payment first." block.
 12. Legacy sold lots (sold before this feature) have no `sold_by`, so they do not appear in agent sales or commission totals. Attribute them by editing each sold lot in the admin Properties tab, selecting the selling agent, and saving — the sale-aware save stamps `sold_by`/`sold_at` and generates the commission rows. Caveats: a legacy lot with no price must have one entered first (sold saves require a price), and attribution uses the current commission rates and the edit date for `sold_at`, not the historical sale date.
-13. Known limitation: the Properties tab's bulk "Set Status → Sold" action changes status only — it does not record a selling agent or generate commissions. Use the single-edit sold flow (select the Selling Agent) for real sales, and attribute any bulk-sold lots afterward by editing them as in step 12.
+13. Bulk status changes have been removed (see Task 20): they bypassed commission generation and cleanup. Use the single-edit flow (edit the lot, set Status and Selling Agent, save) for every status transition involving **Sold**, and attribute legacy/bulk-sold lots as in step 12.
 
 - [ ] **Step 5: Commit any fix-ups**
 
@@ -4480,3 +4480,157 @@ git commit -m "fix: agent commission verification fix-ups"
 ```
 
 Only create this commit if Step 1-3 surfaced fixes; otherwise skip.
+
+---
+
+## Task 20: Final review fixes
+
+The whole-branch review found one money-integrity hole and three spec-completeness gaps. This task closes them.
+
+**Files:**
+- Modify: `src/components/admin/AdminProperties.jsx`
+- Modify: `src/components/admin/AdminProperties.test.jsx` (only if a test references the removed control)
+- Modify: `src/components/admin/AdminCommissions.jsx`
+- Modify: `src/components/admin/AdminCommissions.test.jsx`
+- Modify: `src/components/admin/AdminAgents.jsx`
+- Modify: `src/components/admin/AdminAgents.test.jsx`
+
+### 20.1 Remove the bulk status control (Critical)
+
+Bulk status changes bypass `savePropertyWithCommission`, so `sold → available` leaves earned commission rows payable and `→ sold` records no seller. There is no safe bulk transition involving `sold`, so remove the control entirely.
+
+In `AdminProperties.jsx`:
+- Remove `bulkUpdatePropertyStatus` from the `../../lib/api.js` import.
+- Delete the entire `handleBulkStatus` function.
+- Delete the bulk status `<select>` block (the one with `aria-label="Bulk status change"`) from the bulk actions bar.
+
+In `AdminProperties.test.jsx`, if any test drives the bulk status select, delete that test; otherwise leave the file unchanged.
+
+### 20.2 Commissions filters, search, totals, and rate validation
+
+In `AdminCommissions.jsx`:
+- Import `fetchAllAgents` from `../../lib/agents.js`.
+- Add state: `const [agents, setAgents] = useState([])`, `const [agentFilter, setAgentFilter] = useState('')`, `const [search, setSearch] = useState('')`.
+- Load agents once on mount:
+```js
+  useEffect(() => {
+    let mounted = true
+    fetchAllAgents()
+      .then((rows) => { if (mounted) setAgents(rows.filter((a) => a.role !== 'admin')) })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [])
+```
+- Extend `loadCommissions` to pass the agent filter:
+```js
+    const filters = {}
+    if (statusFilter) filters.status = statusFilter
+    if (agentFilter) filters.agentId = agentFilter
+    fetchCommissions(filters)
+```
+  and add `agentFilter` to the `useCallback` deps.
+- Add a filter row above the table: an agent `<select>` (`aria-label="Filter by agent"`) with an "All Agents" option plus one per agent, a status select (existing), and a search `<input>` (`aria-label="Search by property"`).
+- Derive the visible rows and totals:
+```js
+  const visible = search
+    ? commissions.filter((row) => (row.properties?.name ?? '').toLowerCase().includes(search.toLowerCase()))
+    : commissions
+  const earnedTotal = visible.reduce((sum, c) => sum + Number(c.amount), 0)
+  const paidTotal = visible.filter((c) => c.status === 'paid').reduce((sum, c) => sum + Number(c.amount), 0)
+```
+- Render two summary cards above the table: `Earned` (`formatPrice(earnedTotal)`) and `Paid` (`formatPrice(paidTotal)`), and map `visible` instead of `commissions` in the table body.
+- In `saveRates`, validate each input before converting:
+```js
+    const invalid = Object.values(rateInputs).some((value) => {
+      const num = Number(value)
+      return value === '' || Number.isNaN(num) || num <= 0 || num > 100
+    })
+    if (invalid) {
+      setRatesMessage('Rates must be greater than 0 and at most 100.')
+      setSavingRates(false)
+      return
+    }
+```
+  (placed after `setSavingRates(true)` / `setRatesMessage('')`, before the payload build).
+
+Tests to add in `AdminCommissions.test.jsx`:
+```js
+  it('filters commissions by agent and searches by property', async () => {
+    const user = userEvent.setup()
+    fetchAllAgents.mockResolvedValue([{ id: 'a1', name: 'Ana Sub', role: 'sub_agent' }])
+
+    render(<AdminCommissions />)
+
+    await screen.findByText('Ana Sub')
+    await user.selectOptions(screen.getByLabelText('Filter by agent'), 'a1')
+
+    expect(fetchCommissions).toHaveBeenLastCalledWith({ agentId: 'a1' })
+
+    await user.type(screen.getByLabelText('Search by property'), 'Lot B')
+
+    expect(screen.queryByText('Ana Sub')).not.toBeInTheDocument()
+  })
+
+  it('rejects out-of-range rates before saving', async () => {
+    const user = userEvent.setup()
+
+    render(<AdminCommissions />)
+
+    const input = await screen.findByLabelText('Sub Agent rate (%)')
+    await user.clear(input)
+    await user.click(screen.getByRole('button', { name: 'Save Rates' }))
+
+    expect(await screen.findByText('Rates must be greater than 0 and at most 100.')).toBeInTheDocument()
+    expect(updateCommissionRates).not.toHaveBeenCalled()
+  })
+```
+The test file's `../../lib/agents.js` mock gains `fetchAllAgents: vi.fn().mockResolvedValue([])` in the factory (and import it).
+
+### 20.3 Agents search and detail downline
+
+In `AdminAgents.jsx`:
+- Add `const [search, setSearch] = useState('')` and a search input above the tree (`aria-label="Search agents"`, placeholder "Search name or email…").
+- Derive the tree:
+```js
+  const filtered = search
+    ? agents.filter((a) => `${a.name} ${a.email}`.toLowerCase().includes(search.toLowerCase()))
+    : agents
+  const tree = useMemo(() => buildAgentTree(filtered), [filtered])
+```
+- In `AgentDetail`, load the flat agent list and show direct downline members:
+```js
+  const [team, setTeam] = useState([])
+  // in the existing Promise.all, add fetchAllAgents() as a third call:
+  Promise.all([fetchTeamSales([agent.id]), fetchCommissions({ agentId: agent.id }), fetchAllAgents()])
+    .then(([s, c, all]) => { ...; setTeam(all.filter((a) => a.upline_id === agent.id)); ... })
+```
+  and render a "Downline" section listing `team` names with `ROLE_LABELS`, or "No agents under this one." when empty.
+- Import `fetchAllAgents` from `../../lib/agents.js`.
+
+Test to add in `AdminAgents.test.jsx`:
+```js
+  it('searches agents by name', async () => {
+    const user = userEvent.setup()
+
+    render(<AdminAgents />)
+
+    await screen.findByText('Ana Sub')
+    await user.type(screen.getByLabelText('Search agents'), 'Rico')
+
+    expect(screen.getByText('Rico Recruit')).toBeInTheDocument()
+    expect(screen.queryByText('Ana Sub')).not.toBeInTheDocument()
+  })
+```
+(AgentDetail's `fetchAllAgents` call is already mocked in this file.)
+
+### Verification
+
+- `npx vitest run src/components/admin/AdminProperties.test.jsx src/components/admin/AdminCommissions.test.jsx src/components/admin/AdminAgents.test.jsx` → expect 12 + 6 + 6 = 24 passing.
+- `npm test` → expect 31 files / 250 tests.
+- `npm run build` → success.
+- Update Task 19's checklist item 13: bulk status change has been removed; use the single-edit sold flow for all status transitions involving sold.
+
+```bash
+git add src/components/admin/AdminProperties.jsx src/components/admin/AdminProperties.test.jsx src/components/admin/AdminCommissions.jsx src/components/admin/AdminCommissions.test.jsx src/components/admin/AdminAgents.jsx src/components/admin/AdminAgents.test.jsx
+git commit -m "fix: close bulk-status commission hole and complete admin spec gaps"
+```
