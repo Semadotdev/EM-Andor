@@ -59,6 +59,12 @@ describe('AdminActivityLog', () => {
     expect(screen.getAllByText('CMS').length).toBeGreaterThanOrEqual(1)
   })
 
+  it('renders long details as wrapped, human-readable text', async () => {
+    render(<AdminActivityLog />)
+
+    expect(await screen.findAllByText('Fields: is_read')).not.toHaveLength(0)
+  })
+
   it('shows filter dropdowns and search', async () => {
     render(<AdminActivityLog />)
 

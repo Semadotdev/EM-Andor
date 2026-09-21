@@ -22,6 +22,21 @@ const ENTITY_LABELS = {
   agent: 'Agents',
 }
 
+const formatValue = (value) => {
+  if (Array.isArray(value)) return value.join(', ')
+  if (value && typeof value === 'object') return JSON.stringify(value)
+  return String(value)
+}
+
+const formatDetails = (details) => {
+  if (!details) return '—'
+  const entries = Object.entries(details)
+  if (entries.length === 0) return '—'
+  return entries
+    .map(([key, value]) => `${key.charAt(0).toUpperCase()}${key.slice(1)}: ${formatValue(value)}`)
+    .join(' · ')
+}
+
 export default function AdminActivityLog() {
   const [entries, setEntries] = useState([])
   const [totalCount, setTotalCount] = useState(0)
@@ -119,7 +134,15 @@ export default function AdminActivityLog() {
       header: 'Details',
       hideBelow: 'md',
       className: 'text-xs text-ink/50',
-      render: (entry) => (entry.details && Object.keys(entry.details).length > 0 ? JSON.stringify(entry.details) : '—'),
+      render: (entry) => {
+        const text = formatDetails(entry.details)
+        if (text === '—') return '—'
+        return (
+          <span className="block max-w-[16rem] whitespace-normal break-words line-clamp-2 lg:max-w-[26rem]" title={text}>
+            {text}
+          </span>
+        )
+      },
     },
   ]
 
@@ -137,13 +160,15 @@ export default function AdminActivityLog() {
           <dd className="text-ink/70">{ENTITY_LABELS[entry.entity_type] || entry.entity_type}</dd>
         </div>
         <div className="flex justify-between gap-3">
-          <dt className="text-ink/50">Record ID</dt>
-          <dd className="font-mono text-xs text-ink/50">{entry.entity_id}</dd>
+          <dt className="shrink-0 text-ink/50">Record ID</dt>
+          <dd className="min-w-0 break-all font-mono text-xs text-ink/50">{entry.entity_id}</dd>
         </div>
         {entry.details && Object.keys(entry.details).length > 0 && (
           <div className="flex justify-between gap-3">
-            <dt className="text-ink/50">Details</dt>
-            <dd className="text-xs text-ink/50">{JSON.stringify(entry.details)}</dd>
+            <dt className="shrink-0 text-ink/50">Details</dt>
+            <dd className="min-w-0 break-words text-right text-xs text-ink/50" title={formatDetails(entry.details)}>
+              {formatDetails(entry.details)}
+            </dd>
           </div>
         )}
       </dl>
