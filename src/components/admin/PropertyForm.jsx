@@ -179,7 +179,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
       onSaved(saved)
     } catch (err) {
       if (err?.fieldErrors) setErrors(err.fieldErrors)
-      else if (err?.message && err.message !== 'Validation failed') setError(err.message)
+      else if (err?.message?.includes('Commission already paid')) setError(err.message)
       else setError('Could not save the property. Please try again.')
     } finally {
       setSaving(false)

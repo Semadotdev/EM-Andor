@@ -174,7 +174,7 @@ describe('PropertyForm', () => {
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Add Property' }))
 
-    expect(await screen.findByText('boom')).toBeInTheDocument()
+    expect(await screen.findByText('Could not save the property. Please try again.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add Property' })).not.toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Saving…' })).not.toBeInTheDocument()
   })
