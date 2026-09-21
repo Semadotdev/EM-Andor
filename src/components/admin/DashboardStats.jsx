@@ -47,16 +47,16 @@ export default function DashboardStats({ onJumpToInquiries }) {
           </span>
           <div>
             <p className="text-2xl font-extrabold text-brand-deep">{propertyStats?.total ?? 0}</p>
-            <p className="text-xs font-semibold text-ink/50 uppercase tracking-wide">Total Properties</p>
+            <p className="text-xs font-semibold text-ink/50 uppercase tracking-wide">Total Lots</p>
           </div>
         </div>
         <div className={statCardCls}>
           <span className={`${iconCls} bg-gold/20 text-yellow-700`}>
-            <Icon name="pin" className="size-5" />
+            <Icon name="gallery" className="size-5" />
           </span>
           <div>
-            <p className="text-2xl font-extrabold text-brand-deep">{propertyStats?.pinned ?? 0}</p>
-            <p className="text-xs font-semibold text-ink/50 uppercase tracking-wide">Pinned</p>
+            <p className="text-2xl font-extrabold text-brand-deep">{propertyStats?.projects ?? 0}</p>
+            <p className="text-xs font-semibold text-ink/50 uppercase tracking-wide">Projects</p>
           </div>
         </div>
         <div className={statCardCls}>

@@ -139,19 +139,6 @@ export async function deleteInquiry(id) {
   logActivity('inquiry', id, 'delete').catch(() => {})
 }
 
-export async function bulkDeleteProperties(ids) {
-  const { error } = await supabase.from('properties').delete().in('id', ids)
-  if (error) throw error
-  for (const id of ids) {
-    logActivity('property', id, 'delete').catch(() => {})
-  }
-}
-
-export async function bulkSetPropertyPinned(ids, pinned) {
-  const { error } = await supabase.from('properties').update({ is_pinned: pinned }).in('id', ids)
-  if (error) throw error
-}
-
 export async function bulkDeleteInquiries(ids) {
   const { error } = await supabase.from('inquiries').delete().in('id', ids)
   if (error) throw error
@@ -172,6 +159,10 @@ export async function fetchPropertyStats() {
     .select('id')
     .eq('is_pinned', true)
   if (e2) throw e2
+  const { data: projects, error: e3 } = await supabase
+    .from('projects')
+    .select('id')
+  if (e3) throw e3
   const types = {}
   for (const p of all) {
     types[p.type] = (types[p.type] || 0) + 1
@@ -179,22 +170,9 @@ export async function fetchPropertyStats() {
   return {
     total: all.length,
     pinned: pinned.length,
+    projects: projects.length,
     types,
   }
-}
-
-export async function fetchPropertyStatusCounts() {
-  const { data, error } = await supabase
-    .from('properties')
-    .select('status')
-  if (error) throw error
-  const counts = { available: 0, reserved: 0, sold: 0 }
-  for (const row of data) {
-    if (counts[row.status] !== undefined) {
-      counts[row.status]++
-    }
-  }
-  return counts
 }
 
 export async function fetchInquiryStats() {

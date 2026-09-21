@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import AdminDashboard from './AdminDashboard.jsx'
 
-vi.mock('./AdminProperties.jsx', () => ({ default: () => <span>PropertiesPanel</span> }))
+vi.mock('./AdminProjects.jsx', () => ({ default: () => <span>ProjectsPanel</span> }))
 vi.mock('./AdminInquiries.jsx', () => ({ default: () => <span>InquiriesPanel</span> }))
 vi.mock('./AdminCMS.jsx', () => ({ default: () => <span>CMSPanel</span> }))
 vi.mock('./AdminNotifications.jsx', () => ({ default: () => <span>NotificationsPanel</span> }))
@@ -61,15 +61,21 @@ describe('AdminDashboard', () => {
     expect(await screen.findByText('LoginPage')).toBeInTheDocument()
   })
 
-  it('renders the properties tab when authenticated', async () => {
+  it('renders the projects tab by default when authenticated', async () => {
     supabase.auth.getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } })
 
     renderDashboard()
 
     await waitFor(() => {
-      expect(screen.getByText('PropertiesPanel')).toBeInTheDocument()
+      expect(screen.getByText('ProjectsPanel')).toBeInTheDocument()
     })
     expect(screen.getByText('StatsPanel')).toBeInTheDocument()
+    const tabNames = screen.getAllByRole('button').map((button) => button.textContent)
+    expect(tabNames).toEqual(
+      expect.arrayContaining(['Projects', 'CMS', 'Inquiries', 'Agents', 'Commissions', 'Notifications', 'Activity Log']),
+    )
+    expect(screen.queryByRole('button', { name: 'Properties' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Gallery' })).not.toBeInTheDocument()
   })
 
   it('switches to the inquiries tab', async () => {
@@ -79,7 +85,7 @@ describe('AdminDashboard', () => {
     renderDashboard()
 
     await waitFor(() => {
-      expect(screen.getByText('PropertiesPanel')).toBeInTheDocument()
+      expect(screen.getByText('ProjectsPanel')).toBeInTheDocument()
     })
     await user.click(screen.getByRole('button', { name: 'Inquiries' }))
     await waitFor(() => {
@@ -94,7 +100,7 @@ describe('AdminDashboard', () => {
     renderDashboard()
 
     await waitFor(() => {
-      expect(screen.getByText('PropertiesPanel')).toBeInTheDocument()
+      expect(screen.getByText('ProjectsPanel')).toBeInTheDocument()
     })
     const listener = supabase.auth.onAuthStateChange.mock.calls[0][0]
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
@@ -112,7 +118,7 @@ describe('AdminDashboard', () => {
     renderDashboard()
 
     await waitFor(() => {
-      expect(screen.getByText('PropertiesPanel')).toBeInTheDocument()
+      expect(screen.getByText('ProjectsPanel')).toBeInTheDocument()
     })
     const listener = supabase.auth.onAuthStateChange.mock.calls[0][0]
     listener('SIGNED_OUT', null)
@@ -128,7 +134,7 @@ describe('AdminDashboard', () => {
     renderDashboard()
 
     await waitFor(() => {
-      expect(screen.getByText('PropertiesPanel')).toBeInTheDocument()
+      expect(screen.getByText('ProjectsPanel')).toBeInTheDocument()
     })
     await user.click(screen.getByRole('button', { name: 'CMS' }))
     await waitFor(() => {
@@ -143,7 +149,7 @@ describe('AdminDashboard', () => {
     renderDashboard()
 
     await waitFor(() => {
-      expect(screen.getByText('PropertiesPanel')).toBeInTheDocument()
+      expect(screen.getByText('ProjectsPanel')).toBeInTheDocument()
     })
     await user.click(screen.getByRole('button', { name: 'Notifications' }))
     await waitFor(() => {
@@ -158,7 +164,7 @@ describe('AdminDashboard', () => {
     renderDashboard()
 
     await waitFor(() => {
-      expect(screen.getByText('PropertiesPanel')).toBeInTheDocument()
+      expect(screen.getByText('ProjectsPanel')).toBeInTheDocument()
     })
     await user.click(screen.getByRole('button', { name: 'Activity Log' }))
     await waitFor(() => {
@@ -175,7 +181,7 @@ describe('AdminDashboard', () => {
 
     expect(await screen.findByText('AgentLotsPanel')).toBeInTheDocument()
     expect(screen.getByText('AgentStatsPanel')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Properties' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Projects' })).not.toBeInTheDocument()
   })
 
   it('shows the downline tab only when the agent has a downline', async () => {
@@ -196,7 +202,7 @@ describe('AdminDashboard', () => {
     renderDashboard()
 
     await waitFor(() => {
-      expect(screen.getByText('PropertiesPanel')).toBeInTheDocument()
+      expect(screen.getByText('ProjectsPanel')).toBeInTheDocument()
     })
     await user.click(screen.getByRole('button', { name: 'Notifications' }))
     await waitFor(() => {

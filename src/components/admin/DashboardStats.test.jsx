@@ -14,7 +14,12 @@ import { fetchPropertyStats, fetchInquiryStats, fetchRecentInquiries } from '../
 describe('DashboardStats', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    fetchPropertyStats.mockResolvedValue({ total: 5, pinned: 2, types: { 'residential lot': 3, 'commercial lot': 2 } })
+    fetchPropertyStats.mockResolvedValue({
+      total: 5,
+      projects: 3,
+      pinned: 2,
+      types: { 'residential lot': 3, 'commercial lot': 2 },
+    })
     fetchInquiryStats.mockResolvedValue({ total: 12, unread: 4 })
     fetchRecentInquiries.mockResolvedValue([
       { id: 'q1', name: 'Juan', project_type: 'Residential', is_read: false, created_at: '2026-08-18T01:00:00Z' },
@@ -26,9 +31,10 @@ describe('DashboardStats', () => {
     render(<DashboardStats />)
 
     expect(await screen.findByText('5')).toBeInTheDocument()
-    expect(screen.getByText('Total Properties')).toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument()
-    expect(screen.getByText('Pinned')).toBeInTheDocument()
+    expect(screen.getByText('Total Lots')).toBeInTheDocument()
+    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(screen.getByText('Projects')).toBeInTheDocument()
+    expect(screen.queryByText('Pinned')).not.toBeInTheDocument()
     expect(screen.getByText('12')).toBeInTheDocument()
     expect(screen.getByText('Total Inquiries')).toBeInTheDocument()
     expect(screen.getByText('4')).toBeInTheDocument()

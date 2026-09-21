@@ -1,16 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import {
   bulkDeleteInquiries,
-  bulkDeleteProperties,
   bulkSetInquiryRead,
-  bulkSetPropertyPinned,
   createProperty,
   deleteInquiry,
   deleteProperty,
   fetchInquiries,
   fetchPinnedProperties,
   fetchProperties,
-  fetchPropertyStatusCounts,
+  fetchPropertyStats,
   setInquiryRead,
   setPropertyPinned,
   submitInquiry,
@@ -304,47 +302,37 @@ describe('api', () => {
     expect(c.order).toHaveBeenCalledWith('name', { ascending: true })
   })
 
-  it('fetchPropertyStatusCounts aggregates status counts', async () => {
-    const c = makeChain()
-    c.select.mockResolvedValue({
+  it('fetchPropertyStats returns totals, pinned count, project count and types', async () => {
+    const allChain = makeChain()
+    allChain.select.mockResolvedValue({
       data: [
-        { status: 'available' },
-        { status: 'available' },
-        { status: 'sold' },
-        { status: 'reserved' },
+        { id: 'p1', is_pinned: true, type: 'residential lot' },
+        { id: 'p2', is_pinned: false, type: 'residential lot' },
+        { id: 'p3', is_pinned: true, type: 'commercial lot' },
       ],
       error: null,
     })
-    supabase.from.mockReturnValue(c)
+    const pinnedChain = makeChain()
+    pinnedChain.eq.mockResolvedValue({ data: [{ id: 'p1' }, { id: 'p3' }], error: null })
+    const projectsChain = makeChain()
+    projectsChain.select.mockResolvedValue({ data: [{ id: 'pr1' }], error: null })
+    let propertyCalls = 0
+    supabase.from.mockImplementation((table) => {
+      if (table === 'projects') return projectsChain
+      propertyCalls += 1
+      return propertyCalls === 1 ? allChain : pinnedChain
+    })
 
-    const result = await fetchPropertyStatusCounts()
+    const result = await fetchPropertyStats()
 
-    expect(supabase.from).toHaveBeenCalledWith('properties')
-    expect(c.select).toHaveBeenCalledWith('status')
-    expect(result).toEqual({ available: 2, reserved: 1, sold: 1 })
-  })
-
-  it('bulkDeleteProperties deletes multiple properties by ids', async () => {
-    const c = makeChain()
-    c.in.mockResolvedValue({ error: null })
-    supabase.from.mockReturnValue(c)
-
-    await bulkDeleteProperties(['p1', 'p2'])
-
-    expect(supabase.from).toHaveBeenCalledWith('properties')
-    expect(c.delete).toHaveBeenCalled()
-    expect(c.in).toHaveBeenCalledWith('id', ['p1', 'p2'])
-  })
-
-  it('bulkSetPropertyPinned updates is_pinned for multiple properties', async () => {
-    const c = makeChain()
-    c.in.mockResolvedValue({ error: null })
-    supabase.from.mockReturnValue(c)
-
-    await bulkSetPropertyPinned(['p1', 'p2'], true)
-
-    expect(c.update).toHaveBeenCalledWith({ is_pinned: true })
-    expect(c.in).toHaveBeenCalledWith('id', ['p1', 'p2'])
+    expect(supabase.from).toHaveBeenCalledWith('projects')
+    expect(projectsChain.select).toHaveBeenCalledWith('id')
+    expect(result).toEqual({
+      total: 3,
+      pinned: 2,
+      projects: 1,
+      types: { 'residential lot': 2, 'commercial lot': 1 },
+    })
   })
 
   it('bulkDeleteInquiries deletes multiple inquiries by ids', async () => {

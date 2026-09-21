@@ -3,9 +3,8 @@ import { Navigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { fetchCurrentAgent, fetchMyDownline } from '../../lib/agents.js'
 import Logo from '../shared/Logo.jsx'
-import AdminProperties from './AdminProperties.jsx'
+import AdminProjects from './AdminProjects.jsx'
 import AdminInquiries from './AdminInquiries.jsx'
-import AdminImageGallery from './AdminImageGallery.jsx'
 import AdminCMS from './AdminCMS.jsx'
 import AdminNotifications from './AdminNotifications.jsx'
 import AdminActivityLog from './AdminActivityLog.jsx'
@@ -19,8 +18,7 @@ import AgentCommissions from './AgentCommissions.jsx'
 import AgentDownline from './AgentDownline.jsx'
 
 const adminTabs = [
-  { id: 'properties', label: 'Properties' },
-  { id: 'gallery', label: 'Gallery' },
+  { id: 'projects', label: 'Projects' },
   { id: 'cms', label: 'CMS' },
   { id: 'inquiries', label: 'Inquiries' },
   { id: 'agents', label: 'Agents' },
@@ -78,7 +76,7 @@ export default function AdminDashboard() {
         if (!mounted) return
         setAgent(row)
         setAgentError(null)
-        setTab((current) => current ?? (row.role === 'admin' ? 'properties' : 'lots'))
+        setTab((current) => current ?? (row.role === 'admin' ? 'projects' : 'lots'))
       })
       .catch(() => {
         if (mounted) setAgentError('Your account is not linked to an agent profile. Contact the administrator.')
@@ -161,8 +159,7 @@ export default function AdminDashboard() {
 
         {isAdmin ? (
           <>
-            {tab === 'properties' && <AdminProperties />}
-            {tab === 'gallery' && <AdminImageGallery />}
+            {tab === 'projects' && <AdminProjects />}
             {tab === 'cms' && <AdminCMS />}
             {tab === 'inquiries' && <AdminInquiries />}
             {tab === 'agents' && <AdminAgents />}
