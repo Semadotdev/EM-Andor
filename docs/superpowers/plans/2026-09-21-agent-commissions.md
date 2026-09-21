@@ -395,10 +395,6 @@ create table if not exists public.agents (
 create index if not exists agents_user_id_idx on public.agents(user_id);
 create index if not exists agents_upline_id_idx on public.agents(upline_id);
 
-drop trigger if exists set_updated_at on public.agents;
-create trigger set_updated_at before update on public.agents
-  for each row execute function public.set_updated_at();
-
 -- Commission rates per role
 create table if not exists public.commission_settings (
   id uuid primary key default gen_random_uuid(),
@@ -406,10 +402,6 @@ create table if not exists public.commission_settings (
   rate numeric(6,4) not null default 0 check (rate >= 0 and rate <= 1),
   updated_at timestamptz not null default now()
 );
-
-drop trigger if exists set_updated_at on public.commission_settings;
-create trigger set_updated_at before update on public.commission_settings
-  for each row execute function public.set_updated_at();
 
 insert into public.commission_settings (role, rate) values
   ('sub_agent', 0.0300),
@@ -509,6 +501,32 @@ create policy "agent read commissions" on public.commissions
     agent_id = public.current_agent_id()
     or agent_id in (select public.get_downline(public.current_agent_id()))
   );
+```
+
+- [ ] **Step 2b: Attach the new updated_at triggers after the function definition**
+
+`set_updated_at()` is defined later in the file (in the `-- updated_at trigger` section), so creating the triggers above would fail on a fresh database. Find this existing block:
+
+```sql
+create or replace function public.set_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+```
+
+Insert immediately after it:
+
+```sql
+drop trigger if exists set_updated_at on public.agents;
+create trigger set_updated_at before update on public.agents
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists set_updated_at on public.commission_settings;
+create trigger set_updated_at before update on public.commission_settings
+  for each row execute function public.set_updated_at();
 ```
 
 - [ ] **Step 3: Commit**
