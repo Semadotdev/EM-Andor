@@ -1318,7 +1318,7 @@ vi.mock('./agents.js', () => ({
 }))
 
 import { supabase } from './supabase.js'
-import { createProperty, updateProperty } from './api.js'
+import { createProperty, updateProperty, logActivity } from './api.js'
 import { applyEligiblePromotions, fetchAllAgents, fetchCommissionRatesMap } from './agents.js'
 
 function chain(result) {
