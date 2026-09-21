@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import Icon from '../shared/Icon.jsx'
 import ConfirmModal from '../shared/ConfirmModal.jsx'
-import { createProperty, updateProperty, uploadPropertyImage } from '../../lib/api.js'
+import { createProperty, uploadPropertyImage } from '../../lib/api.js'
+import { fetchAllAgents } from '../../lib/agents.js'
+import { ROLE_LABELS } from '../../lib/agentMeta.js'
+import { savePropertyWithCommission } from '../../lib/sales.js'
 import { subdivisionMap } from '../../data/site.js'
 
 const inputCls =
@@ -35,6 +38,9 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [confirmSubmit, setConfirmSubmit] = useState(false)
   const [mapNotice, setMapNotice] = useState('')
+  const [sellerId, setSellerId] = useState(property?.sold_by ?? '')
+  const [agents, setAgents] = useState([])
+  const [agentsState, setAgentsState] = useState('idle')
 
   const previewUrl = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : null), [imageFile])
 
@@ -50,6 +56,17 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onClose])
+
+  useEffect(() => {
+    if (form.status !== 'sold' || agentsState !== 'idle') return
+    setAgentsState('loading')
+    fetchAllAgents()
+      .then((rows) => {
+        setAgents(rows.filter((a) => a.role !== 'admin' && a.is_active))
+        setAgentsState('ready')
+      })
+      .catch(() => setAgentsState('error'))
+  }, [form.status, agentsState])
 
   const setField = (field) => (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value
@@ -105,6 +122,13 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
     if (!form.type) next.type = 'Select a type.'
     if (!form.location.trim()) next.location = 'Location is required.'
     if (pins.some((p) => !p.name.trim())) next.pins = 'Each lot needs a name.'
+    if (form.status === 'sold') {
+      const price = Number(form.price)
+      if (form.price === '' || Number.isNaN(price) || price <= 0) {
+        next.price = 'Set a price before marking this property sold.'
+      }
+      if (!sellerId) next.sold_by = 'Select the selling agent.'
+    }
     return next
   }
 
@@ -134,6 +158,7 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
         status: form.status,
         image_url: finalImageUrl || null,
         is_pinned: form.is_pinned,
+        sold_by: form.status === 'sold' ? sellerId : null,
         map_pins: pins.map((p) => {
           const price = p.price === '' || p.price == null ? null : Number(p.price)
           const lotArea = p.lot_area_sqm === '' || p.lot_area_sqm == null ? null : Number(p.lot_area_sqm)
@@ -147,10 +172,15 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
           }
         }),
       }
-      const saved = isEdit ? await updateProperty(property.id, payload) : await createProperty(payload)
+      const needsSaleAwareSave = form.status === 'sold' || isEdit
+      const saved = needsSaleAwareSave
+        ? await savePropertyWithCommission({ mode, propertyId: property?.id, payload })
+        : await createProperty(payload)
       onSaved(saved)
-    } catch {
-      setError('Could not save the property. Please try again.')
+    } catch (err) {
+      if (err?.fieldErrors) setErrors(err.fieldErrors)
+      else if (err?.message && err.message !== 'Validation failed') setError(err.message)
+      else setError('Could not save the property. Please try again.')
     } finally {
       setSaving(false)
       setConfirmSubmit(false)
@@ -240,6 +270,11 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
               Price (PHP)
             </label>
             <input id="pf-price" type="number" min="0" step="any" className={inputCls} value={form.price} onChange={setField('price')} placeholder="1500000" />
+            {errors.price && (
+              <p className="mt-1.5 text-xs font-medium text-red-600" role="alert">
+                {errors.price}
+              </p>
+            )}
           </div>
 
           <div className="sm:col-span-2">
@@ -381,6 +416,37 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
             </select>
           </div>
 
+          {form.status === 'sold' && (
+            <div className="sm:col-span-2">
+              <label htmlFor="pf-sold-by" className="mb-1.5 block text-sm font-semibold text-brand-deep">
+                Selling Agent
+              </label>
+              <select
+                id="pf-sold-by"
+                className={inputCls}
+                value={sellerId}
+                onChange={(e) => {
+                  setSellerId(e.target.value)
+                  setErrors((errs) => ({ ...errs, sold_by: undefined }))
+                }}
+              >
+                <option value="">
+                  {agentsState === 'loading' ? 'Loading agents…' : agentsState === 'error' ? 'Could not load agents' : 'Select agent…'}
+                </option>
+                {agents.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} ({ROLE_LABELS[a.role] ?? a.role})
+                  </option>
+                ))}
+              </select>
+              {errors.sold_by && (
+                <p className="mt-1.5 text-xs font-medium text-red-600" role="alert">
+                  {errors.sold_by}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="mt-2 flex flex-wrap justify-end gap-3 sm:col-span-2">
             <button type="button" onClick={onClose} className="btn border border-mist bg-white text-ink/70 hover:border-brand/30 hover:text-brand">
               Cancel
@@ -444,6 +510,14 @@ export default function PropertyForm({ mode, property, onClose, onSaved }) {
             <dt className="font-semibold text-brand-deep shrink-0">Status</dt>
             <dd className="text-right text-ink/70 capitalize">{form.status}</dd>
           </div>
+          {form.status === 'sold' && (
+            <div className="flex justify-between gap-4">
+              <dt className="font-semibold text-brand-deep shrink-0">Selling Agent</dt>
+              <dd className="text-right text-ink/70 truncate">
+                {agents.find((a) => a.id === sellerId)?.name ?? '—'}
+              </dd>
+            </div>
+          )}
         </dl>
       </ConfirmModal>
     </div>

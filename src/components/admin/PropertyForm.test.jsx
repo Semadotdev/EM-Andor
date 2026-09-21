@@ -5,11 +5,22 @@ import PropertyForm from './PropertyForm.jsx'
 
 vi.mock('../../lib/api.js', () => ({
   createProperty: vi.fn(),
-  updateProperty: vi.fn(),
   uploadPropertyImage: vi.fn(),
 }))
 
-import { createProperty, updateProperty, uploadPropertyImage } from '../../lib/api.js'
+vi.mock('../../lib/agents.js', () => ({
+  fetchAllAgents: vi.fn().mockResolvedValue([
+    { id: 'a1', name: 'Ana Sub', role: 'sub_agent', is_active: true },
+    { id: 'a2', name: 'Ben Direct', role: 'direct_agent', is_active: true },
+  ]),
+}))
+
+vi.mock('../../lib/sales.js', () => ({
+  savePropertyWithCommission: vi.fn(),
+}))
+
+import { createProperty, uploadPropertyImage } from '../../lib/api.js'
+import { savePropertyWithCommission } from '../../lib/sales.js'
 
 const payload = {
   name: 'Andor Ridge Lot A',
@@ -21,6 +32,7 @@ const payload = {
   status: 'available',
   image_url: null,
   is_pinned: false,
+  sold_by: null,
   map_pins: [],
 }
 
@@ -99,7 +111,7 @@ describe('PropertyForm', () => {
   it('edits an existing property by id', async () => {
     const existing = { id: 'p7', ...payload, price: 2000000 }
     const updated = { ...existing, name: 'Andor Ridge Lot A (Reserved)' }
-    updateProperty.mockResolvedValue(updated)
+    savePropertyWithCommission.mockResolvedValue(updated)
     const onSaved = vi.fn()
     const user = userEvent.setup()
 
@@ -112,7 +124,9 @@ describe('PropertyForm', () => {
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Save Changes' }))
 
-    expect(updateProperty).toHaveBeenCalledWith('p7', expect.objectContaining({ name: 'Andor Ridge Lot A (Reserved)', price: 2000000 }))
+    expect(savePropertyWithCommission).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'edit', propertyId: 'p7', payload: expect.objectContaining({ name: 'Andor Ridge Lot A (Reserved)', price: 2000000 }) }),
+    )
     expect(onSaved).toHaveBeenCalledWith(updated)
   })
 
@@ -160,7 +174,7 @@ describe('PropertyForm', () => {
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Add Property' }))
 
-    expect(await screen.findByText('Could not save the property. Please try again.')).toBeInTheDocument()
+    expect(await screen.findByText('boom')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add Property' })).not.toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Saving…' })).not.toBeInTheDocument()
   })
@@ -274,6 +288,7 @@ describe('PropertyForm', () => {
         { id: 'l2', name: 'Lot B', price: 2000000, lot_area_sqm: 200, x: 20, y: 40 },
       ],
     }
+    savePropertyWithCommission.mockResolvedValue({ id: 'p7' })
     const user = userEvent.setup()
 
     render(<PropertyForm mode="edit" property={existing} onClose={vi.fn()} onSaved={vi.fn()} />)
@@ -288,7 +303,9 @@ describe('PropertyForm', () => {
     await user.click(screen.getByRole('button', { name: 'Save Changes' }))
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Save Changes' }))
-    expect(updateProperty).toHaveBeenCalledWith('p7', expect.objectContaining({ map_pins: [] }))
+    expect(savePropertyWithCommission).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'edit', propertyId: 'p7', payload: expect.objectContaining({ map_pins: [] }) }),
+    )
   })
 
   it('requires a name for each lot pin', async () => {
@@ -308,5 +325,58 @@ describe('PropertyForm', () => {
 
     expect(await screen.findByText('Each lot needs a name.')).toBeInTheDocument()
     expect(createProperty).not.toHaveBeenCalled()
+  })
+
+  it('requires a price and seller before saving as sold', async () => {
+    const user = userEvent.setup()
+
+    render(<PropertyForm mode="create" property={null} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    await fillRequiredFields(user)
+    await user.selectOptions(screen.getByLabelText('Status'), 'sold')
+    await user.click(screen.getByRole('button', { name: 'Add Property' }))
+
+    expect(await screen.findByText('Select the selling agent.')).toBeInTheDocument()
+    expect(savePropertyWithCommission).not.toHaveBeenCalled()
+    expect(createProperty).not.toHaveBeenCalled()
+  })
+
+  it('saves a sold property with the selling agent', async () => {
+    savePropertyWithCommission.mockResolvedValue({ id: 'p1' })
+    const onSaved = vi.fn()
+    const user = userEvent.setup()
+
+    render(<PropertyForm mode="create" property={null} onClose={vi.fn()} onSaved={onSaved} />)
+
+    await fillRequiredFields(user)
+    await user.selectOptions(screen.getByLabelText('Status'), 'sold')
+    await screen.findByRole('option', { name: /Ana Sub/ })
+    await user.selectOptions(screen.getByLabelText('Selling Agent'), 'a1')
+    await user.click(screen.getByRole('button', { name: 'Add Property' }))
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText('Ana Sub')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Add Property' }))
+
+    expect(savePropertyWithCommission).toHaveBeenCalledWith({
+      mode: 'create',
+      propertyId: undefined,
+      payload: expect.objectContaining({ status: 'sold', sold_by: 'a1' }),
+    })
+    expect(onSaved).toHaveBeenCalledWith({ id: 'p1' })
+  })
+
+  it('surfaces a paid-commission block from the sales API', async () => {
+    savePropertyWithCommission.mockRejectedValue(new Error('Commission already paid — reverse payment first.'))
+    const user = userEvent.setup()
+    const existing = { id: 'p7', ...payload, status: 'sold', sold_by: 'a1' }
+
+    render(<PropertyForm mode="edit" property={existing} onClose={vi.fn()} onSaved={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Save Changes' }))
+
+    expect(await screen.findByText('Commission already paid — reverse payment first.')).toBeInTheDocument()
   })
 })
