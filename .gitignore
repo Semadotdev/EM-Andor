@@ -4,4 +4,5 @@ dist
 .env
 .worktrees
 .superpowers
+.supabase
 .DS_Store
