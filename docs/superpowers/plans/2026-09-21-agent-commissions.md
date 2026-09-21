@@ -448,7 +448,7 @@ language sql stable security definer set search_path = public
 as $$
   with recursive d as (
     select id from public.agents where root is not null and upline_id = root
-    union all
+    union
     select a.id from public.agents a join d on a.upline_id = d.id
   )
   select id from d;
