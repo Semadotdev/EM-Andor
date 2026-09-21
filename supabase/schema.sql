@@ -227,6 +227,47 @@ drop policy if exists "authenticated read project_commission_rates" on public.pr
 create policy "authenticated read project_commission_rates" on public.project_commission_rates
   for select to authenticated using (true);
 
+-- Buyer sales (one per sold lot)
+create table if not exists public.sales (
+  id uuid primary key default gen_random_uuid(),
+  property_id uuid unique not null references public.properties(id) on delete cascade,
+  buyer_name text not null,
+  buyer_address text,
+  tcp numeric not null default 0 check (tcp >= 0),
+  downpayment numeric not null default 0 check (downpayment >= 0),
+  monthly_amortization numeric not null default 0 check (monthly_amortization >= 0),
+  terms_of_payment text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Buyer payment ledger (DATE / OR# / AMOUNT / SURCHARGE / INTEREST / PRINCIPAL(derived) / BALANCE(derived) / REMARKS)
+create table if not exists public.payments (
+  id uuid primary key default gen_random_uuid(),
+  property_id uuid not null references public.properties(id) on delete cascade,
+  entry_date date not null,
+  or_number text,
+  amount numeric not null default 0 check (amount >= 0),
+  surcharge numeric not null default 0 check (surcharge >= 0),
+  interest numeric not null default 0 check (interest >= 0),
+  remarks text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists payments_property_date_idx on public.payments(property_id, entry_date);
+
+alter table public.sales enable row level security;
+alter table public.payments enable row level security;
+
+drop policy if exists "admin all on sales" on public.sales;
+create policy "admin all on sales" on public.sales
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "admin all on payments" on public.payments;
+create policy "admin all on payments" on public.payments
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
 alter table public.properties enable row level security;
 alter table public.inquiries enable row level security;
 
@@ -292,6 +333,14 @@ begin
   return new;
 end;
 $$ language plpgsql;
+
+drop trigger if exists set_updated_at on public.sales;
+create trigger set_updated_at before update on public.sales
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists set_updated_at on public.payments;
+create trigger set_updated_at before update on public.payments
+  for each row execute function public.set_updated_at();
 
 drop trigger if exists set_updated_at on public.projects;
 create trigger set_updated_at before update on public.projects

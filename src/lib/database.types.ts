@@ -309,6 +309,53 @@ export type Database = {
         }
         Relationships: []
       }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          entry_date: string
+          id: string
+          interest: number
+          or_number: string | null
+          property_id: string
+          remarks: string | null
+          surcharge: number
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          entry_date: string
+          id?: string
+          interest?: number
+          or_number?: string | null
+          property_id: string
+          remarks?: string | null
+          surcharge?: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          entry_date?: string
+          id?: string
+          interest?: number
+          or_number?: string | null
+          property_id?: string
+          remarks?: string | null
+          surcharge?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_commission_rates: {
         Row: {
           id: string
@@ -445,6 +492,53 @@ export type Database = {
             columns: ["sold_by"]
             isOneToOne: false
             referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales: {
+        Row: {
+          buyer_address: string | null
+          buyer_name: string
+          created_at: string
+          downpayment: number
+          id: string
+          monthly_amortization: number
+          property_id: string
+          tcp: number
+          terms_of_payment: string | null
+          updated_at: string
+        }
+        Insert: {
+          buyer_address?: string | null
+          buyer_name: string
+          created_at?: string
+          downpayment?: number
+          id?: string
+          monthly_amortization?: number
+          property_id: string
+          tcp?: number
+          terms_of_payment?: string | null
+          updated_at?: string
+        }
+        Update: {
+          buyer_address?: string | null
+          buyer_name?: string
+          created_at?: string
+          downpayment?: number
+          id?: string
+          monthly_amortization?: number
+          property_id?: string
+          tcp?: number
+          terms_of_payment?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
         ]
