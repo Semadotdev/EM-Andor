@@ -3,4 +3,5 @@ dist
 *.local
 .env
 .worktrees
+.superpowers
 .DS_Store
