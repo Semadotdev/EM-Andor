@@ -8,6 +8,14 @@ import { formatPrice } from '../../lib/format.js'
 
 const fallbackImage = '/images/project-1.jpg'
 
+const TYPE_LABELS = {
+  'residential lot': 'Residential Lot',
+  'commercial lot': 'Commercial Lot',
+  'house & lot': 'House & Lot',
+  'development lot': 'Development Lot',
+  'farm lot': 'Farm Lot',
+}
+
 export default function AvailableProperties() {
   const [properties, setProperties] = useState([])
   const [status, setStatus] = useState('loading')
@@ -98,7 +106,7 @@ export default function AvailableProperties() {
                         className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                       />
                       <span className="absolute left-4 top-4 rounded-full bg-brand px-3.5 py-1.5 font-display text-xs font-bold uppercase tracking-wide text-white">
-                        {property.type}
+                        {TYPE_LABELS[property.type] ?? property.type}
                       </span>
                     </div>
                     <div className="p-6">
@@ -106,6 +114,11 @@ export default function AvailableProperties() {
                         <Icon name="pin" className="size-3.5" />
                         {property.location}
                       </p>
+                      {property.projects?.name && (
+                        <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-ink/50">
+                          {property.projects.name}
+                        </p>
+                      )}
                       <h3 className="mt-2 font-display text-xl font-bold text-brand-deep">{property.name}</h3>
                       {property.description && <p className="mt-2 text-sm leading-relaxed text-ink/70 line-clamp-2">{property.description}</p>}
                       {displayPrice != null && formatPrice(displayPrice) && (

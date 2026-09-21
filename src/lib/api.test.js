@@ -47,7 +47,7 @@ describe('api', () => {
     const result = await fetchPinnedProperties()
 
     expect(supabase.from).toHaveBeenCalledWith('properties')
-    expect(c.select).toHaveBeenCalledWith('*')
+    expect(c.select).toHaveBeenCalledWith('*, projects(name)')
     expect(c.eq).toHaveBeenCalledWith('is_pinned', true)
     expect(c.order).toHaveBeenCalledWith('created_at', { ascending: false })
     expect(result).toEqual(data)

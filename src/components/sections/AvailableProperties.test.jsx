@@ -21,6 +21,17 @@ const sample = [
     description: 'Corner lot',
     image_url: '/images/hero.jpg',
   },
+  {
+    id: 'p2',
+    name: 'Farm Lot 12',
+    type: 'farm lot',
+    location: 'Tanauan',
+    lot_area_sqm: 500,
+    price: 900000,
+    description: null,
+    image_url: null,
+    projects: { name: 'Andor Farm' },
+  },
 ]
 
 describe('AvailableProperties', () => {
@@ -46,7 +57,9 @@ describe('AvailableProperties', () => {
 
     expect(await screen.findByText('Andor Ridge Lot A')).toBeInTheDocument()
     expect(screen.getByText('₱ 1,500,000')).toBeInTheDocument()
-    expect(screen.getByText('residential lot')).toBeInTheDocument()
+    expect(screen.getByText('Residential Lot')).toBeInTheDocument()
+    expect(screen.getByText('Andor Farm')).toBeInTheDocument()
+    expect(screen.getByText('Farm Lot')).toBeInTheDocument()
   })
 
   it('shows an empty state when nothing is pinned', async () => {

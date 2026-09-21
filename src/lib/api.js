@@ -16,7 +16,7 @@ export async function logActivity(entityType, entityId, action, details = {}) {
 export async function fetchPinnedProperties() {
   const { data, error } = await supabase
     .from('properties')
-    .select('*')
+    .select('*, projects(name)')
     .eq('is_pinned', true)
     .order('created_at', { ascending: false })
   if (error) throw error
