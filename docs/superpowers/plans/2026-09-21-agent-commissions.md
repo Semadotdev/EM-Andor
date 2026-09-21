@@ -2670,19 +2670,20 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => {
-    if (!session?.user) return
+    if (!session?.user?.id) return
     let mounted = true
     fetchCurrentAgent()
       .then((row) => {
         if (!mounted) return
         setAgent(row)
-        setTab(row.role === 'admin' ? 'properties' : 'lots')
+        setAgentError(null)
+        setTab((current) => current ?? (row.role === 'admin' ? 'properties' : 'lots'))
       })
       .catch(() => {
         if (mounted) setAgentError('Your account is not linked to an agent profile. Contact the administrator.')
       })
     return () => { mounted = false }
-  }, [session])
+  }, [session?.user?.id])
 
   useEffect(() => {
     if (!agent || agent.role === 'admin') return
@@ -2740,7 +2741,7 @@ export default function AdminDashboard() {
           <AgentStats agent={agent} downlineCount={downline.length} />
         )}
 
-        <nav className="mb-8 flex gap-2 overflow-x-auto pb-2 scrollbar-thin" aria-label="Admin sections">
+        <nav className="mb-8 flex gap-2 overflow-x-auto pb-2 scrollbar-thin" aria-label={isAdmin ? 'Admin sections' : 'Agent sections'}>
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -2837,12 +2838,32 @@ Append these tests:
     await screen.findByText('AgentLotsPanel')
     expect(screen.queryByRole('button', { name: 'My Downline' })).not.toBeInTheDocument()
   })
+
+  it('keeps the selected tab across auth state events', async () => {
+    supabase.auth.getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } })
+    const user = userEvent.setup()
+
+    renderDashboard()
+
+    await waitFor(() => {
+      expect(screen.getByText('PropertiesPanel')).toBeInTheDocument()
+    })
+    await user.click(screen.getByRole('button', { name: 'Notifications' }))
+    await waitFor(() => {
+      expect(screen.getByText('NotificationsPanel')).toBeInTheDocument()
+    })
+
+    const listener = supabase.auth.onAuthStateChange.mock.calls[0][0]
+    listener('TOKEN_REFRESHED', { user: { id: 'u1' } })
+
+    expect(screen.getByText('NotificationsPanel')).toBeInTheDocument()
+  })
 ```
 
 - [ ] **Step 7: Run the tests**
 
 Run: `npx vitest run src/components/admin/AdminDashboard.test.jsx src/components/admin/AgentStats.test.jsx`
-Expected: PASS — existing tests (admin path) plus 2 new role-gating tests. Then `npm test` → 24 files / 222 tests, all green.
+Expected: PASS — existing tests (admin path) plus 3 new dashboard tests and 1 AgentStats test. Then `npm test` → 24 files / 223 tests, all green.
 
 - [ ] **Step 8: Commit**
 
