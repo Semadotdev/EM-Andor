@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import AgentDownline from './AgentDownline.jsx'
 
 vi.mock('../../lib/sales.js', () => ({
@@ -13,6 +14,10 @@ const members = [
   { id: 'a2', name: 'Rico Recruit', role: 'sub_agent' },
   { id: 'a3', name: 'Dina Recruit', role: 'sub_agent' },
 ]
+
+function ContextOutlet() {
+  return <Outlet context={{ agent: { id: 'a1' }, downline: members }} />
+}
 
 describe('AgentDownline', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -41,5 +46,23 @@ describe('AgentDownline', () => {
     render(<AgentDownline members={members} />)
 
     expect(await screen.findByText('Could not load your downline. Please refresh.')).toBeInTheDocument()
+  })
+
+  it('reads the downline from the outlet context when no prop is given', async () => {
+    fetchTeamSales.mockResolvedValue([])
+    fetchCommissions.mockResolvedValue([])
+
+    render(
+      <MemoryRouter initialEntries={['/admin/downline']}>
+        <Routes>
+          <Route element={<ContextOutlet />}>
+            <Route path="/admin/downline" element={<AgentDownline />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('Rico Recruit')).toBeInTheDocument()
+    expect(fetchTeamSales).toHaveBeenCalledWith(['a2', 'a3'])
   })
 })

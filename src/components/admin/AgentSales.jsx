@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import { fetchMySales } from '../../lib/sales.js'
 import { formatPrice } from '../../lib/format.js'
 
-export default function AgentSales({ agent }) {
+export default function AgentSales({ agent: agentProp }) {
+  const context = useOutletContext()
+  const agent = agentProp ?? context?.agent
   const [sales, setSales] = useState([])
   const [state, setState] = useState('loading')
 

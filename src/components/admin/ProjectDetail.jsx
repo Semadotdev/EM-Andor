@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import ConfirmModal from '../shared/ConfirmModal.jsx'
 import { deleteLot, fetchProject, fetchProjectLots, updateLot } from '../../lib/projects.js'
 import { setPropertyPinned } from '../../lib/api.js'
@@ -128,8 +129,11 @@ function EditLotModal({ lot, project, onClose, onSaved }) {
   )
 }
 
-export default function ProjectDetail({ project, onBack }) {
-  const [currentProject, setCurrentProject] = useState(project)
+export default function ProjectDetail() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [currentProject, setCurrentProject] = useState(null)
+  const [projectState, setProjectState] = useState('loading')
   const [lots, setLots] = useState([])
   const [agentNames, setAgentNames] = useState({})
   const [state, setState] = useState('loading')
@@ -145,19 +149,27 @@ export default function ProjectDetail({ project, onBack }) {
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
 
-  useEffect(() => {
-    setCurrentProject(project)
-  }, [project])
+  const loadProject = useCallback(() => {
+    setProjectState('loading')
+    fetchProject(id)
+      .then((row) => {
+        setCurrentProject(row)
+        setProjectState('ready')
+      })
+      .catch(() => setProjectState('error'))
+  }, [id])
+
+  useEffect(loadProject, [loadProject])
 
   const load = useCallback(() => {
     setState('loading')
-    fetchProjectLots(project.id)
+    fetchProjectLots(id)
       .then((rows) => {
         setLots(rows)
         setState('ready')
       })
       .catch(() => setState('error'))
-  }, [project.id])
+  }, [id])
 
   useEffect(load, [load])
 
@@ -206,7 +218,7 @@ export default function ProjectDetail({ project, onBack }) {
   const handleProjectSaved = async () => {
     setShowEditProject(false)
     try {
-      const fresh = await fetchProject(project.id)
+      const fresh = await fetchProject(id)
       setCurrentProject(fresh)
     } catch {
       // keep the current project details when the refresh fails
@@ -220,14 +232,39 @@ export default function ProjectDetail({ project, onBack }) {
     sold: lots.filter((lot) => lot.status === 'sold').length,
   }
 
+  const backButton = (
+    <button
+      onClick={() => navigate('/admin/projects')}
+      className="mb-4 rounded-md text-sm font-semibold text-ink/60 transition-colors hover:text-brand"
+    >
+      ← Projects
+    </button>
+  )
+
+  if (projectState === 'loading') {
+    return (
+      <div>
+        {backButton}
+        <p className="py-10 text-center text-ink/60">Loading project…</p>
+      </div>
+    )
+  }
+
+  if (projectState === 'error') {
+    return (
+      <div>
+        {backButton}
+        <div className="flex flex-col items-center gap-4 rounded-lg border border-mist bg-white p-10 text-center">
+          <p className="text-ink/70">Could not load this project.</p>
+          <button onClick={loadProject} className="btn btn-gold">Retry</button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
-      <button
-        onClick={onBack}
-        className="mb-4 rounded-md text-sm font-semibold text-ink/60 transition-colors hover:text-brand"
-      >
-        ← Back to Projects
-      </button>
+      {backButton}
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>

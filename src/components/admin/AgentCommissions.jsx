@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import { fetchCommissions } from '../../lib/sales.js'
 import { ROLE_LABELS } from '../../lib/agentMeta.js'
 import { formatPrice } from '../../lib/format.js'
 import { formatRate } from '../../lib/commissions.js'
 
-export default function AgentCommissions({ agent }) {
+export default function AgentCommissions({ agent: agentProp }) {
+  const context = useOutletContext()
+  const agent = agentProp ?? context?.agent
   const [rows, setRows] = useState([])
   const [state, setState] = useState('loading')
 

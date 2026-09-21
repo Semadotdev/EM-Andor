@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { fetchProjectLots, fetchProjects } from '../../lib/projects.js'
 import { formatPrice } from '../../lib/format.js'
 import CreateProjectModal from './CreateProjectModal.jsx'
-import ProjectDetail from './ProjectDetail.jsx'
 
 const TYPE_LABELS = {
   farm_lot: 'Farm Lot',
@@ -17,7 +17,6 @@ export default function AdminProjects() {
   const [state, setState] = useState('loading')
   const [error, setError] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
-  const [selected, setSelected] = useState(null)
 
   const load = useCallback(() => {
     setState('loading')
@@ -43,18 +42,6 @@ export default function AdminProjects() {
   }, [])
 
   useEffect(load, [load])
-
-  if (selected) {
-    return (
-      <ProjectDetail
-        project={selected}
-        onBack={() => {
-          setSelected(null)
-          load()
-        }}
-      />
-    )
-  }
 
   return (
     <div>
@@ -116,13 +103,13 @@ export default function AdminProjects() {
                     <td className="px-4 py-3 text-ink/70">{count.sold} sold</td>
                     <td className="px-4 py-3 text-ink/70">{count.total}</td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => setSelected(project)}
+                      <Link
+                        to={`/admin/projects/${project.id}`}
                         aria-label={`Open ${project.name}`}
-                        className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
+                        className="inline-flex rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
                       >
                         Open
-                      </button>
+                      </Link>
                     </td>
                   </tr>
                 )

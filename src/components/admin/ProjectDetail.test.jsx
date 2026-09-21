@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ProjectDetail from './ProjectDetail.jsx'
 
 vi.mock('../../lib/projects.js', () => ({
@@ -79,6 +80,17 @@ const soldLot = {
   sales: { buyer_name: 'Juan Dela Cruz' },
 }
 
+function renderDetail() {
+  return render(
+    <MemoryRouter initialEntries={['/admin/projects/pr1']}>
+      <Routes>
+        <Route path="/admin/projects/:id" element={<ProjectDetail />} />
+        <Route path="/admin/projects" element={<p>ProjectsListPage</p>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 describe('ProjectDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -90,7 +102,7 @@ describe('ProjectDetail', () => {
   })
 
   it('lists the lots with status, price, and selling agent', async () => {
-    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+    renderDetail()
 
     expect(await screen.findByText('Ana Agent')).toBeInTheDocument()
     expect(screen.getByText('2 lots')).toBeInTheDocument()
@@ -111,7 +123,7 @@ describe('ProjectDetail', () => {
   it('reads the buyer name from an array-shaped sales relation', async () => {
     fetchProjectLots.mockResolvedValue([{ ...soldLot, sales: [{ buyer_name: 'Maria Santos' }] }])
 
-    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+    renderDetail()
 
     expect(await screen.findByText('Maria Santos')).toBeInTheDocument()
   })
@@ -119,7 +131,7 @@ describe('ProjectDetail', () => {
   it('shows a dash when a sold lot has no buyer on file', async () => {
     fetchProjectLots.mockResolvedValue([{ ...soldLot, sales: null }])
 
-    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+    renderDetail()
 
     await screen.findByText('Sold')
     const row = screen.getAllByRole('row')[1]
@@ -131,7 +143,7 @@ describe('ProjectDetail', () => {
   it('opens the buyer ledger for a sold lot', async () => {
     const user = userEvent.setup()
 
-    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+    renderDetail()
 
     await user.click(await screen.findByRole('button', { name: 'Ledger' }))
 
@@ -145,7 +157,7 @@ describe('ProjectDetail', () => {
   it('pins a lot optimistically and persists it', async () => {
     const user = userEvent.setup()
 
-    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+    renderDetail()
 
     const pinButtons = await screen.findAllByRole('button', { name: 'Pin' })
     expect(pinButtons).toHaveLength(1)
@@ -160,7 +172,7 @@ describe('ProjectDetail', () => {
     setPropertyPinned.mockRejectedValue(new Error('fail'))
     const user = userEvent.setup()
 
-    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+    renderDetail()
 
     const pinButtons = await screen.findAllByRole('button', { name: 'Pin' })
     await user.click(pinButtons[0])
@@ -175,7 +187,7 @@ describe('ProjectDetail', () => {
       .mockResolvedValueOnce([soldLot])
     const user = userEvent.setup()
 
-    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+    renderDetail()
 
     await user.click(await screen.findByRole('button', { name: 'Mark Sold' }))
     expect(screen.getByRole('dialog', { name: 'Mark lot sold' })).toBeInTheDocument()
@@ -194,7 +206,7 @@ describe('ProjectDetail', () => {
       .mockResolvedValueOnce([updated])
     const user = userEvent.setup()
 
-    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+    renderDetail()
 
     await user.click(await screen.findByRole('button', { name: 'Edit' }))
     const dialog = await screen.findByRole('dialog', { name: 'Edit lot' })
@@ -219,7 +231,7 @@ describe('ProjectDetail', () => {
     )
     const user = userEvent.setup()
 
-    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+    renderDetail()
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[0])
     const dialog = await screen.findByRole('dialog', { name: 'Edit lot' })
@@ -231,7 +243,7 @@ describe('ProjectDetail', () => {
   it('deletes an available lot after confirmation', async () => {
     const user = userEvent.setup()
 
-    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+    renderDetail()
 
     await user.click(await screen.findByRole('button', { name: 'Delete' }))
     const dialog = await screen.findByRole('alertdialog')
@@ -245,7 +257,7 @@ describe('ProjectDetail', () => {
     deleteLot.mockRejectedValue(new Error('Only available lots can be deleted. Un-sell the lot first.'))
     const user = userEvent.setup()
 
-    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+    renderDetail()
 
     await user.click(await screen.findByRole('button', { name: 'Delete' }))
     const dialog = await screen.findByRole('alertdialog')
@@ -257,7 +269,7 @@ describe('ProjectDetail', () => {
   it('opens the upload lots modal', async () => {
     const user = userEvent.setup()
 
-    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+    renderDetail()
 
     await screen.findByText('Ana Agent')
     await user.click(screen.getByRole('button', { name: 'Upload Lots' }))
@@ -269,7 +281,7 @@ describe('ProjectDetail', () => {
     fetchProject.mockResolvedValue({ ...project, name: 'Andor Farm Updated' })
     const user = userEvent.setup()
 
-    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+    renderDetail()
 
     await user.click(await screen.findByRole('button', { name: 'Edit Project' }))
     expect(screen.getByRole('dialog', { name: 'Edit project' })).toBeInTheDocument()
@@ -282,15 +294,23 @@ describe('ProjectDetail', () => {
     expect(screen.queryByRole('dialog', { name: 'Edit project' })).not.toBeInTheDocument()
   })
 
-  it('calls onBack when going back', async () => {
-    const onBack = vi.fn()
+  it('navigates back to the projects list from the breadcrumb', async () => {
     const user = userEvent.setup()
 
-    render(<ProjectDetail project={project} onBack={onBack} />)
+    renderDetail()
 
     await screen.findByText('Ana Agent')
-    await user.click(screen.getByRole('button', { name: '← Back to Projects' }))
+    await user.click(screen.getByRole('button', { name: '← Projects' }))
 
-    expect(onBack).toHaveBeenCalled()
+    expect(await screen.findByText('ProjectsListPage')).toBeInTheDocument()
+  })
+
+  it('shows a retry state when the project cannot be loaded', async () => {
+    fetchProject.mockRejectedValue(new Error('boom'))
+
+    renderDetail()
+
+    expect(await screen.findByText('Could not load this project.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
   })
 })

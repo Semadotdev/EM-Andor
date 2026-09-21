@@ -1,10 +1,15 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import AgentSales from './AgentSales.jsx'
 
 vi.mock('../../lib/sales.js', () => ({ fetchMySales: vi.fn() }))
 
 import { fetchMySales } from '../../lib/sales.js'
+
+function ContextOutlet() {
+  return <Outlet context={{ agent: { id: 'a9', name: 'Nena' } }} />
+}
 
 describe('AgentSales', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -35,5 +40,22 @@ describe('AgentSales', () => {
     render(<AgentSales agent={{ id: 'a1', name: 'Ana' }} />)
 
     expect(await screen.findByText('Could not load your sales. Please refresh.')).toBeInTheDocument()
+  })
+
+  it('reads the agent from the outlet context when no prop is given', async () => {
+    fetchMySales.mockResolvedValue([])
+
+    render(
+      <MemoryRouter initialEntries={['/admin/sales']}>
+        <Routes>
+          <Route element={<ContextOutlet />}>
+            <Route path="/admin/sales" element={<AgentSales />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('You have no sold lots yet.')).toBeInTheDocument()
+    expect(fetchMySales).toHaveBeenCalledWith('a9')
   })
 })

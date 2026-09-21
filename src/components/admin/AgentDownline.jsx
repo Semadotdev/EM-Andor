@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import { fetchCommissions, fetchTeamSales } from '../../lib/sales.js'
 import { ROLE_LABELS } from '../../lib/agentMeta.js'
 import { formatPrice } from '../../lib/format.js'
 
-export default function AgentDownline({ members }) {
+export default function AgentDownline({ members: membersProp }) {
+  const context = useOutletContext()
+  const members = membersProp ?? context?.downline ?? []
   const [sales, setSales] = useState([])
   const [commissions, setCommissions] = useState([])
   const [state, setState] = useState('loading')
