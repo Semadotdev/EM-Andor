@@ -3491,6 +3491,33 @@ git add src/components/admin/AdminAgents.jsx src/components/admin/AdminAgents.te
 git commit -m "feat(admin): add agents tab with tree, eligibility, and activation"
 ```
 
+- [ ] **Step 6: Stabilize the suite timeout**
+
+The growing suite runs test files in parallel, and `userEvent` interactions now intermittently exceed Vitest's default 5s per-test timeout under load (unrelated files such as `Contact.test.jsx` and `PropertyForm.test.jsx` fail in full runs but pass in isolation). Raise the timeout in `vitest.config.js`:
+
+```js
+import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.js'],
+    globals: true,
+    testTimeout: 20000,
+    include: ['src/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+  },
+})
+```
+
+Then run `npm test` twice and confirm both runs are fully green.
+
+```bash
+git add vitest.config.js
+git commit -m "test: raise the suite timeout for parallel runs"
+```
+
 ---
 
 ### Task 16: Commissions tab (rates, list, mark paid)
