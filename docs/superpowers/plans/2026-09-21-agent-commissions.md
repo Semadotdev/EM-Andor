@@ -979,7 +979,7 @@ export async function fetchMyDownline() {
   const me = await fetchCurrentAgent()
   const { data, error } = await supabase.from('agents').select('*').neq('id', me.id).order('created_at', { ascending: true })
   if (error) throw error
-  return (data ?? []).filter((a) => a.role !== 'admin')
+  return (data ?? []).filter((a) => a.role !== 'admin' && a.id !== me.id)
 }
 
 export async function setAgentActive(id, isActive) {
