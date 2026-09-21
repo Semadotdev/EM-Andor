@@ -119,6 +119,64 @@ export async function savePropertyWithCommission({ mode, propertyId, payload }) 
   return saved
 }
 
+export async function fetchSale(propertyId) {
+  const { data, error } = await supabase.from('sales').select('*').eq('property_id', propertyId).maybeSingle()
+  if (error) throw error
+  return data
+}
+
+export async function upsertSale(propertyId, details) {
+  const { data, error } = await supabase
+    .from('sales')
+    .upsert({ property_id: propertyId, ...details }, { onConflict: 'property_id' })
+    .select()
+    .single()
+  if (error) throw error
+  logActivity('sale', propertyId, 'save', { buyer: details.buyer_name }).catch(() => {})
+  return data
+}
+
+export async function fetchPayments(propertyId) {
+  const { data, error } = await supabase
+    .from('payments')
+    .select('*')
+    .eq('property_id', propertyId)
+    .order('entry_date', { ascending: true })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function createPayment(propertyId, payment) {
+  const { data, error } = await supabase
+    .from('payments')
+    .insert({ property_id: propertyId, ...payment })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updatePayment(id, updates) {
+  const { data, error } = await supabase.from('payments').update(updates).eq('id', id).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function deletePayment(id) {
+  const { error } = await supabase.from('payments').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function recordSale({ propertyId, payload, details }) {
+  const saved = await savePropertyWithCommission({ mode: 'edit', propertyId, payload })
+  try {
+    await upsertSale(propertyId, details)
+  } catch {
+    throw new Error('Sale recorded, but the buyer details failed to save. Reopen the lot and use Edit Sale to retry.')
+  }
+  return saved
+}
+
 export async function fetchMySales(agentId) {
   const { data, error } = await supabase
     .from('properties')

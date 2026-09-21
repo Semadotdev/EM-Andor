@@ -1,5 +1,18 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { fetchCommissions, fetchMySales, fetchTeamSales, markCommissionPaid, savePropertyWithCommission } from './sales.js'
+import {
+  createPayment,
+  deletePayment,
+  fetchCommissions,
+  fetchMySales,
+  fetchPayments,
+  fetchSale,
+  fetchTeamSales,
+  markCommissionPaid,
+  recordSale,
+  savePropertyWithCommission,
+  updatePayment,
+  upsertSale,
+} from './sales.js'
 
 vi.mock('./supabase.js', () => ({ supabase: { from: vi.fn() } }))
 vi.mock('./api.js', () => ({
@@ -268,5 +281,124 @@ describe('sales', () => {
     supabase.from.mockReturnValue(chain({ data: null, error: null }))
 
     await expect(markCommissionPaid('c1')).rejects.toThrow('Commission is already paid.')
+  })
+
+  it('fetchSale returns the buyer row for a property', async () => {
+    const sale = { id: 's1', property_id: 'p1', buyer_name: 'Juan' }
+    const c = chain({ data: sale, error: null })
+    supabase.from.mockReturnValue(c)
+
+    expect(await fetchSale('p1')).toEqual(sale)
+    expect(supabase.from).toHaveBeenCalledWith('sales')
+    expect(c.eq).toHaveBeenCalledWith('property_id', 'p1')
+    expect(c.maybeSingle).toHaveBeenCalled()
+  })
+
+  it('fetchSale returns null when the property has no buyer', async () => {
+    supabase.from.mockReturnValue(chain({ data: null, error: null }))
+
+    expect(await fetchSale('p1')).toBeNull()
+  })
+
+  it('upsertSale saves buyer details by property and logs the activity', async () => {
+    const sale = { id: 's1', property_id: 'p1', buyer_name: 'Juan' }
+    const c = chain({ data: sale, error: null })
+    supabase.from.mockReturnValue(c)
+
+    const result = await upsertSale('p1', { buyer_name: 'Juan', tcp: 2000000 })
+
+    expect(result).toEqual(sale)
+    expect(supabase.from).toHaveBeenCalledWith('sales')
+    expect(c.upsert).toHaveBeenCalledWith(
+      { property_id: 'p1', buyer_name: 'Juan', tcp: 2000000 },
+      { onConflict: 'property_id' },
+    )
+    expect(logActivity).toHaveBeenCalledWith('sale', 'p1', 'save', { buyer: 'Juan' })
+  })
+
+  it('fetchPayments filters by property and orders by entry date', async () => {
+    const rows = [{ id: 'pay1', property_id: 'p1', entry_date: '2026-01-05', amount: 5000 }]
+    const c = chain({ data: rows, error: null })
+    supabase.from.mockReturnValue(c)
+
+    expect(await fetchPayments('p1')).toEqual(rows)
+    expect(supabase.from).toHaveBeenCalledWith('payments')
+    expect(c.eq).toHaveBeenCalledWith('property_id', 'p1')
+    expect(c.order).toHaveBeenCalledWith('entry_date', { ascending: true })
+  })
+
+  it('fetchPayments returns an empty list when there are no rows', async () => {
+    supabase.from.mockReturnValue(chain({ data: null, error: null }))
+
+    expect(await fetchPayments('p1')).toEqual([])
+  })
+
+  it('createPayment inserts the payment against the property', async () => {
+    const payment = { entry_date: '2026-01-05', or_number: 'OR-1', amount: 5000, surcharge: 0, interest: 0 }
+    const row = { id: 'pay1', property_id: 'p1', ...payment }
+    const c = chain({ data: row, error: null })
+    supabase.from.mockReturnValue(c)
+
+    expect(await createPayment('p1', payment)).toEqual(row)
+    expect(supabase.from).toHaveBeenCalledWith('payments')
+    expect(c.insert).toHaveBeenCalledWith({ property_id: 'p1', ...payment })
+  })
+
+  it('updatePayment updates the payment by id', async () => {
+    const row = { id: 'pay1', amount: 6000 }
+    const c = chain({ data: row, error: null })
+    supabase.from.mockReturnValue(c)
+
+    expect(await updatePayment('pay1', { amount: 6000 })).toEqual(row)
+    expect(supabase.from).toHaveBeenCalledWith('payments')
+    expect(c.update).toHaveBeenCalledWith({ amount: 6000 })
+    expect(c.eq).toHaveBeenCalledWith('id', 'pay1')
+  })
+
+  it('deletePayment deletes the payment by id', async () => {
+    const c = chain({ data: null, error: null })
+    supabase.from.mockReturnValue(c)
+
+    await deletePayment('pay1')
+
+    expect(supabase.from).toHaveBeenCalledWith('payments')
+    expect(c.delete).toHaveBeenCalled()
+    expect(c.eq).toHaveBeenCalledWith('id', 'pay1')
+  })
+
+  it('recordSale saves the property first and then the buyer details', async () => {
+    const existing = { ...property }
+    updateProperty.mockResolvedValue(existing)
+    const salesChain = chain({ data: { id: 's1', property_id: 'p1', buyer_name: 'Juan' }, error: null })
+    supabase.from
+      .mockImplementationOnce(() => chain({ data: existing, error: null }))
+      .mockImplementationOnce(() => chain({ data: [{ id: 'c1' }], error: null }))
+      .mockImplementationOnce(() => salesChain)
+
+    const saved = await recordSale({
+      propertyId: 'p1',
+      payload: soldPayload,
+      details: { buyer_name: 'Juan' },
+    })
+
+    expect(updateProperty).toHaveBeenCalledWith('p1', expect.objectContaining({ status: 'sold' }))
+    expect(salesChain.upsert).toHaveBeenCalledWith({ property_id: 'p1', buyer_name: 'Juan' }, { onConflict: 'property_id' })
+    expect(updateProperty.mock.invocationCallOrder[0]).toBeLessThan(salesChain.upsert.mock.invocationCallOrder[0])
+    expect(saved).toEqual(existing)
+  })
+
+  it('recordSale reports a buyer details failure after the property save succeeds', async () => {
+    const existing = { ...property }
+    updateProperty.mockResolvedValue(existing)
+    supabase.from
+      .mockImplementationOnce(() => chain({ data: existing, error: null }))
+      .mockImplementationOnce(() => chain({ data: [{ id: 'c1' }], error: null }))
+      .mockImplementationOnce(() => chain({ data: null, error: new Error('upsert failed') }))
+
+    await expect(
+      recordSale({ propertyId: 'p1', payload: soldPayload, details: { buyer_name: 'Juan' } }),
+    ).rejects.toThrow('Sale recorded, but the buyer details failed to save. Reopen the lot and use Edit Sale to retry.')
+
+    expect(updateProperty).toHaveBeenCalledWith('p1', expect.objectContaining({ status: 'sold' }))
   })
 })
