@@ -3675,7 +3675,6 @@ export default function AdminCommissions() {
   const [commissions, setCommissions] = useState([])
   const [statusFilter, setStatusFilter] = useState('')
   const [state, setState] = useState('loading')
-  const [error, setError] = useState(null)
   const [confirmPaid, setConfirmPaid] = useState(null)
   const [paidError, setPaidError] = useState(null)
   const [savingPaid, setSavingPaid] = useState(false)
@@ -3692,7 +3691,6 @@ export default function AdminCommissions() {
 
   const loadCommissions = useCallback(() => {
     setState('loading')
-    setError(null)
     fetchCommissions(statusFilter ? { status: statusFilter } : {})
       .then((rows) => {
         setCommissions(rows)
@@ -3725,7 +3723,6 @@ export default function AdminCommissions() {
   const handleMarkPaid = async () => {
     if (!confirmPaid || savingPaid) return
     setSavingPaid(true)
-    setError(null)
     setPaidError(null)
     try {
       await markCommissionPaid(confirmPaid.id)
@@ -3773,12 +3770,6 @@ export default function AdminCommissions() {
         )}
         {ratesMessage && <p className="mt-3 text-sm font-medium text-ink/70">{ratesMessage}</p>}
       </form>
-
-      {error && (
-        <p role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
-          {error}
-        </p>
-      )}
 
       <div className="mb-4 flex items-center gap-3">
         <label htmlFor="cf-status" className="text-sm font-semibold text-brand-deep">Status</label>
