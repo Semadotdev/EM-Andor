@@ -9,6 +9,8 @@ import '@fontsource/inter/600.css'
 import './index.css'
 import App from './App.jsx'
 
+document.getElementById('app-splash')?.remove()
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />

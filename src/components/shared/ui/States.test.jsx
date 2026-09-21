@@ -18,13 +18,13 @@ describe('States', () => {
   it('renders a loading state with a default label', () => {
     render(<LoadingState />)
 
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Loading…')
   })
 
   it('renders a loading state with a custom label', () => {
     render(<LoadingState label="Loading lots…" />)
 
-    expect(screen.getByText('Loading lots…')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Loading lots…')
   })
 
   it('renders an error state with the default message and no retry button', () => {

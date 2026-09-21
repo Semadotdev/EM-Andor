@@ -1,3 +1,5 @@
+import BrandLoader from './BrandLoader.jsx'
+
 export function EmptyState({ message, children }) {
   return (
     <div className="flex flex-col items-center gap-4 rounded-lg border border-mist bg-white p-10 text-center">
@@ -8,7 +10,7 @@ export function EmptyState({ message, children }) {
 }
 
 export function LoadingState({ label = 'Loading…' }) {
-  return <p className="py-10 text-center text-sm text-ink/60">{label}</p>
+  return <BrandLoader fullscreen={false} label={label} />
 }
 
 export function ErrorState({ message = 'Something went wrong.', onRetry }) {

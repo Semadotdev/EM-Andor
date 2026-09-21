@@ -26,7 +26,129 @@
     <meta name="twitter:image" content="/og-image.svg" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-splash" aria-hidden="true">
+        <style>
+          #app-splash {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: grid;
+            place-items: center;
+            background: #00452a;
+            color: #fff;
+          }
+          #app-splash .splash-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            text-align: center;
+          }
+          #app-splash .splash-ring {
+            position: relative;
+            display: grid;
+            place-items: center;
+            width: 72px;
+            height: 72px;
+            border-radius: 9999px;
+            border: 2px solid rgb(246 210 26 / 0.25);
+          }
+          #app-splash .splash-ring::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 9999px;
+            border: 2px solid transparent;
+            border-top-color: #f6d21a;
+            animation: splash-spin 2.4s linear infinite;
+          }
+          #app-splash .splash-ring svg {
+            width: 36px;
+            height: 36px;
+            animation: splash-pulse 1.8s ease-in-out infinite;
+          }
+          #app-splash .splash-word {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            line-height: 1.2;
+            text-transform: uppercase;
+          }
+          #app-splash .splash-word span {
+            color: #f6d21a;
+          }
+          #app-splash .splash-sub {
+            margin: 2px 0 0;
+            font-size: 9.5px;
+            font-weight: 600;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: rgb(255 255 255 / 0.7);
+          }
+          #app-splash .splash-bar {
+            width: 200px;
+            max-width: 60vw;
+            height: 6px;
+            overflow: hidden;
+            border-radius: 9999px;
+            background: rgb(255 255 255 / 0.15);
+          }
+          #app-splash .splash-bar i {
+            display: block;
+            width: 33%;
+            height: 100%;
+            border-radius: 9999px;
+            background: #f6d21a;
+            animation: splash-progress 1.4s ease-in-out infinite;
+          }
+          @keyframes splash-spin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+          @keyframes splash-pulse {
+            0%,
+            100% {
+              opacity: 1;
+              transform: scale(1);
+            }
+            50% {
+              opacity: 0.7;
+              transform: scale(0.92);
+            }
+          }
+          @keyframes splash-progress {
+            0% {
+              transform: translateX(-100%);
+            }
+            100% {
+              transform: translateX(300%);
+            }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            #app-splash * {
+              animation: none !important;
+            }
+          }
+        </style>
+        <div class="splash-card">
+          <div class="splash-ring">
+            <svg viewBox="0 0 32 32">
+              <path d="M16 4 30 28H2L16 4Z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" />
+              <path d="M16 13 24 28H8L16 13Z" fill="#F6D21A" />
+            </svg>
+          </div>
+          <div>
+            <p class="splash-word">E.M. <span>Andor</span></p>
+            <p class="splash-sub">Builders &amp; Associates</p>
+          </div>
+          <div class="splash-bar"><i></i></div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
