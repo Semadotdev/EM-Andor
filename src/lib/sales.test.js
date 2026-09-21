@@ -1,0 +1,131 @@
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { savePropertyWithCommission } from './sales.js'
+
+vi.mock('./supabase.js', () => ({ supabase: { from: vi.fn() } }))
+vi.mock('./api.js', () => ({
+  createProperty: vi.fn(),
+  updateProperty: vi.fn(),
+  logActivity: vi.fn(() => Promise.resolve()),
+}))
+vi.mock('./agents.js', () => ({
+  fetchAllAgents: vi.fn(),
+  applyEligiblePromotions: vi.fn(() => Promise.resolve([])),
+  fetchCommissionRatesMap: vi.fn(),
+}))
+
+import { supabase } from './supabase.js'
+import { createProperty, updateProperty } from './api.js'
+import { applyEligiblePromotions, fetchAllAgents, fetchCommissionRatesMap } from './agents.js'
+
+function chain(result) {
+  const c = {}
+  for (const m of ['select', 'eq', 'order', 'update', 'delete', 'insert', 'single', 'neq', 'in', 'upsert']) {
+    c[m] = vi.fn(() => c)
+  }
+  c.then = (onFulfilled) => Promise.resolve(result).then(onFulfilled)
+  return c
+}
+
+const sub = { id: 'a1', name: 'Sub', role: 'sub_agent', upline_id: 'a2', is_active: true }
+const direct = { id: 'a2', name: 'Direct', role: 'direct_agent', upline_id: null, is_active: true }
+const property = { id: 'p1', name: 'Lot A', price: 1000000, status: 'sold', sold_by: 'a1' }
+
+const soldPayload = { name: 'Lot A', price: 1000000, status: 'sold', sold_by: 'a1' }
+
+describe('sales', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('rejects a sold save without a price or seller', async () => {
+    await expect(
+      savePropertyWithCommission({ mode: 'create', payload: { ...soldPayload, price: '', sold_by: null } }),
+    ).rejects.toMatchObject({ fieldErrors: { price: expect.any(String), sold_by: expect.any(String) } })
+    expect(createProperty).not.toHaveBeenCalled()
+  })
+
+  it('creates the property and one commission row per chain level', async () => {
+    createProperty.mockResolvedValue(property)
+    fetchAllAgents.mockResolvedValue([sub, direct])
+    fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.03, direct_agent: 0.015 })
+    supabase.from.mockImplementation(() => chain({ data: [{ id: 'c1' }, { id: 'c2' }], error: null }))
+
+    const saved = await savePropertyWithCommission({ mode: 'create', payload: soldPayload })
+
+    expect(createProperty).toHaveBeenCalledWith(soldPayload)
+    expect(supabase.from).toHaveBeenCalledWith('commissions')
+    expect(applyEligiblePromotions).toHaveBeenCalled()
+    expect(saved).toEqual(property)
+  })
+
+  it('saves an available property without generating commissions', async () => {
+    createProperty.mockResolvedValue({ ...property, status: 'available', sold_by: null })
+
+    await savePropertyWithCommission({
+      mode: 'create',
+      payload: { ...soldPayload, status: 'available', sold_by: null },
+    })
+
+    expect(supabase.from).not.toHaveBeenCalledWith('commissions')
+    expect(applyEligiblePromotions).toHaveBeenCalled()
+  })
+
+  it('un-selling clears earned commission rows', async () => {
+    const existing = property
+    updateProperty.mockResolvedValue({ ...property, status: 'available', sold_by: null })
+    supabase.from
+      .mockImplementationOnce(() => chain({ data: existing, error: null }))
+      .mockImplementationOnce(() => chain({ data: [{ id: 'c1', status: 'earned' }], error: null }))
+      .mockImplementationOnce(() => chain({ data: null, error: null }))
+
+    await savePropertyWithCommission({
+      mode: 'edit',
+      propertyId: 'p1',
+      payload: { ...soldPayload, status: 'available', sold_by: null },
+    })
+
+    expect(updateProperty).toHaveBeenCalledWith('p1', expect.objectContaining({ status: 'available' }))
+  })
+
+  it('blocks un-selling when a commission is already paid', async () => {
+    updateProperty.mockResolvedValue({})
+    supabase.from
+      .mockImplementationOnce(() => chain({ data: property, error: null }))
+      .mockImplementationOnce(() => chain({ data: [{ id: 'c1', status: 'paid' }], error: null }))
+
+    await expect(
+      savePropertyWithCommission({
+        mode: 'edit',
+        propertyId: 'p1',
+        payload: { ...soldPayload, status: 'available', sold_by: null },
+      }),
+    ).rejects.toThrow('Commission already paid — reverse payment first.')
+
+    expect(updateProperty).not.toHaveBeenCalled()
+  })
+
+  it('does not regenerate commissions when a sold property is saved again with the same seller', async () => {
+    const existing = { ...property }
+    updateProperty.mockResolvedValue(existing)
+    supabase.from.mockImplementationOnce(() => chain({ data: existing, error: null }))
+
+    await savePropertyWithCommission({ mode: 'edit', propertyId: 'p1', payload: soldPayload })
+
+    expect(supabase.from).toHaveBeenCalledTimes(1)
+    expect(updateProperty).toHaveBeenCalledWith('p1', soldPayload)
+  })
+
+  it('regenerates commissions when the selling agent changes', async () => {
+    const existing = { ...property, sold_by: 'a2' }
+    updateProperty.mockResolvedValue({ ...property, sold_by: 'a1' })
+    fetchAllAgents.mockResolvedValue([sub, direct])
+    fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.03, direct_agent: 0.015 })
+    supabase.from
+      .mockImplementationOnce(() => chain({ data: existing, error: null }))
+      .mockImplementationOnce(() => chain({ data: [{ id: 'c1', status: 'earned' }], error: null }))
+      .mockImplementationOnce(() => chain({ data: null, error: null }))
+      .mockImplementationOnce(() => chain({ data: [{ id: 'c2' }, { id: 'c3' }], error: null }))
+
+    await savePropertyWithCommission({ mode: 'edit', propertyId: 'p1', payload: soldPayload })
+
+    expect(updateProperty).toHaveBeenCalledWith('p1', soldPayload)
+  })
+})
