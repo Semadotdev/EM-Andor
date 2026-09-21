@@ -4494,6 +4494,8 @@ The whole-branch review found one money-integrity hole and three spec-completene
 - Modify: `src/components/admin/AdminCommissions.test.jsx`
 - Modify: `src/components/admin/AdminAgents.jsx`
 - Modify: `src/components/admin/AdminAgents.test.jsx`
+- Modify: `src/lib/api.js`
+- Modify: `src/lib/api.test.js`
 
 ### 20.1 Remove the bulk status control (Critical)
 
@@ -4505,6 +4507,10 @@ In `AdminProperties.jsx`:
 - Delete the bulk status `<select>` block (the one with `aria-label="Bulk status change"`) from the bulk actions bar.
 
 In `AdminProperties.test.jsx`, remove `bulkUpdatePropertyStatus` from both the `vi.mock('../../lib/api.js', ...)` factory and the import line (no test drives the removed control).
+
+The API function itself must also go, so the bypass cannot be reintroduced:
+- In `src/lib/api.js`, delete the exported `bulkUpdatePropertyStatus(ids, status)` function (the one calling `.from('properties').update({ status }).in('id', ids)`).
+- In `src/lib/api.test.js`, delete the `bulkUpdatePropertyStatus updates status for multiple properties` test and remove it from the import list.
 
 ### 20.2 Commissions filters, search, totals, and rate validation
 
@@ -4626,7 +4632,7 @@ Test to add in `AdminAgents.test.jsx`:
 ### Verification
 
 - `npx vitest run src/components/admin/AdminProperties.test.jsx src/components/admin/AdminCommissions.test.jsx src/components/admin/AdminAgents.test.jsx` → expect 12 + 6 + 6 = 24 passing.
-- `npm test` → expect 31 files / 249 tests.
+- `npm test` → expect 31 files / 248 tests.
 - `npm run build` → success.
 - Update Task 19's checklist item 13: bulk status change has been removed; use the single-edit sold flow for all status transitions involving sold.
 
