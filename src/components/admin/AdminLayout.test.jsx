@@ -6,7 +6,9 @@ import AdminLayout from './AdminLayout.jsx'
 
 vi.mock('./DashboardStats.jsx', () => ({ default: () => <span>StatsPanel</span> }))
 vi.mock('./AgentStats.jsx', () => ({ default: () => <span>AgentStatsPanel</span> }))
-vi.mock('../shared/Logo.jsx', () => ({ default: () => <span>Logo</span> }))
+vi.mock('../shared/Logo.jsx', () => ({
+  default: () => <span aria-label="E.M. Andor — home">Logo</span>,
+}))
 
 vi.mock('../../lib/agents.js', () => ({
   fetchCurrentAgent: vi.fn(),
@@ -145,6 +147,28 @@ describe('AdminLayout', () => {
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
 
     expect(supabase.auth.signOut).toHaveBeenCalled()
+  })
+
+  it('keeps the logo desktop-only in the header and shows it in the mobile drawer with sign out', async () => {
+    fetchCurrentAgent.mockResolvedValue({ id: 'a1', name: 'Ana Cruz', role: 'sub_agent', is_active: true })
+    const user = userEvent.setup()
+
+    renderLayout()
+
+    await screen.findByText('IndexPage')
+
+    const headerLogo = screen.getByLabelText('E.M. Andor — home')
+    expect(headerLogo.closest('.hidden')).not.toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }))
+
+    const drawer = screen.getByRole('dialog', { name: 'Navigation' })
+    expect(within(drawer).getByLabelText('E.M. Andor — home')).toBeInTheDocument()
+    expect(within(drawer).getByText('Ana Cruz')).toBeInTheDocument()
+    expect(within(drawer).getByText('Sub Agent')).toBeInTheDocument()
+
+    await user.click(within(drawer).getByRole('button', { name: 'Sign out' }))
+    expect(supabase.auth.signOut).toHaveBeenCalledTimes(1)
   })
 
   it('toggles the mobile navigation drawer', async () => {

@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase.js'
 import { fetchCurrentAgent, fetchMyDownline } from '../../lib/agents.js'
 import { ROLE_LABELS } from '../../lib/agentMeta.js'
 import Logo from '../shared/Logo.jsx'
+import BrandLoader from '../shared/ui/BrandLoader.jsx'
 import { ToastProvider } from '../shared/ui'
 import DashboardStats from './DashboardStats.jsx'
 import AgentStats from './AgentStats.jsx'
@@ -34,10 +35,6 @@ const AGENT_ITEMS = [
   { to: '/admin/my-commissions', label: 'My Commissions' },
   { to: '/admin/downline', label: 'My Downline' },
 ]
-
-function FullScreen({ children }) {
-  return <div className="grid min-h-screen place-items-center bg-brand-deep p-6 text-center text-white">{children}</div>
-}
 
 const navLinkCls = ({ isActive }) =>
   `block rounded-md px-3 py-2 font-display text-sm font-semibold transition-colors ${
@@ -124,13 +121,14 @@ export default function AdminLayout() {
     return () => { mounted = false }
   }, [agent])
 
-  if (checking) return <FullScreen><p className="font-display text-lg">Loading…</p></FullScreen>
+  if (checking) return <BrandLoader fullscreen />
   if (!session) return <Navigate to="/admin/login" replace />
 
   if (agentError) {
     return (
-      <FullScreen>
-        <div className="max-w-md space-y-4">
+      <div className="grid min-h-screen place-items-center bg-brand-deep p-6 text-center text-white">
+        <div className="flex max-w-md flex-col items-center gap-6">
+          <Logo variant="light" noLink />
           <p className="font-display text-lg">{agentError}</p>
           <button
             onClick={() => supabase.auth.signOut()}
@@ -139,11 +137,11 @@ export default function AdminLayout() {
             Sign out
           </button>
         </div>
-      </FullScreen>
+      </div>
     )
   }
 
-  if (!agent) return <FullScreen><p className="font-display text-lg">Loading…</p></FullScreen>
+  if (!agent) return <BrandLoader fullscreen />
 
   const isAdmin = agent.role === 'admin'
 
@@ -151,7 +149,7 @@ export default function AdminLayout() {
     <ToastProvider>
       <div className="min-h-screen bg-surface">
         <header className="border-b border-mist bg-white">
-          <div className="container-x flex items-center justify-between gap-4 py-4">
+          <div className="container-wide flex items-center justify-between gap-4 py-4">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 onClick={() => setDrawerOpen(true)}
@@ -160,16 +158,18 @@ export default function AdminLayout() {
               >
                 <span aria-hidden="true">☰</span>
               </button>
-              <Logo variant="dark" noLink className="max-w-[180px] sm:max-w-none" />
+              <div className="hidden lg:flex">
+                <Logo variant="dark" noLink className="max-w-[180px] sm:max-w-none" />
+              </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <div className="min-w-0 text-right">
                 <p className="truncate text-sm font-semibold text-brand-deep">{agent.name}</p>
                 <p className="text-xs text-ink/50">{ROLE_LABELS[agent.role] ?? agent.role}</p>
               </div>
               <button
                 onClick={() => supabase.auth.signOut()}
-                className="rounded-md border border-mist px-4 py-2 text-sm font-semibold text-ink/70 transition-colors hover:border-brand hover:text-brand"
+                className="hidden rounded-md border border-mist px-4 py-2 text-sm font-semibold text-ink/70 transition-colors hover:border-brand hover:text-brand lg:block"
               >
                 Sign out
               </button>
@@ -177,7 +177,7 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        <div className="container-x flex gap-8 py-8">
+        <div className="container-wide flex gap-8 py-8">
           <aside className="hidden w-56 shrink-0 lg:block">
             <SidebarNav isAdmin={isAdmin} showDownline={downline.length > 0} />
           </aside>
@@ -196,13 +196,17 @@ export default function AdminLayout() {
         {drawerOpen && (
           <div className="fixed inset-0 z-50 lg:hidden">
             <div className="absolute inset-0 bg-brand-deep/60" onClick={() => setDrawerOpen(false)} aria-hidden="true" />
-            <div className="absolute inset-y-0 left-0 w-72 max-w-[80%] overflow-y-auto bg-white p-4 shadow-lift">
-              <div className="mb-4 flex items-center justify-between">
-                <p className="font-display text-sm font-bold uppercase tracking-wide text-ink/50">Menu</p>
+            <div
+              role="dialog"
+              aria-label="Navigation"
+              className="absolute inset-y-0 left-0 flex w-72 max-w-[80%] flex-col gap-6 overflow-y-auto bg-white p-4 shadow-lift"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <Logo variant="dark" noLink />
                 <button
                   onClick={() => setDrawerOpen(false)}
                   aria-label="Close navigation"
-                  className="rounded-md px-2 py-1 text-ink/50 hover:text-ink"
+                  className="shrink-0 rounded-md px-2 py-1 text-ink/50 hover:text-ink"
                 >
                   <span aria-hidden="true">✕</span>
                 </button>
@@ -212,6 +216,16 @@ export default function AdminLayout() {
                 showDownline={downline.length > 0}
                 onNavigate={() => setDrawerOpen(false)}
               />
+              <div className="mt-auto border-t border-mist pt-4">
+                <p className="truncate text-sm font-semibold text-brand-deep">{agent.name}</p>
+                <p className="mb-3 text-xs text-ink/50">{ROLE_LABELS[agent.role] ?? agent.role}</p>
+                <button
+                  onClick={() => supabase.auth.signOut()}
+                  className="w-full rounded-md border border-mist px-4 py-2 text-sm font-semibold text-ink/70 transition-colors hover:border-brand hover:text-brand"
+                >
+                  Sign out
+                </button>
+              </div>
             </div>
           </div>
         )}
