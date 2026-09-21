@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createAgent } from '../../lib/agents.js'
 import { ROLE_LABELS } from '../../lib/agentMeta.js'
 
@@ -12,7 +12,18 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
 
-  const setField = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  const setField = (field) => (e) => {
+    setForm((f) => ({ ...f, [field]: e.target.value }))
+    setError(null)
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -41,7 +52,10 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-brand-deep/60 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-brand-deep/60 p-4"
+      onClick={saving ? undefined : onClose}
+    >
       <div
         className="w-full max-w-lg rounded-lg bg-white p-6 sm:p-8"
         onClick={(e) => e.stopPropagation()}
@@ -94,10 +108,10 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
           </div>
           <div className="sm:col-span-2">
             <label htmlFor="ca-password" className="mb-1.5 block text-sm font-semibold text-brand-deep">Temporary Password</label>
-            <input id="ca-password" type="text" className={inputCls} value={form.password} onChange={setField('password')} placeholder="Share this with the agent" />
+            <input id="ca-password" type="text" autoComplete="new-password" spellCheck={false} className={inputCls} value={form.password} onChange={setField('password')} placeholder="Share this with the agent" />
           </div>
           <div className="mt-2 flex flex-wrap justify-end gap-3 sm:col-span-2">
-            <button type="button" onClick={onClose} className="btn border border-mist bg-white text-ink/70 hover:border-brand/30 hover:text-brand">
+            <button type="button" onClick={onClose} disabled={saving} className="btn border border-mist bg-white text-ink/70 hover:border-brand/30 hover:text-brand disabled:opacity-60">
               Cancel
             </button>
             <button type="submit" disabled={saving} className="btn btn-gold disabled:opacity-60">

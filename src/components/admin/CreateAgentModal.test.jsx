@@ -25,7 +25,7 @@ describe('CreateAgentModal', () => {
     await user.type(screen.getByLabelText('Name'), 'Cara New')
     await user.type(screen.getByLabelText('Email'), 'cara@example.com')
     await user.type(screen.getByLabelText('Phone (optional)'), '0917')
-    await user.selectOptions(screen.getByLabelText('Role'), 'sub_agent')
+    await user.selectOptions(screen.getByLabelText('Role'), 'direct_agent')
     await user.selectOptions(screen.getByLabelText('Upline (optional)'), 'a1')
     await user.type(screen.getByLabelText('Temporary Password'), 'secret123')
     await user.click(screen.getByRole('button', { name: 'Create Agent' }))
@@ -34,7 +34,7 @@ describe('CreateAgentModal', () => {
       name: 'Cara New',
       email: 'cara@example.com',
       phone: '0917',
-      role: 'sub_agent',
+      role: 'direct_agent',
       uplineId: 'a1',
       password: 'secret123',
     })
@@ -53,5 +53,15 @@ describe('CreateAgentModal', () => {
     await user.click(screen.getByRole('button', { name: 'Create Agent' }))
 
     expect(await screen.findByText('Email already registered')).toBeInTheDocument()
+  })
+
+  it('closes on Escape', async () => {
+    const onClose = vi.fn()
+
+    render(<CreateAgentModal agents={agents} onClose={onClose} onCreated={vi.fn()} />)
+
+    await userEvent.keyboard('{Escape}')
+
+    expect(onClose).toHaveBeenCalled()
   })
 })
