@@ -3915,6 +3915,7 @@ describe('AgentLots', () => {
 
     expect(await screen.findByText('Andor Ridge Lot A')).toBeInTheDocument()
     expect(screen.getByText('₱ 1,500,000')).toBeInTheDocument()
+    expect(screen.getByText('No image')).toBeInTheDocument()
     expect(fetchProperties).toHaveBeenCalledWith({ status: 'available', sort: 'newest' })
   })
 
@@ -3924,6 +3925,14 @@ describe('AgentLots', () => {
     render(<AgentLots />)
 
     expect(await screen.findByText('No available lots right now.')).toBeInTheDocument()
+  })
+
+  it('shows an error state when the fetch fails', async () => {
+    fetchProperties.mockRejectedValue(new Error('boom'))
+
+    render(<AgentLots />)
+
+    expect(await screen.findByText('Could not load lots. Please refresh.')).toBeInTheDocument()
   })
 })
 ```
@@ -3960,6 +3969,14 @@ describe('AgentSales', () => {
     render(<AgentSales agent={{ id: 'a1', name: 'Ana' }} />)
 
     expect(await screen.findByText('You have no sold lots yet.')).toBeInTheDocument()
+  })
+
+  it('shows an error state when the fetch fails', async () => {
+    fetchMySales.mockRejectedValue(new Error('boom'))
+
+    render(<AgentSales agent={{ id: 'a1', name: 'Ana' }} />)
+
+    expect(await screen.findByText('Could not load your sales. Please refresh.')).toBeInTheDocument()
   })
 })
 ```
@@ -4016,7 +4033,7 @@ export default function AgentLots() {
           {lots.map((lot) => (
             <article key={lot.id} className="overflow-hidden rounded-lg border border-mist bg-white shadow-card">
               {lot.image_url ? (
-                <img src={lot.image_url} alt="" className="h-40 w-full object-cover" />
+                <img src={lot.image_url} alt="" loading="lazy" className="h-40 w-full object-cover" />
               ) : (
                 <div className="grid h-40 place-items-center bg-mist text-sm text-ink/40">No image</div>
               )}
@@ -4115,7 +4132,7 @@ export default function AgentSales({ agent }) {
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `npx vitest run src/components/admin/AgentLots.test.jsx src/components/admin/AgentSales.test.jsx`
-Expected: PASS — 4 tests.
+Expected: PASS — 6 tests.
 
 - [ ] **Step 6: Commit**
 
