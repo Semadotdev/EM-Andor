@@ -187,15 +187,27 @@ describe('sales', () => {
 
   it('fetchMySales filters properties by seller', async () => {
     const sales = [{ id: 'p1', sold_by: 'a1' }]
-    supabase.from.mockReturnValue(chain({ data: sales, error: null }))
+    const c = chain({ data: sales, error: null })
+    supabase.from.mockReturnValue(c)
 
     expect(await fetchMySales('a1')).toEqual(sales)
     expect(supabase.from).toHaveBeenCalledWith('properties')
+    expect(c.eq).toHaveBeenCalledWith('sold_by', 'a1')
+    expect(c.order).toHaveBeenCalledWith('sold_at', { ascending: false })
   })
 
   it('fetchTeamSales returns nothing for an empty team', async () => {
     expect(await fetchTeamSales([])).toEqual([])
     expect(supabase.from).not.toHaveBeenCalled()
+  })
+
+  it('fetchTeamSales queries by seller ids', async () => {
+    const sales = [{ id: 'p1', sold_by: 'a1' }]
+    const c = chain({ data: sales, error: null })
+    supabase.from.mockReturnValue(c)
+
+    expect(await fetchTeamSales(['a1', 'a2'])).toEqual(sales)
+    expect(c.in).toHaveBeenCalledWith('sold_by', ['a1', 'a2'])
   })
 
   it('fetchCommissions applies agent and status filters', async () => {
@@ -212,11 +224,15 @@ describe('sales', () => {
 
   it('markCommissionPaid stamps status and paid_at', async () => {
     const row = { id: 'c1', status: 'paid', amount: 30000 }
-    supabase.from.mockReturnValue(chain({ data: row, error: null }))
+    const c = chain({ data: row, error: null })
+    supabase.from.mockReturnValue(c)
 
     const result = await markCommissionPaid('c1')
 
     expect(result).toEqual(row)
     expect(supabase.from).toHaveBeenCalledWith('commissions')
+    expect(c.update).toHaveBeenCalledWith({ status: 'paid', paid_at: expect.any(String) })
+    expect(c.eq).toHaveBeenCalledWith('id', 'c1')
+    expect(logActivity).toHaveBeenCalledWith('commission', 'c1', 'paid', { amount: 30000 })
   })
 })
