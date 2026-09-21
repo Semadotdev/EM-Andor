@@ -245,7 +245,7 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
                         <dt className="font-semibold text-brand-deep">Terms</dt>
                         <dd className="text-right text-ink/70">{sale?.terms_of_payment ?? '—'}</dd>
                       </div>
-                      <div className="flex justify-between gap-4">
+                      <div className="flex justify-between gap-4 sm:col-span-2">
                         <dt className="font-semibold text-brand-deep">Buyer Address</dt>
                         <dd className="text-right text-ink/70">{sale?.buyer_address ?? '—'}</dd>
                       </div>
