@@ -3460,7 +3460,7 @@ export default function AdminCommissions() {
       setCommissions((list) => list.map((c) => (c.id === confirmPaid.id ? { ...c, status: 'paid' } : c)))
       setConfirmPaid(null)
     } catch {
-      setError('Could not mark the commission paid. Please try again.')
+      setError(err?.message === 'Commission is already paid.' ? err.message : 'Could not mark the commission paid. Please try again.')
     } finally {
       setSavingPaid(false)
     }
@@ -4162,7 +4162,7 @@ Expected: no matches (the bootstrap snippet uses `'admin@gmail.com'` only inside
 9. Promotion checks: record 5 own sales for a Sub Agent with 5 registered recruits (create the recruits through the Agents tab) and confirm the role flips to **Direct Agent** in the tree; confirm a Direct Agent with 5 Direct Agents in the downline flips to **Agent Head**.
 10. Sign in as an agent: confirm only the four agent tabs render, **Available Lots** lists available properties, and another agent's commissions are not visible.
 11. Un-sale a property whose commissions are all **Earned**: confirm the commission rows disappear. Mark one **Paid**, then attempt to un-sale: expect the "Commission already paid — reverse payment first." block.
-12. Legacy sold lots (sold before this feature) have no `sold_by`, so they do not appear in agent sales or commission totals. Attribute them by editing each sold lot in the admin Properties tab, selecting the selling agent, and saving — the sale-aware save stamps `sold_by`/`sold_at` and generates the commission rows.
+12. Legacy sold lots (sold before this feature) have no `sold_by`, so they do not appear in agent sales or commission totals. Attribute them by editing each sold lot in the admin Properties tab, selecting the selling agent, and saving — the sale-aware save stamps `sold_by`/`sold_at` and generates the commission rows. Caveats: a legacy lot with no price must have one entered first (sold saves require a price), and attribution uses the current commission rates and the edit date for `sold_at`, not the historical sale date.
 
 - [ ] **Step 5: Commit any fix-ups**
 
