@@ -1146,14 +1146,20 @@ export async function applyEligiblePromotions() {
 }
 ```
 
-Then update `setAgentActive` so re-activating an agent re-evaluates the upline's eligibility (fire-and-forget so activation cannot fail because of the refresh):
+Then update `setAgentActive` so re-activating an agent re-evaluates the upline's eligibility before returning (best-effort: activation must not fail because the refresh failed, but awaiting lets the UI reload into fresh roles):
 
 ```js
 export async function setAgentActive(id, isActive) {
   const { data, error } = await supabase.from('agents').update({ is_active: isActive }).eq('id', id).select().single()
   if (error) throw error
   logActivity('agent', id, isActive ? 'activate' : 'deactivate').catch(() => {})
-  if (isActive) applyEligiblePromotions().catch(() => {})
+  if (isActive) {
+    try {
+      await applyEligiblePromotions()
+    } catch {
+      // Activation succeeded; promotions re-run on the next trigger.
+    }
+  }
   return data
 }
 ```
@@ -3188,6 +3194,20 @@ describe('AdminAgents', () => {
 
     expect(setAgentActive).toHaveBeenCalledWith('a1', false)
   })
+
+  it('opens and closes the agent detail modal', async () => {
+    const user = userEvent.setup()
+
+    render(<AdminAgents />)
+
+    const row = (await screen.findByText('Ana Sub')).closest('li')
+    await user.click(within(row).getByRole('button', { name: 'View' }))
+
+    expect(await screen.findByRole('dialog', { name: 'Ana Sub details' })).toBeInTheDocument()
+
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Ana Sub details' })).not.toBeInTheDocument()
+  })
 })
 ```
 
@@ -3222,6 +3242,14 @@ function AgentDetail({ agent, onClose }) {
   const [sales, setSales] = useState([])
   const [commissions, setCommissions] = useState([])
   const [state, setState] = useState('loading')
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
 
   useEffect(() => {
     let mounted = true
@@ -3371,6 +3399,7 @@ export default function AdminAgents() {
 
   const load = useCallback(() => {
     setState('loading')
+    setError(null)
     Promise.all([fetchAllAgents(), fetchSoldCounts()])
       .then(([rows, counts]) => {
         setAgents(rows)
@@ -3390,11 +3419,13 @@ export default function AdminAgents() {
     const next = !confirmToggle.is_active
     const id = confirmToggle.id
     setToggling(true)
+    setError(null)
     setPending((p) => ({ ...p, [id]: true }))
     try {
       await setAgentActive(id, next)
       setAgents((list) => list.map((a) => (a.id === id ? { ...a, is_active: next } : a)))
       setConfirmToggle(null)
+      load()
     } catch {
       setError('Could not update the agent. Please try again.')
     } finally {
@@ -3482,7 +3513,7 @@ export default function AdminAgents() {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/components/admin/AdminAgents.test.jsx`
-Expected: PASS — 4 tests.
+Expected: PASS — 5 tests.
 
 - [ ] **Step 5: Commit**
 
