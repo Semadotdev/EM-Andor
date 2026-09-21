@@ -19,7 +19,7 @@ import { applyEligiblePromotions, fetchAllAgents, fetchCommissionRatesMap } from
 
 function chain(result) {
   const c = {}
-  for (const m of ['select', 'eq', 'order', 'update', 'delete', 'insert', 'single', 'neq', 'in', 'upsert', 'limit']) {
+  for (const m of ['select', 'eq', 'order', 'update', 'delete', 'insert', 'single', 'maybeSingle', 'neq', 'in', 'upsert', 'limit']) {
     c[m] = vi.fn(() => c)
   }
   c.then = (onFulfilled) => Promise.resolve(result).then(onFulfilled)
@@ -193,7 +193,8 @@ describe('sales', () => {
     expect(await fetchMySales('a1')).toEqual(sales)
     expect(supabase.from).toHaveBeenCalledWith('properties')
     expect(c.eq).toHaveBeenCalledWith('sold_by', 'a1')
-    expect(c.order).toHaveBeenCalledWith('sold_at', { ascending: false })
+    expect(c.eq).toHaveBeenCalledWith('status', 'sold')
+    expect(c.order).toHaveBeenCalledWith('sold_at', { ascending: false, nullsFirst: false })
   })
 
   it('fetchTeamSales returns nothing for an empty team', async () => {
@@ -208,6 +209,8 @@ describe('sales', () => {
 
     expect(await fetchTeamSales(['a1', 'a2'])).toEqual(sales)
     expect(c.in).toHaveBeenCalledWith('sold_by', ['a1', 'a2'])
+    expect(c.eq).toHaveBeenCalledWith('status', 'sold')
+    expect(c.order).toHaveBeenCalledWith('sold_at', { ascending: false, nullsFirst: false })
   })
 
   it('fetchCommissions applies agent and status filters', async () => {
@@ -218,6 +221,8 @@ describe('sales', () => {
     const result = await fetchCommissions({ agentId: 'a1', status: 'earned' })
 
     expect(result).toEqual(rows)
+    expect(c.select).toHaveBeenCalledWith('*, properties(name), agents(name, role)')
+    expect(c.order).toHaveBeenCalledWith('created_at', { ascending: false })
     expect(c.eq).toHaveBeenCalledWith('agent_id', 'a1')
     expect(c.eq).toHaveBeenCalledWith('status', 'earned')
   })
@@ -233,6 +238,13 @@ describe('sales', () => {
     expect(supabase.from).toHaveBeenCalledWith('commissions')
     expect(c.update).toHaveBeenCalledWith({ status: 'paid', paid_at: expect.any(String) })
     expect(c.eq).toHaveBeenCalledWith('id', 'c1')
+    expect(c.eq).toHaveBeenCalledWith('status', 'earned')
     expect(logActivity).toHaveBeenCalledWith('commission', 'c1', 'paid', { amount: 30000 })
+  })
+
+  it('markCommissionPaid rejects an already paid commission', async () => {
+    supabase.from.mockReturnValue(chain({ data: null, error: null }))
+
+    await expect(markCommissionPaid('c1')).rejects.toThrow('Commission is already paid.')
   })
 })

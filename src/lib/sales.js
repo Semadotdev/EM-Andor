@@ -117,7 +117,8 @@ export async function fetchMySales(agentId) {
     .from('properties')
     .select('*')
     .eq('sold_by', agentId)
-    .order('sold_at', { ascending: false })
+    .eq('status', 'sold')
+    .order('sold_at', { ascending: false, nullsFirst: false })
   if (error) throw error
   return data ?? []
 }
@@ -128,7 +129,8 @@ export async function fetchTeamSales(agentIds) {
     .from('properties')
     .select('*')
     .in('sold_by', agentIds)
-    .order('sold_at', { ascending: false })
+    .eq('status', 'sold')
+    .order('sold_at', { ascending: false, nullsFirst: false })
   if (error) throw error
   return data ?? []
 }
@@ -150,9 +152,11 @@ export async function markCommissionPaid(id) {
     .from('commissions')
     .update({ status: 'paid', paid_at: new Date().toISOString() })
     .eq('id', id)
+    .eq('status', 'earned')
     .select()
-    .single()
+    .maybeSingle()
   if (error) throw error
+  if (!data) throw new Error('Commission is already paid.')
   logActivity('commission', id, 'paid', { amount: data.amount }).catch(() => {})
   return data
 }
