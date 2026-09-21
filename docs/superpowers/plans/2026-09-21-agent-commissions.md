@@ -88,6 +88,23 @@ describe('commissions', () => {
     expect(warnings).toEqual(['No commission rate configured for direct_agent; skipped Direct.'])
   })
 
+  it('skips a zero or negative rate and warns', () => {
+    const zero = buildCommissionRows(1000000, [sub], { sub_agent: 0 })
+    const negative = buildCommissionRows(1000000, [sub], { sub_agent: -0.01 })
+
+    expect(zero.rows).toEqual([])
+    expect(zero.warnings).toEqual(['No commission rate configured for sub_agent; skipped Sub.'])
+    expect(negative.rows).toEqual([])
+  })
+
+  it('never builds more than three levels', () => {
+    const fourth = { id: 'a4', name: 'Fourth', role: 'sub_agent' }
+    const { rows } = buildCommissionRows(1000000, [sub, direct, head, fourth], rates)
+
+    expect(rows).toHaveLength(3)
+    expect(rows.map((row) => row.agent_id)).toEqual(['a1', 'a2', 'a3'])
+  })
+
   it('de-duplicates agents and rounds amounts to centavos', () => {
     const { rows } = buildCommissionRows(333333, [{ ...sub }, sub], { sub_agent: 0.0333 })
 
@@ -146,20 +163,20 @@ export function buildCommissionRows(price, chain, rates) {
   const seen = new Set()
   const salePrice = Number(price)
 
-  for (const agent of chain) {
+  for (const agent of chain.slice(0, MAX_COMMISSION_LEVELS)) {
     if (!agent?.id || agent.role === 'admin' || seen.has(agent.id)) continue
     seen.add(agent.id)
-    const rate = rates?.[agent.role]
-    if (rate === null || rate === undefined) {
-      warnings.push(`No commission rate configured for ${agent.role}; skipped ${agent.name}.`)
+    const rate = Number(rates?.[agent.role])
+    if (!(rate > 0)) {
+      warnings.push(`No commission rate configured for ${agent.role}; skipped ${agent.name ?? agent.id}.`)
       continue
     }
     rows.push({
       agent_id: agent.id,
       role_at_sale: agent.role,
       sale_price: salePrice,
-      rate: Number(rate),
-      amount: Math.round(salePrice * Number(rate) * 100) / 100,
+      rate,
+      amount: Math.round(salePrice * rate * 100) / 100,
     })
   }
 
@@ -170,7 +187,7 @@ export function buildCommissionRows(price, chain, rates) {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run src/lib/commissions.test.js`
-Expected: PASS — 5 tests.
+Expected: PASS — 7 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -1299,6 +1316,33 @@ describe('sales', () => {
 
     expect(updateProperty).not.toHaveBeenCalled()
   })
+
+  it('does not regenerate commissions when a sold property is saved again with the same seller', async () => {
+    const existing = { ...property }
+    updateProperty.mockResolvedValue(existing)
+    supabase.from.mockImplementationOnce(() => chain({ data: existing, error: null }))
+
+    await savePropertyWithCommission({ mode: 'edit', propertyId: 'p1', payload: soldPayload })
+
+    expect(supabase.from).toHaveBeenCalledTimes(1)
+    expect(updateProperty).toHaveBeenCalledWith('p1', soldPayload)
+  })
+
+  it('regenerates commissions when the selling agent changes', async () => {
+    const existing = { ...property, sold_by: 'a2' }
+    updateProperty.mockResolvedValue({ ...property, sold_by: 'a1' })
+    fetchAllAgents.mockResolvedValue([sub, direct])
+    fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.03, direct_agent: 0.015 })
+    supabase.from
+      .mockImplementationOnce(() => chain({ data: existing, error: null }))
+      .mockImplementationOnce(() => chain({ data: [{ id: 'c1', status: 'earned' }], error: null }))
+      .mockImplementationOnce(() => chain({ data: null, error: null }))
+      .mockImplementationOnce(() => chain({ data: [{ id: 'c2' }, { id: 'c3' }], error: null }))
+
+    await savePropertyWithCommission({ mode: 'edit', propertyId: 'p1', payload: soldPayload })
+
+    expect(updateProperty).toHaveBeenCalledWith('p1', soldPayload)
+  })
 })
 ```
 
@@ -1384,6 +1428,7 @@ export async function savePropertyWithCommission({ mode, propertyId, payload }) 
 
   const wasSold = existing?.status === 'sold'
   const sellerChanged = wasSold && existing.sold_by !== payload.sold_by
+  const commissionStateChanged = isSold && (!wasSold || sellerChanged)
 
   if (wasSold && (!isSold || sellerChanged)) {
     await clearCommissionsForProperty(propertyId)
@@ -1391,7 +1436,7 @@ export async function savePropertyWithCommission({ mode, propertyId, payload }) 
 
   const saved = mode === 'edit' ? await updateProperty(propertyId, payload) : await createProperty(payload)
 
-  if (isSold) {
+  if (commissionStateChanged) {
     await createCommissionRows(saved)
   }
 
@@ -1403,7 +1448,7 @@ export async function savePropertyWithCommission({ mode, propertyId, payload }) 
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run src/lib/sales.test.js`
-Expected: PASS — 5 tests.
+Expected: PASS — 7 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -1526,7 +1571,7 @@ export async function markCommissionPaid(id) {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run src/lib/sales.test.js`
-Expected: PASS — 9 tests.
+Expected: PASS — 11 tests.
 
 - [ ] **Step 5: Commit**
 
