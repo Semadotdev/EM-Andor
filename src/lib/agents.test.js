@@ -1,10 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import {
+  applyEligiblePromotions,
   fetchAllAgents,
   fetchCommissionRates,
   fetchCommissionRatesMap,
   fetchCurrentAgent,
   fetchMyDownline,
+  fetchSoldCounts,
   setAgentActive,
   updateCommissionRates,
 } from './agents.js'
@@ -105,5 +107,39 @@ describe('agents', () => {
 
     expect(supabase.from).toHaveBeenCalledWith('commission_settings')
     expect(c.upsert).toHaveBeenCalledWith([{ role: 'sub_agent', rate: 0.05 }], { onConflict: 'role' })
+  })
+
+  it('fetchSoldCounts aggregates sold lots per agent', async () => {
+    supabase.from.mockReturnValue(
+      chain({
+        data: [{ sold_by: 'a1' }, { sold_by: 'a1' }, { sold_by: 'a2' }, { sold_by: null }],
+        error: null,
+      }),
+    )
+
+    expect(await fetchSoldCounts()).toEqual({ a1: 2, a2: 1 })
+  })
+
+  it('applyEligiblePromotions promotes an eligible sub agent and logs it', async () => {
+    const recruits = Array.from({ length: 5 }, (_, i) => ({
+      id: `r${i}`,
+      name: `Recruit ${i}`,
+      role: 'sub_agent',
+      upline_id: 'a1',
+      is_active: true,
+    }))
+    const agents = [{ ...sub, id: 'a1' }, ...recruits]
+    const sold = Array.from({ length: 5 }, () => ({ sold_by: 'a1' }))
+
+    supabase.from
+      .mockImplementationOnce(() => chain({ data: agents, error: null }))
+      .mockImplementationOnce(() => chain({ data: sold, error: null }))
+      .mockImplementationOnce(() => chain({ data: { ...sub, role: 'direct_agent' }, error: null }))
+      .mockImplementationOnce(() => chain({ data: [{ ...sub, role: 'direct_agent' }, ...recruits], error: null }))
+      .mockImplementationOnce(() => chain({ data: sold, error: null }))
+
+    const promoted = await applyEligiblePromotions()
+
+    expect(promoted).toEqual([{ id: 'a1', name: 'Sub', from: 'sub_agent', to: 'direct_agent' }])
   })
 })
