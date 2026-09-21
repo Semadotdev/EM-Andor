@@ -2842,7 +2842,7 @@ Append these tests:
 - [ ] **Step 7: Run the tests**
 
 Run: `npx vitest run src/components/admin/AdminDashboard.test.jsx src/components/admin/AgentStats.test.jsx`
-Expected: PASS — existing tests (admin path) plus 2 new role-gating tests. Then `npm test` → 24 files / 221 tests, all green.
+Expected: PASS — existing tests (admin path) plus 2 new role-gating tests. Then `npm test` → 24 files / 222 tests, all green.
 
 - [ ] **Step 8: Commit**
 
