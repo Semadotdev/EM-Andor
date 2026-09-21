@@ -4,6 +4,7 @@ import ConfirmModal from '../shared/ConfirmModal.jsx'
 import PropertyForm from './PropertyForm.jsx'
 import { deleteProperty, fetchProperties, setPropertyPinned, bulkDeleteProperties, bulkUpdatePropertyStatus, bulkSetPropertyPinned } from '../../lib/api.js'
 import { exportToCSV } from '../../lib/csv.js'
+import { fetchAllAgents } from '../../lib/agents.js'
 import { formatPrice } from '../../lib/format.js'
 
 export default function AdminProperties() {
@@ -24,6 +25,7 @@ export default function AdminProperties() {
   const [selected, setSelected] = useState(new Set())
   const [bulkProcessing, setBulkProcessing] = useState(false)
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [agentNames, setAgentNames] = useState({})
 
   const load = useCallback(() => {
     setStatus('loading')
@@ -52,6 +54,16 @@ export default function AdminProperties() {
   }, [searchInput])
 
   useEffect(load, [load])
+
+  useEffect(() => {
+    let mounted = true
+    fetchAllAgents()
+      .then((rows) => {
+        if (mounted) setAgentNames(Object.fromEntries(rows.map((a) => [a.id, a.name])))
+      })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [])
 
   useEffect(() => {
     setSelected(new Set())
@@ -400,6 +412,9 @@ export default function AdminProperties() {
                     }`}>
                       {property.status ? property.status.charAt(0).toUpperCase() + property.status.slice(1) : 'Available'}
                     </span>
+                    {property.status === 'sold' && property.sold_by && agentNames[property.sold_by] && (
+                      <p className="mt-1 text-[11px] font-semibold text-ink/50">Sold by {agentNames[property.sold_by]}</p>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <button

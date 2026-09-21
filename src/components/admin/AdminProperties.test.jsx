@@ -19,6 +19,10 @@ vi.mock('../../lib/csv.js', () => ({
   exportToCSV: vi.fn(),
 }))
 
+vi.mock('../../lib/agents.js', () => ({
+  fetchAllAgents: vi.fn().mockResolvedValue([{ id: 'a1', name: 'Ana Sub', role: 'sub_agent' }]),
+}))
+
 import { fetchProperties, setPropertyPinned, deleteProperty, bulkDeleteProperties, bulkUpdatePropertyStatus, bulkSetPropertyPinned } from '../../lib/api.js'
 import { exportToCSV } from '../../lib/csv.js'
 
@@ -176,5 +180,16 @@ describe('AdminProperties', () => {
       ]),
       expect.stringMatching(/properties-export-\d{4}-\d{2}-\d{2}\.csv/)
     )
+  })
+
+  it('shows the selling agent for sold properties', async () => {
+    fetchProperties.mockResolvedValue({
+      data: [{ ...sample[0], id: 'p9', name: 'Lot Sold', status: 'sold', sold_by: 'a1' }],
+      count: 1,
+    })
+
+    render(<AdminProperties />)
+
+    expect(await screen.findByText('Sold by Ana Sub')).toBeInTheDocument()
   })
 })
