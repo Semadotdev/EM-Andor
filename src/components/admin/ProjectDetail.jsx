@@ -4,6 +4,7 @@ import { deleteLot, fetchProject, fetchProjectLots, updateLot } from '../../lib/
 import { setPropertyPinned } from '../../lib/api.js'
 import { fetchAllAgents } from '../../lib/agents.js'
 import { formatPrice } from '../../lib/format.js'
+import BuyerLedgerModal from './BuyerLedgerModal.jsx'
 import CreateProjectModal from './CreateProjectModal.jsx'
 import MarkSoldModal from './MarkSoldModal.jsx'
 import UploadLotsModal from './UploadLotsModal.jsx'
@@ -138,6 +139,7 @@ export default function ProjectDetail({ project, onBack }) {
   const [showUpload, setShowUpload] = useState(false)
   const [showEditProject, setShowEditProject] = useState(false)
   const [markSoldLot, setMarkSoldLot] = useState(null)
+  const [ledgerLot, setLedgerLot] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -287,6 +289,7 @@ export default function ProjectDetail({ project, onBack }) {
                 <th className="px-4 py-3">Area</th>
                 <th className="px-4 py-3">Price</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Buyer</th>
                 <th className="hidden px-4 py-3 sm:table-cell">Sold by</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
@@ -304,6 +307,9 @@ export default function ProjectDetail({ project, onBack }) {
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${statusBadgeCls(lot.status)}`}>
                       {lot.status ? lot.status.charAt(0).toUpperCase() + lot.status.slice(1) : 'Available'}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-ink/70">
+                    {lot.sales?.buyer_name ?? lot.sales?.[0]?.buyer_name ?? '—'}
                   </td>
                   <td className="hidden px-4 py-3 text-ink/70 sm:table-cell">
                     {lot.status === 'sold' ? (agentNames[lot.sold_by] ?? '—') : '—'}
@@ -328,6 +334,14 @@ export default function ProjectDetail({ project, onBack }) {
                           className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
                         >
                           Mark Sold
+                        </button>
+                      )}
+                      {lot.status === 'sold' && (
+                        <button
+                          onClick={() => setLedgerLot(lot)}
+                          className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
+                        >
+                          Ledger
                         </button>
                       )}
                       {lot.status === 'available' && (
@@ -375,6 +389,15 @@ export default function ProjectDetail({ project, onBack }) {
             setMarkSoldLot(null)
             load()
           }}
+        />
+      )}
+
+      {ledgerLot && (
+        <BuyerLedgerModal
+          lot={ledgerLot}
+          project={currentProject}
+          onClose={() => setLedgerLot(null)}
+          onChanged={() => load()}
         />
       )}
 

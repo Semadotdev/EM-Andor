@@ -114,7 +114,7 @@ export async function repriceAvailableLots(projectId, pricePerSqm) {
 export async function fetchProjectLots(projectId) {
   const { data, error } = await supabase
     .from('properties')
-    .select('*')
+    .select('*, sales(buyer_name)')
     .eq('project_id', projectId)
     .order('block_no', { ascending: true })
     .order('lot_no', { ascending: true })

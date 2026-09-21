@@ -35,6 +35,14 @@ vi.mock('./UploadLotsModal.jsx', () => ({
   default: () => <div role="dialog" aria-label="Upload lots" />,
 }))
 
+vi.mock('./BuyerLedgerModal.jsx', () => ({
+  default: ({ onClose }) => (
+    <div role="dialog" aria-label="Buyer ledger">
+      <button onClick={onClose}>Close ledger</button>
+    </div>
+  ),
+}))
+
 import { deleteLot, fetchProject, fetchProjectLots, updateLot } from '../../lib/projects.js'
 import { setPropertyPinned } from '../../lib/api.js'
 import { fetchAllAgents } from '../../lib/agents.js'
@@ -68,6 +76,7 @@ const soldLot = {
   status: 'sold',
   is_pinned: true,
   sold_by: 'a1',
+  sales: { buyer_name: 'Juan Dela Cruz' },
 }
 
 describe('ProjectDetail', () => {
@@ -94,6 +103,43 @@ describe('ProjectDetail', () => {
     expect(screen.getAllByRole('button', { name: 'Mark Sold' })).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: 'Delete' })).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(1)
+    expect(screen.getByText('Buyer')).toBeInTheDocument()
+    expect(screen.getByText('Juan Dela Cruz')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Ledger' })).toHaveLength(1)
+  })
+
+  it('reads the buyer name from an array-shaped sales relation', async () => {
+    fetchProjectLots.mockResolvedValue([{ ...soldLot, sales: [{ buyer_name: 'Maria Santos' }] }])
+
+    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+
+    expect(await screen.findByText('Maria Santos')).toBeInTheDocument()
+  })
+
+  it('shows a dash when a sold lot has no buyer on file', async () => {
+    fetchProjectLots.mockResolvedValue([{ ...soldLot, sales: null }])
+
+    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+
+    await screen.findByText('Sold')
+    const row = screen.getAllByRole('row')[1]
+    const cells = within(row).getAllByRole('cell')
+
+    expect(cells[5]).toHaveTextContent('—')
+  })
+
+  it('opens the buyer ledger for a sold lot', async () => {
+    const user = userEvent.setup()
+
+    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+
+    await user.click(await screen.findByRole('button', { name: 'Ledger' }))
+
+    expect(screen.getByRole('dialog', { name: 'Buyer ledger' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Close ledger' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Buyer ledger' })).not.toBeInTheDocument()
   })
 
   it('pins a lot optimistically and persists it', async () => {

@@ -269,7 +269,7 @@ describe('projects', () => {
 
     expect(await fetchProjectLots('pr1')).toEqual(lots)
     expect(supabase.from).toHaveBeenCalledWith('properties')
-    expect(c.select).toHaveBeenCalledWith('*')
+    expect(c.select).toHaveBeenCalledWith('*, sales(buyer_name)')
     expect(c.eq).toHaveBeenCalledWith('project_id', 'pr1')
     expect(c.order).toHaveBeenNthCalledWith(1, 'block_no', { ascending: true })
     expect(c.order).toHaveBeenNthCalledWith(2, 'lot_no', { ascending: true })

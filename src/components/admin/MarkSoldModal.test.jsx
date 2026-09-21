@@ -1,13 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MarkSoldModal from './MarkSoldModal.jsx'
 
 vi.mock('../../lib/agents.js', () => ({ fetchAllAgents: vi.fn() }))
-vi.mock('../../lib/sales.js', () => ({ savePropertyWithCommission: vi.fn() }))
+vi.mock('../../lib/sales.js', () => ({ recordSale: vi.fn() }))
 
 import { fetchAllAgents } from '../../lib/agents.js'
-import { savePropertyWithCommission } from '../../lib/sales.js'
+import { recordSale } from '../../lib/sales.js'
 
 const lot = {
   id: 'l1',
@@ -33,7 +33,7 @@ describe('MarkSoldModal', () => {
       { id: 'a1', name: 'Ana Sub', role: 'sub_agent', is_active: true },
       { id: 'a2', name: 'Inactive Agent', role: 'sub_agent', is_active: false },
     ])
-    savePropertyWithCommission.mockResolvedValue({ id: 'l1', status: 'sold' })
+    recordSale.mockResolvedValue({ id: 'l1', status: 'sold' })
   })
 
   it('offers only active non-admin agents as sellers', async () => {
@@ -44,17 +44,34 @@ describe('MarkSoldModal', () => {
     expect(screen.queryByRole('option', { name: /Inactive Agent/ })).not.toBeInTheDocument()
   })
 
-  it('records the sale with the full lot payload and the selected seller', async () => {
+  it('renders the buyer and payment fields with the TCP prefilled from the lot price', async () => {
+    render(<MarkSoldModal lot={lot} project={project} onClose={vi.fn()} onSold={vi.fn()} />)
+
+    expect(await screen.findByLabelText('Buyer Name')).toBeInTheDocument()
+    expect(screen.getByLabelText('Buyer Address')).toBeInTheDocument()
+    expect(screen.getByLabelText('TCP')).toHaveValue(100000)
+    expect(screen.getByLabelText('Downpayment')).toBeInTheDocument()
+    expect(screen.getByLabelText('M.A.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Terms of Payment')).toBeInTheDocument()
+  })
+
+  it('records the sale with the full lot payload, seller, and buyer details', async () => {
     const onSold = vi.fn()
     const user = userEvent.setup()
 
     render(<MarkSoldModal lot={lot} project={project} onClose={vi.fn()} onSold={onSold} />)
 
     await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
+    await user.type(screen.getByLabelText('Buyer Name'), 'Juan Dela Cruz')
+    await user.type(screen.getByLabelText('Buyer Address'), 'Cebu City')
+    await user.clear(screen.getByLabelText('TCP'))
+    await user.type(screen.getByLabelText('TCP'), '150000')
+    await user.type(screen.getByLabelText('Downpayment'), '20000')
+    await user.type(screen.getByLabelText('M.A.'), '5000')
+    await user.type(screen.getByLabelText('Terms of Payment'), '12 months')
     await user.click(screen.getByRole('button', { name: 'Mark Sold' }))
 
-    expect(savePropertyWithCommission).toHaveBeenCalledWith({
-      mode: 'edit',
+    expect(recordSale).toHaveBeenCalledWith({
       propertyId: 'l1',
       payload: {
         project_id: 'pr1',
@@ -66,6 +83,14 @@ describe('MarkSoldModal', () => {
         status: 'sold',
         sold_by: 'a1',
       },
+      details: {
+        buyer_name: 'Juan Dela Cruz',
+        buyer_address: 'Cebu City',
+        tcp: 150000,
+        downpayment: 20000,
+        monthly_amortization: 5000,
+        terms_of_payment: '12 months',
+      },
     })
     expect(onSold).toHaveBeenCalled()
   })
@@ -76,19 +101,48 @@ describe('MarkSoldModal', () => {
     render(<MarkSoldModal lot={lot} project={project} onClose={vi.fn()} onSold={vi.fn()} />)
 
     await screen.findByRole('option', { name: 'Ana Sub (Sub Agent)' })
+    await user.type(screen.getByLabelText('Buyer Name'), 'Juan Dela Cruz')
     await user.click(screen.getByRole('button', { name: 'Mark Sold' }))
 
-    expect(savePropertyWithCommission).not.toHaveBeenCalled()
+    expect(recordSale).not.toHaveBeenCalled()
     expect(screen.getByText('Select the selling agent.')).toBeInTheDocument()
   })
 
-  it('surfaces field errors from the sales API', async () => {
-    savePropertyWithCommission.mockRejectedValue({ fieldErrors: { sold_by: 'Select an active selling agent.' } })
+  it('requires a buyer name before saving', async () => {
     const user = userEvent.setup()
 
     render(<MarkSoldModal lot={lot} project={project} onClose={vi.fn()} onSold={vi.fn()} />)
 
     await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
+    await user.click(screen.getByRole('button', { name: 'Mark Sold' }))
+
+    expect(recordSale).not.toHaveBeenCalled()
+    expect(screen.getByText('Buyer name is required.')).toBeInTheDocument()
+  })
+
+  it('requires a TCP greater than zero', async () => {
+    const user = userEvent.setup()
+
+    render(<MarkSoldModal lot={lot} project={project} onClose={vi.fn()} onSold={vi.fn()} />)
+
+    await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
+    await user.type(screen.getByLabelText('Buyer Name'), 'Juan Dela Cruz')
+    await user.clear(screen.getByLabelText('TCP'))
+    await user.type(screen.getByLabelText('TCP'), '0')
+    await user.click(screen.getByRole('button', { name: 'Mark Sold' }))
+
+    expect(recordSale).not.toHaveBeenCalled()
+    expect(screen.getByText('TCP must be greater than 0.')).toBeInTheDocument()
+  })
+
+  it('surfaces field errors from the sales API', async () => {
+    recordSale.mockRejectedValue({ fieldErrors: { sold_by: 'Select an active selling agent.' } })
+    const user = userEvent.setup()
+
+    render(<MarkSoldModal lot={lot} project={project} onClose={vi.fn()} onSold={vi.fn()} />)
+
+    await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
+    await user.type(screen.getByLabelText('Buyer Name'), 'Juan Dela Cruz')
     await user.click(screen.getByRole('button', { name: 'Mark Sold' }))
 
     expect(await screen.findByText('Select an active selling agent.')).toBeInTheDocument()
@@ -96,7 +150,7 @@ describe('MarkSoldModal', () => {
   })
 
   it('renders a generic message for non-seller field errors', async () => {
-    savePropertyWithCommission.mockRejectedValue({
+    recordSale.mockRejectedValue({
       fieldErrors: { price: 'Set a price before marking this property sold.' },
     })
     const user = userEvent.setup()
@@ -104,6 +158,7 @@ describe('MarkSoldModal', () => {
     render(<MarkSoldModal lot={lot} project={project} onClose={vi.fn()} onSold={vi.fn()} />)
 
     await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
+    await user.type(screen.getByLabelText('Buyer Name'), 'Juan Dela Cruz')
     await user.click(screen.getByRole('button', { name: 'Mark Sold' }))
 
     expect(await screen.findByText('Set a price before marking this property sold.')).toBeInTheDocument()
@@ -111,15 +166,33 @@ describe('MarkSoldModal', () => {
   })
 
   it('surfaces the paid-commission block', async () => {
-    savePropertyWithCommission.mockRejectedValue(new Error('Commission already paid — reverse payment first.'))
+    recordSale.mockRejectedValue(new Error('Commission already paid — reverse payment first.'))
     const user = userEvent.setup()
 
     render(<MarkSoldModal lot={lot} project={project} onClose={vi.fn()} onSold={vi.fn()} />)
 
     await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
+    await user.type(screen.getByLabelText('Buyer Name'), 'Juan Dela Cruz')
     await user.click(screen.getByRole('button', { name: 'Mark Sold' }))
 
     expect(await screen.findByText('Commission already paid — reverse payment first.')).toBeInTheDocument()
+  })
+
+  it('surfaces a buyer-details failure after the sale is recorded', async () => {
+    recordSale.mockRejectedValue(
+      new Error('Sale recorded, but the buyer details failed to save. Reopen the lot and use Edit Sale to retry.'),
+    )
+    const user = userEvent.setup()
+
+    render(<MarkSoldModal lot={lot} project={project} onClose={vi.fn()} onSold={vi.fn()} />)
+
+    await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
+    await user.type(screen.getByLabelText('Buyer Name'), 'Juan Dela Cruz')
+    await user.click(screen.getByRole('button', { name: 'Mark Sold' }))
+
+    expect(
+      await screen.findByText('Sale recorded, but the buyer details failed to save. Reopen the lot and use Edit Sale to retry.'),
+    ).toBeInTheDocument()
   })
 
   it('closes on Escape', async () => {

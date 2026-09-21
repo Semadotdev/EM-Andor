@@ -1,0 +1,488 @@
+import { useEffect, useMemo, useState } from 'react'
+import ConfirmModal from '../shared/ConfirmModal.jsx'
+import { buildLedger, ledgerCsvRows } from '../../lib/ledger.js'
+import { exportToCSV } from '../../lib/csv.js'
+import { createPayment, deletePayment, fetchPayments, fetchSale, updatePayment } from '../../lib/sales.js'
+import { formatPrice } from '../../lib/format.js'
+import SaleDetailsModal from './SaleDetailsModal.jsx'
+
+const CSV_HEADERS = ['DATE', 'OR#', 'AMOUNT', 'SURCHARGE', 'INTEREST', 'PRINCIPAL', 'BALANCE OF PRINCIPAL', 'REMARKS']
+
+const inputCls =
+  'w-full rounded-md border border-mist bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/40 transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20'
+
+const EDITABLE_FIELDS = ['entry_date', 'or_number', 'amount', 'surcharge', 'interest', 'remarks']
+
+const emptyPaymentForm = {
+  entry_date: '',
+  or_number: '',
+  amount: '',
+  surcharge: '',
+  interest: '',
+  remarks: '',
+}
+
+const slug = (value) =>
+  String(value ?? '')
+    .trim()
+    .replace(/[^\w]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+function Money({ value }) {
+  return <span>{formatPrice(value) ?? '—'}</span>
+}
+
+export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
+  const [sale, setSale] = useState(null)
+  const [payments, setPayments] = useState([])
+  const [state, setState] = useState('loading')
+  const [addForm, setAddForm] = useState(emptyPaymentForm)
+  const [addErrors, setAddErrors] = useState({})
+  const [addError, setAddError] = useState(null)
+  const [adding, setAdding] = useState(false)
+  const [editForm, setEditForm] = useState(null)
+  const [editErrors, setEditErrors] = useState({})
+  const [confirmDelete, setConfirmDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+  const [showEditSale, setShowEditSale] = useState(false)
+
+  const ledger = useMemo(() => buildLedger(payments, sale?.tcp), [payments, sale?.tcp])
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  const load = () => {
+    setState('loading')
+    Promise.all([fetchSale(lot.id), fetchPayments(lot.id)])
+      .then(([saleRow, paymentRows]) => {
+        setSale(saleRow)
+        setPayments(paymentRows)
+        setState('ready')
+      })
+      .catch(() => setState('error'))
+  }
+
+  useEffect(load, [lot.id])
+
+  const reloadPayments = () => fetchPayments(lot.id).then(setPayments)
+
+  const setAddField = (field) => (e) => {
+    setAddForm((f) => ({ ...f, [field]: e.target.value }))
+    setAddErrors((errs) => ({ ...errs, [field]: undefined }))
+    setAddError(null)
+  }
+
+  const submitPayment = async (e) => {
+    e.preventDefault()
+    if (adding) return
+
+    const errors = {}
+    if (!addForm.entry_date) errors.entry_date = 'DATE is required.'
+    const amount = Number(addForm.amount)
+    if (addForm.amount === '' || Number.isNaN(amount) || amount <= 0) errors.amount = 'AMOUNT must be greater than 0.'
+    if (Object.keys(errors).length > 0) {
+      setAddErrors(errors)
+      return
+    }
+
+    setAdding(true)
+    setAddErrors({})
+    setAddError(null)
+    try {
+      await createPayment(lot.id, {
+        entry_date: addForm.entry_date,
+        or_number: addForm.or_number.trim(),
+        amount,
+        surcharge: Number(addForm.surcharge) || 0,
+        interest: Number(addForm.interest) || 0,
+        remarks: addForm.remarks.trim(),
+      })
+      setAddForm(emptyPaymentForm)
+      await reloadPayments()
+      onChanged?.()
+    } catch {
+      setAddError('Could not add the payment. Please try again.')
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  const startEdit = (payment) => {
+    setEditErrors({})
+    setEditForm({
+      id: payment.id,
+      entry_date: payment.entry_date ?? '',
+      or_number: payment.or_number ?? '',
+      amount: payment.amount != null ? String(payment.amount) : '',
+      surcharge: payment.surcharge != null ? String(payment.surcharge) : '',
+      interest: payment.interest != null ? String(payment.interest) : '',
+      remarks: payment.remarks ?? '',
+    })
+  }
+
+  const setEditField = (field) => (e) => {
+    setEditForm((f) => ({ ...f, [field]: e.target.value }))
+    setEditErrors((errs) => ({ ...errs, [field]: undefined }))
+  }
+
+  const submitEdit = async (e) => {
+    e.preventDefault()
+    if (!editForm) return
+
+    const errors = {}
+    if (!editForm.entry_date) errors.entry_date = 'DATE is required.'
+    const amount = Number(editForm.amount)
+    if (editForm.amount === '' || Number.isNaN(amount) || amount <= 0) errors.amount = 'AMOUNT must be greater than 0.'
+    if (Object.keys(errors).length > 0) {
+      setEditErrors(errors)
+      return
+    }
+
+    try {
+      await updatePayment(editForm.id, {
+        entry_date: editForm.entry_date,
+        or_number: editForm.or_number.trim(),
+        amount,
+        surcharge: Number(editForm.surcharge) || 0,
+        interest: Number(editForm.interest) || 0,
+        remarks: editForm.remarks.trim(),
+      })
+      setEditForm(null)
+      await reloadPayments()
+      onChanged?.()
+    } catch {
+      setEditErrors({ form: 'Could not save the payment. Please try again.' })
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirmDelete || deleting) return
+    setDeleting(true)
+    try {
+      await deletePayment(confirmDelete.id)
+      setConfirmDelete(null)
+      await reloadPayments()
+      onChanged?.()
+    } catch {
+      setConfirmDelete(null)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const exportCsv = () => {
+    const buyer = slug(sale?.buyer_name) || 'buyer'
+    const lotName = slug(lot.name ?? `Block ${lot.block_no} Lot ${lot.lot_no}`) || 'lot'
+    exportToCSV(CSV_HEADERS, ledgerCsvRows(ledger), `ledger-${buyer}-${lotName}.csv`)
+  }
+
+  const handleSaleSaved = async () => {
+    setShowEditSale(false)
+    try {
+      const fresh = await fetchSale(lot.id)
+      setSale(fresh)
+    } catch {
+      // keep the current buyer details when the refresh fails
+    }
+    onChanged?.()
+  }
+
+  const lotLabel = `Block ${lot.block_no ?? '—'} Lot ${lot.lot_no ?? '—'}`
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-brand-deep/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-4xl rounded-lg bg-white p-6 sm:p-8"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Buyer ledger"
+      >
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="font-display text-xl font-extrabold text-brand-deep">Buyer's Ledger</h2>
+          <button onClick={onClose} className="rounded-md px-2 py-1 text-ink/50 hover:text-ink" aria-label="Close">
+            ✕
+          </button>
+        </div>
+
+        {state === 'loading' && <p className="py-10 text-center text-ink/60">Loading ledger…</p>}
+
+        {state === 'error' && (
+          <div className="flex flex-col items-center gap-4 rounded-lg border border-mist bg-white p-10 text-center">
+            <p className="text-ink/70">Could not load the ledger.</p>
+            <button onClick={load} className="btn btn-gold">Retry</button>
+          </div>
+        )}
+
+        {state === 'ready' && (
+          <>
+            <dl className="mb-5 grid gap-x-6 gap-y-3 rounded-lg border border-mist bg-surface p-4 text-sm sm:grid-cols-2">
+              <div className="flex justify-between gap-4">
+                <dt className="font-semibold text-brand-deep">Buyer</dt>
+                <dd className="text-right text-ink/70">{sale?.buyer_name ?? '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="font-semibold text-brand-deep">Project</dt>
+                <dd className="text-right text-ink/70">{project?.name ?? '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="font-semibold text-brand-deep">Blk/Lot</dt>
+                <dd className="text-right text-ink/70">{lotLabel}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="font-semibold text-brand-deep">Area</dt>
+                <dd className="text-right text-ink/70">
+                  {lot.lot_area_sqm != null ? `${Number(lot.lot_area_sqm).toLocaleString('en-PH')} sqm` : '—'}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="font-semibold text-brand-deep">Price/m²</dt>
+                <dd className="text-right text-ink/70">
+                  {project?.price_per_sqm != null ? `${formatPrice(project.price_per_sqm)} / m²` : '—'}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="font-semibold text-brand-deep">TCP</dt>
+                <dd className="text-right text-ink/70">{formatPrice(sale?.tcp) ?? '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="font-semibold text-brand-deep">Downpayment</dt>
+                <dd className="text-right text-ink/70">{formatPrice(sale?.downpayment) ?? '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="font-semibold text-brand-deep">M.A.</dt>
+                <dd className="text-right text-ink/70">{formatPrice(sale?.monthly_amortization) ?? '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="font-semibold text-brand-deep">Terms</dt>
+                <dd className="text-right text-ink/70">{sale?.terms_of_payment ?? '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="font-semibold text-brand-deep">Buyer Address</dt>
+                <dd className="text-right text-ink/70">{sale?.buyer_address ?? '—'}</dd>
+              </div>
+            </dl>
+
+            <div className="mb-4 flex flex-wrap justify-end gap-3">
+              <button
+                onClick={() => setShowEditSale(true)}
+                className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
+              >
+                Edit Sale
+              </button>
+              <button
+                onClick={exportCsv}
+                className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
+              >
+                Export CSV
+              </button>
+            </div>
+
+            <div className="overflow-x-auto rounded-lg border border-mist">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-mist bg-surface text-xs font-bold uppercase tracking-wide text-ink/60">
+                  <tr>
+                    <th className="px-3 py-3">Date</th>
+                    <th className="px-3 py-3">OR#</th>
+                    <th className="px-3 py-3">Amount</th>
+                    <th className="px-3 py-3">Surcharge</th>
+                    <th className="px-3 py-3">Interest</th>
+                    <th className="px-3 py-3">Principal</th>
+                    <th className="px-3 py-3">Balance of Principal</th>
+                    <th className="px-3 py-3">Remarks</th>
+                    <th className="px-3 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ledger.rows.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-6 text-center text-ink/60">
+                        No payments yet.
+                      </td>
+                    </tr>
+                  )}
+                  {ledger.rows.map((row) => (
+                    <tr key={row.id} className="border-b border-mist/70 last:border-0">
+                      {editForm?.id === row.id ? (
+                        <>
+                          <td className="px-3 py-2">
+                            <input
+                              type="date"
+                              aria-label="DATE"
+                              className={inputCls}
+                              value={editForm.entry_date}
+                              onChange={setEditField('entry_date')}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input aria-label="OR#" className={inputCls} value={editForm.or_number} onChange={setEditField('or_number')} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input type="number" min="0" step="any" aria-label="AMOUNT" className={inputCls} value={editForm.amount} onChange={setEditField('amount')} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input type="number" min="0" step="any" aria-label="SURCHARGE" className={inputCls} value={editForm.surcharge} onChange={setEditField('surcharge')} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input type="number" min="0" step="any" aria-label="INTEREST" className={inputCls} value={editForm.interest} onChange={setEditField('interest')} />
+                          </td>
+                          <td className="px-3 py-2 font-semibold text-ink"><Money value={row.principal} /></td>
+                          <td className="px-3 py-2 font-semibold text-ink"><Money value={row.balance} /></td>
+                          <td className="px-3 py-2">
+                            <input aria-label="REMARKS" className={inputCls} value={editForm.remarks} onChange={setEditField('remarks')} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex flex-wrap justify-end gap-2">
+                              <button
+                                onClick={submitEdit}
+                                className="rounded-md border border-brand/40 px-3 py-1.5 text-xs font-semibold text-brand transition-colors hover:bg-brand/5"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setEditForm(null)}
+                                className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                            {Object.entries(editErrors)
+                              .filter(([, message]) => message)
+                              .map(([field, message]) => (
+                                <p key={field} className="mt-1.5 text-right text-xs font-medium text-red-600" role="alert">
+                                  {message}
+                                </p>
+                              ))}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-3 py-3 text-ink/70">{row.entry_date ?? '—'}</td>
+                          <td className="px-3 py-3 text-ink/70">{row.or_number ?? '—'}</td>
+                          <td className="px-3 py-3 text-ink"><Money value={row.amount} /></td>
+                          <td className="px-3 py-3 text-ink/70"><Money value={row.surcharge} /></td>
+                          <td className="px-3 py-3 text-ink/70"><Money value={row.interest} /></td>
+                          <td className="px-3 py-3 font-semibold text-ink"><Money value={row.principal} /></td>
+                          <td className="px-3 py-3 font-semibold text-ink"><Money value={row.balance} /></td>
+                          <td className="px-3 py-3 text-ink/70">{row.remarks || '—'}</td>
+                          <td className="px-3 py-3">
+                            <div className="flex flex-wrap justify-end gap-2">
+                              <button
+                                onClick={() => startEdit(row)}
+                                className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => setConfirmDelete(row)}
+                                className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="border-t border-mist bg-surface text-sm font-semibold text-brand-deep">
+                  <tr>
+                    <td colSpan={2} className="px-3 py-3 text-right">Total paid</td>
+                    <td className="px-3 py-3"><Money value={ledger.totalAmount} /></td>
+                    <td colSpan={2} className="px-3 py-3 text-right">Total principal</td>
+                    <td className="px-3 py-3"><Money value={ledger.totalPrincipal} /></td>
+                    <td colSpan={2} className="px-3 py-3 text-right">
+                      Remaining balance: <Money value={ledger.remainingBalance} />
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <form onSubmit={submitPayment} noValidate className="mt-6 rounded-lg border border-mist bg-surface p-4">
+              <h3 className="mb-3 text-sm font-bold text-brand-deep">Add payment</h3>
+
+              {addError && (
+                <p role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+                  {addError}
+                </p>
+              )}
+
+              <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <div>
+                  <label htmlFor="bl-date" className="mb-1 block text-xs font-semibold text-brand-deep">DATE</label>
+                  <input id="bl-date" type="date" className={inputCls} value={addForm.entry_date} onChange={setAddField('entry_date')} />
+                  {addErrors.entry_date && (
+                    <p className="mt-1 text-xs font-medium text-red-600" role="alert">{addErrors.entry_date}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="bl-or" className="mb-1 block text-xs font-semibold text-brand-deep">OR#</label>
+                  <input id="bl-or" className={inputCls} value={addForm.or_number} onChange={setAddField('or_number')} />
+                </div>
+                <div>
+                  <label htmlFor="bl-amount" className="mb-1 block text-xs font-semibold text-brand-deep">AMOUNT</label>
+                  <input id="bl-amount" type="number" min="0" step="any" className={inputCls} value={addForm.amount} onChange={setAddField('amount')} />
+                  {addErrors.amount && (
+                    <p className="mt-1 text-xs font-medium text-red-600" role="alert">{addErrors.amount}</p>
+                  )}
+                </div>
+                <div>
+                  <label htmlFor="bl-surcharge" className="mb-1 block text-xs font-semibold text-brand-deep">SURCHARGE</label>
+                  <input id="bl-surcharge" type="number" min="0" step="any" className={inputCls} value={addForm.surcharge} onChange={setAddField('surcharge')} />
+                </div>
+                <div>
+                  <label htmlFor="bl-interest" className="mb-1 block text-xs font-semibold text-brand-deep">INTEREST</label>
+                  <input id="bl-interest" type="number" min="0" step="any" className={inputCls} value={addForm.interest} onChange={setAddField('interest')} />
+                </div>
+                <div>
+                  <label htmlFor="bl-remarks" className="mb-1 block text-xs font-semibold text-brand-deep">REMARKS</label>
+                  <input id="bl-remarks" className={inputCls} value={addForm.remarks} onChange={setAddField('remarks')} />
+                </div>
+              </div>
+
+              <div className="mt-3 flex justify-end">
+                <button type="submit" disabled={adding} className="btn btn-gold disabled:opacity-60">
+                  {adding ? 'Adding…' : 'Add Payment'}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+      </div>
+
+      {showEditSale && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <SaleDetailsModal lot={lot} onClose={() => setShowEditSale(false)} onSaved={handleSaleSaved} />
+        </div>
+      )}
+
+      <div onClick={(e) => e.stopPropagation()}>
+        <ConfirmModal
+          open={Boolean(confirmDelete)}
+          onClose={() => setConfirmDelete(null)}
+          onConfirm={handleDelete}
+          title="Delete Payment"
+          message={
+            confirmDelete
+              ? `Delete the ${formatPrice(confirmDelete.amount) ?? '—'} payment dated ${confirmDelete.entry_date ?? '—'}? This cannot be undone.`
+              : ''
+          }
+          confirmLabel="Delete"
+          destructive
+          loading={deleting}
+        />
+      </div>
+    </div>
+  )
+}
