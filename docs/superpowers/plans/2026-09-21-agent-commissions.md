@@ -3633,6 +3633,21 @@ describe('AdminCommissions', () => {
       expect.objectContaining({ sub_agent: 0.04 }),
     )
   })
+
+  it('shows a mark-paid failure inside the confirmation modal', async () => {
+    markCommissionPaid.mockRejectedValue(new Error('Commission is already paid.'))
+    const user = userEvent.setup()
+
+    render(<AdminCommissions />)
+
+    await screen.findByText('Ana Sub')
+    const row = screen.getByText('Ana Sub').closest('tr')
+    await user.click(within(row).getByRole('button', { name: 'Mark Paid' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Mark Paid' }))
+
+    expect(await within(dialog).findByText('Commission is already paid.')).toBeInTheDocument()
+  })
 })
 ```
 
@@ -3662,13 +3677,14 @@ export default function AdminCommissions() {
   const [state, setState] = useState('loading')
   const [error, setError] = useState(null)
   const [confirmPaid, setConfirmPaid] = useState(null)
+  const [paidError, setPaidError] = useState(null)
   const [savingPaid, setSavingPaid] = useState(false)
 
   const loadRates = useCallback(() => {
     setRatesState('loading')
     fetchCommissionRates()
       .then((rows) => {
-        setRateInputs(Object.fromEntries(rows.map((r) => [r.role, String(Number(r.rate) * 100)])))
+        setRateInputs(Object.fromEntries(rows.map((r) => [r.role, String(+(Number(r.rate) * 100).toFixed(2))])))
         setRatesState('ready')
       })
       .catch(() => setRatesState('error'))
@@ -3710,12 +3726,13 @@ export default function AdminCommissions() {
     if (!confirmPaid || savingPaid) return
     setSavingPaid(true)
     setError(null)
+    setPaidError(null)
     try {
       await markCommissionPaid(confirmPaid.id)
       setCommissions((list) => list.map((c) => (c.id === confirmPaid.id ? { ...c, status: 'paid' } : c)))
       setConfirmPaid(null)
     } catch (err) {
-      setError(err?.message === 'Commission is already paid.' ? err.message : 'Could not mark the commission paid. Please try again.')
+      setPaidError(err?.message === 'Commission is already paid.' ? err.message : 'Could not mark the commission paid. Please try again.')
     } finally {
       setSavingPaid(false)
     }
@@ -3820,7 +3837,10 @@ export default function AdminCommissions() {
                   <td className="px-4 py-3 text-right">
                     {row.status === 'earned' && (
                       <button
-                        onClick={() => setConfirmPaid(row)}
+                        onClick={() => {
+                          setPaidError(null)
+                          setConfirmPaid(row)
+                        }}
                         className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
                       >
                         Mark Paid
@@ -3842,7 +3862,13 @@ export default function AdminCommissions() {
         message={confirmPaid ? `Mark ${formatPrice(confirmPaid.amount)} for ${confirmPaid.agents?.name ?? 'this agent'} as paid?` : ''}
         confirmLabel="Mark Paid"
         loading={savingPaid}
-      />
+      >
+        {paidError && (
+          <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+            {paidError}
+          </p>
+        )}
+      </ConfirmModal>
     </div>
   )
 }
@@ -3851,7 +3877,7 @@ export default function AdminCommissions() {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/components/admin/AdminCommissions.test.jsx`
-Expected: PASS — 3 tests.
+Expected: PASS — 4 tests.
 
 - [ ] **Step 5: Commit**
 
