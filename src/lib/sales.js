@@ -111,3 +111,48 @@ export async function savePropertyWithCommission({ mode, propertyId, payload }) 
   await applyEligiblePromotions()
   return saved
 }
+
+export async function fetchMySales(agentId) {
+  const { data, error } = await supabase
+    .from('properties')
+    .select('*')
+    .eq('sold_by', agentId)
+    .order('sold_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function fetchTeamSales(agentIds) {
+  if (!agentIds || agentIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('properties')
+    .select('*')
+    .in('sold_by', agentIds)
+    .order('sold_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function fetchCommissions(filters = {}) {
+  let query = supabase
+    .from('commissions')
+    .select('*, properties(name), agents(name, role)')
+    .order('created_at', { ascending: false })
+  if (filters.agentId) query = query.eq('agent_id', filters.agentId)
+  if (filters.status) query = query.eq('status', filters.status)
+  const { data, error } = await query
+  if (error) throw error
+  return data ?? []
+}
+
+export async function markCommissionPaid(id) {
+  const { data, error } = await supabase
+    .from('commissions')
+    .update({ status: 'paid', paid_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  logActivity('commission', id, 'paid', { amount: data.amount }).catch(() => {})
+  return data
+}

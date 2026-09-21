@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { savePropertyWithCommission } from './sales.js'
+import { fetchCommissions, fetchMySales, fetchTeamSales, markCommissionPaid, savePropertyWithCommission } from './sales.js'
 
 vi.mock('./supabase.js', () => ({ supabase: { from: vi.fn() } }))
 vi.mock('./api.js', () => ({
@@ -183,5 +183,40 @@ describe('sales', () => {
       expect.objectContaining({ property_id: 'p1', agent_id: 'a2', role_at_sale: 'direct_agent', rate: 0.015, amount: 15000, status: 'earned' }),
     ])
     expect(updateProperty).toHaveBeenCalledWith('p1', expect.objectContaining({ status: 'sold' }))
+  })
+
+  it('fetchMySales filters properties by seller', async () => {
+    const sales = [{ id: 'p1', sold_by: 'a1' }]
+    supabase.from.mockReturnValue(chain({ data: sales, error: null }))
+
+    expect(await fetchMySales('a1')).toEqual(sales)
+    expect(supabase.from).toHaveBeenCalledWith('properties')
+  })
+
+  it('fetchTeamSales returns nothing for an empty team', async () => {
+    expect(await fetchTeamSales([])).toEqual([])
+    expect(supabase.from).not.toHaveBeenCalled()
+  })
+
+  it('fetchCommissions applies agent and status filters', async () => {
+    const rows = [{ id: 'c1', agent_id: 'a1', status: 'earned', amount: 30000 }]
+    const c = chain({ data: rows, error: null })
+    supabase.from.mockReturnValue(c)
+
+    const result = await fetchCommissions({ agentId: 'a1', status: 'earned' })
+
+    expect(result).toEqual(rows)
+    expect(c.eq).toHaveBeenCalledWith('agent_id', 'a1')
+    expect(c.eq).toHaveBeenCalledWith('status', 'earned')
+  })
+
+  it('markCommissionPaid stamps status and paid_at', async () => {
+    const row = { id: 'c1', status: 'paid', amount: 30000 }
+    supabase.from.mockReturnValue(chain({ data: row, error: null }))
+
+    const result = await markCommissionPaid('c1')
+
+    expect(result).toEqual(row)
+    expect(supabase.from).toHaveBeenCalledWith('commissions')
   })
 })
