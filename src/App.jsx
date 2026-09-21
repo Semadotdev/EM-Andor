@@ -6,7 +6,6 @@ import Stats from './components/sections/Stats.jsx'
 import About from './components/sections/About.jsx'
 import Services from './components/sections/Services.jsx'
 import Projects from './components/sections/Projects.jsx'
-import AvailableProperties from './components/sections/AvailableProperties.jsx'
 import WhyChooseUs from './components/sections/WhyChooseUs.jsx'
 import CTA from './components/sections/CTA.jsx'
 import Contact from './components/sections/Contact.jsx'
@@ -25,7 +24,6 @@ function PublicSite() {
         <About />
         <Services />
         <Projects />
-        <AvailableProperties />
         <WhyChooseUs />
         <CTA />
         <Contact />

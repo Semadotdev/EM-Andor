@@ -13,16 +13,6 @@ export async function logActivity(entityType, entityId, action, details = {}) {
   if (error) throw error
 }
 
-export async function fetchPinnedProperties() {
-  const { data, error } = await supabase
-    .from('properties')
-    .select('*, projects(name)')
-    .eq('is_pinned', true)
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return data
-}
-
 export async function fetchProperties(filters = {}) {
   let query = supabase
     .from('properties')

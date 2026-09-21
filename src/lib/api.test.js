@@ -6,7 +6,6 @@ import {
   deleteInquiry,
   deleteProperty,
   fetchInquiries,
-  fetchPinnedProperties,
   fetchProperties,
   fetchPropertyStats,
   setInquiryRead,
@@ -36,21 +35,6 @@ function makeChain() {
 describe('api', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-  })
-
-  it('fetchPinnedProperties reads pinned properties newest first', async () => {
-    const data = [{ id: 'p1', name: 'Lot A' }]
-    const c = makeChain()
-    c.order.mockResolvedValue({ data, error: null })
-    supabase.from.mockReturnValue(c)
-
-    const result = await fetchPinnedProperties()
-
-    expect(supabase.from).toHaveBeenCalledWith('properties')
-    expect(c.select).toHaveBeenCalledWith('*, projects(name)')
-    expect(c.eq).toHaveBeenCalledWith('is_pinned', true)
-    expect(c.order).toHaveBeenCalledWith('created_at', { ascending: false })
-    expect(result).toEqual(data)
   })
 
   it('fetchProperties reads all properties newest first', async () => {

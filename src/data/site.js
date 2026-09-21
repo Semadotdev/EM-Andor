@@ -153,11 +153,6 @@ export const contact = {
     'https://maps.google.com/maps?q=Batangas%20City%2C%20Batangas%2C%20Philippines&t=&z=13&ie=UTF8&iwloc=&output=embed',
 }
 
-export const subdivisionMap = {
-  image: '/images/subdivision-map.svg',
-  alt: 'Subdivision map showing the location of each available lot',
-}
-
 export const footer = {
   description:
     'A construction and development corporation based in Batangas City, delivering reliable construction and development solutions for homes, businesses, and communities.',
