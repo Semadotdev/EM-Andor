@@ -752,6 +752,23 @@ At the very end of `supabase/schema.sql`, append:
 -- on conflict (email) do update set role = 'admin', user_id = excluded.user_id, is_active = true;
 ```
 
+- [ ] **Step 7b: Move the `status` column addition before its first policy use**
+
+The new `agent read properties` policy references `properties.status`, but `alter table public.properties add column if not exists status ...` currently appears later in the file (in the activity-log section), so a fresh database install would fail with `column "status" does not exist`.
+
+Find and delete:
+
+```sql
+-- Add status to properties
+alter table public.properties add column if not exists status text not null default 'available';
+```
+
+Insert it immediately before:
+
+```sql
+alter table public.properties enable row level security;
+```
+
 - [ ] **Step 8: Verify no stale email checks remain**
 
 Run: `grep -n "admin_email\|auth.jwt()" supabase/schema.sql`
