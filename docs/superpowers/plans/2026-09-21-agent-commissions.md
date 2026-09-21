@@ -4504,7 +4504,7 @@ In `AdminProperties.jsx`:
 - Delete the entire `handleBulkStatus` function.
 - Delete the bulk status `<select>` block (the one with `aria-label="Bulk status change"`) from the bulk actions bar.
 
-In `AdminProperties.test.jsx`, if any test drives the bulk status select, delete that test; otherwise leave the file unchanged.
+In `AdminProperties.test.jsx`, remove `bulkUpdatePropertyStatus` from both the `vi.mock('../../lib/api.js', ...)` factory and the import line (no test drives the removed control).
 
 ### 20.2 Commissions filters, search, totals, and rate validation
 
@@ -4626,7 +4626,7 @@ Test to add in `AdminAgents.test.jsx`:
 ### Verification
 
 - `npx vitest run src/components/admin/AdminProperties.test.jsx src/components/admin/AdminCommissions.test.jsx src/components/admin/AdminAgents.test.jsx` → expect 12 + 6 + 6 = 24 passing.
-- `npm test` → expect 31 files / 250 tests.
+- `npm test` → expect 31 files / 249 tests.
 - `npm run build` → success.
 - Update Task 19's checklist item 13: bulk status change has been removed; use the single-edit sold flow for all status transitions involving sold.
 
