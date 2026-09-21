@@ -11,7 +11,6 @@ vi.mock('../../lib/api.js', () => ({
   updateProperty: vi.fn(),
   uploadPropertyImage: vi.fn(),
   bulkDeleteProperties: vi.fn(),
-  bulkUpdatePropertyStatus: vi.fn(),
   bulkSetPropertyPinned: vi.fn(),
 }))
 
@@ -23,7 +22,7 @@ vi.mock('../../lib/agents.js', () => ({
   fetchAllAgents: vi.fn().mockResolvedValue([{ id: 'a1', name: 'Ana Sub', role: 'sub_agent' }]),
 }))
 
-import { fetchProperties, setPropertyPinned, deleteProperty, bulkDeleteProperties, bulkUpdatePropertyStatus, bulkSetPropertyPinned } from '../../lib/api.js'
+import { fetchProperties, setPropertyPinned, deleteProperty, bulkDeleteProperties, bulkSetPropertyPinned } from '../../lib/api.js'
 import { exportToCSV } from '../../lib/csv.js'
 
 const sample = [
