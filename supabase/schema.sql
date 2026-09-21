@@ -56,6 +56,132 @@ alter table public.inquiries drop constraint if exists inquiries_property_id_fke
 alter table public.inquiries add constraint inquiries_property_id_fkey
   foreign key (property_id) references public.properties(id) on delete set null;
 
+-- Agents
+create table if not exists public.agents (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid unique references auth.users(id) on delete cascade,
+  email text unique not null,
+  name text not null,
+  phone text,
+  role text not null default 'sub_agent' check (role in ('admin', 'agent_head', 'direct_agent', 'sub_agent')),
+  upline_id uuid references public.agents(id) on delete set null,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists agents_user_id_idx on public.agents(user_id);
+create index if not exists agents_upline_id_idx on public.agents(upline_id);
+
+drop trigger if exists set_updated_at on public.agents;
+create trigger set_updated_at before update on public.agents
+  for each row execute function public.set_updated_at();
+
+-- Commission rates per role
+create table if not exists public.commission_settings (
+  id uuid primary key default gen_random_uuid(),
+  role text unique not null check (role in ('sub_agent', 'direct_agent', 'agent_head')),
+  rate numeric(6,4) not null default 0 check (rate >= 0 and rate <= 1),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists set_updated_at on public.commission_settings;
+create trigger set_updated_at before update on public.commission_settings
+  for each row execute function public.set_updated_at();
+
+insert into public.commission_settings (role, rate) values
+  ('sub_agent', 0.0300),
+  ('direct_agent', 0.0150),
+  ('agent_head', 0.0050)
+on conflict (role) do nothing;
+
+-- Commission ledger: one snapshot row per agent per sale
+create table if not exists public.commissions (
+  id uuid primary key default gen_random_uuid(),
+  property_id uuid not null references public.properties(id) on delete cascade,
+  agent_id uuid not null references public.agents(id) on delete restrict,
+  role_at_sale text not null,
+  sale_price numeric not null,
+  rate numeric(6,4) not null,
+  amount numeric not null,
+  status text not null default 'earned' check (status in ('earned', 'paid')),
+  paid_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (property_id, agent_id)
+);
+
+create index if not exists commissions_agent_id_idx on public.commissions(agent_id);
+create index if not exists commissions_status_idx on public.commissions(status);
+
+-- Sale attribution on properties
+alter table public.properties add column if not exists sold_by uuid references public.agents(id) on delete set null;
+alter table public.properties add column if not exists sold_at timestamptz;
+
+-- RLS helper functions (security definer so policies cannot recurse)
+create or replace function public.current_agent_id()
+returns uuid
+language sql stable security definer set search_path = public
+as $$ select id from public.agents where user_id = auth.uid() and is_active limit 1 $$;
+
+create or replace function public.is_admin()
+returns boolean
+language sql stable security definer set search_path = public
+as $$ select exists (select 1 from public.agents where user_id = auth.uid() and role = 'admin' and is_active) $$;
+
+create or replace function public.get_downline(root uuid)
+returns setof uuid
+language sql stable security definer set search_path = public
+as $$
+  with recursive d as (
+    select id from public.agents where root is not null and upline_id = root
+    union all
+    select a.id from public.agents a join d on a.upline_id = d.id
+  )
+  select id from d;
+$$;
+
+alter table public.agents enable row level security;
+alter table public.commission_settings enable row level security;
+alter table public.commissions enable row level security;
+
+drop policy if exists "admin all on agents" on public.agents;
+create policy "admin all on agents" on public.agents
+  for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "agent read self and downline" on public.agents;
+create policy "agent read self and downline" on public.agents
+  for select to authenticated
+  using (
+    user_id = auth.uid()
+    or id in (select public.get_downline(public.current_agent_id()))
+  );
+
+drop policy if exists "admin all on commission_settings" on public.commission_settings;
+create policy "admin all on commission_settings" on public.commission_settings
+  for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "authenticated read commission_settings" on public.commission_settings;
+create policy "authenticated read commission_settings" on public.commission_settings
+  for select to authenticated using (true);
+
+drop policy if exists "admin all on commissions" on public.commissions;
+create policy "admin all on commissions" on public.commissions
+  for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "agent read commissions" on public.commissions;
+create policy "agent read commissions" on public.commissions
+  for select to authenticated
+  using (
+    agent_id = public.current_agent_id()
+    or agent_id in (select public.get_downline(public.current_agent_id()))
+  );
+
 alter table public.properties enable row level security;
 alter table public.inquiries enable row level security;
 
