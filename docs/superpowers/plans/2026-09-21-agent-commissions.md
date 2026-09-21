@@ -2429,6 +2429,61 @@ git commit -m "feat(admin): show the selling agent on sold properties"
 - Create: `src/components/admin/AgentStats.test.jsx`
 - Modify: `src/components/admin/AdminDashboard.jsx`
 - Modify: `src/components/admin/AdminDashboard.test.jsx`
+- Create (placeholders, replaced in Tasks 15-18): `src/components/admin/AdminAgents.jsx`, `AdminCommissions.jsx`, `AgentLots.jsx`, `AgentSales.jsx`, `AgentCommissions.jsx`, `AgentDownline.jsx`
+
+- [ ] **Step 0: Add placeholder panels so the dashboard imports resolve**
+
+`AdminDashboard.jsx` statically imports six components implemented in Tasks 15-18. Vite/Vitest resolve static imports at transform time, so no test (or build) can load the dashboard until these files exist. Create minimal placeholders now; Tasks 15-18 replace them with the real implementations.
+
+Create each file with this shape, adjusting the component name and message:
+
+`src/components/admin/AdminAgents.jsx`:
+
+```jsx
+export default function AdminAgents() {
+  return <p className="py-10 text-center text-ink/60">Agents panel coming soon.</p>
+}
+```
+
+`src/components/admin/AdminCommissions.jsx`:
+
+```jsx
+export default function AdminCommissions() {
+  return <p className="py-10 text-center text-ink/60">Commissions panel coming soon.</p>
+}
+```
+
+`src/components/admin/AgentLots.jsx`:
+
+```jsx
+export default function AgentLots() {
+  return <p className="py-10 text-center text-ink/60">Available lots coming soon.</p>
+}
+```
+
+`src/components/admin/AgentSales.jsx`:
+
+```jsx
+export default function AgentSales() {
+  return <p className="py-10 text-center text-ink/60">My sales coming soon.</p>
+}
+```
+
+`src/components/admin/AgentCommissions.jsx`:
+
+```jsx
+export default function AgentCommissions() {
+  return <p className="py-10 text-center text-ink/60">My commissions coming soon.</p>
+}
+```
+
+`src/components/admin/AgentDownline.jsx`:
+
+```jsx
+export default function AgentDownline() {
+  return <p className="py-10 text-center text-ink/60">My downline coming soon.</p>
+}
+```
 
 - [ ] **Step 1: Write the AgentStats test**
 
@@ -2787,12 +2842,12 @@ Append these tests:
 - [ ] **Step 7: Run the tests**
 
 Run: `npx vitest run src/components/admin/AdminDashboard.test.jsx src/components/admin/AgentStats.test.jsx`
-Expected: PASS — existing tests (admin path) plus 2 new role-gating tests.
+Expected: PASS — existing tests (admin path) plus 2 new role-gating tests. Then `npm test` → 24 files / 221 tests, all green.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/components/admin/AgentStats.jsx src/components/admin/AgentStats.test.jsx src/components/admin/AdminDashboard.jsx src/components/admin/AdminDashboard.test.jsx
+git add src/components/admin/AgentStats.jsx src/components/admin/AgentStats.test.jsx src/components/admin/AdminDashboard.jsx src/components/admin/AdminDashboard.test.jsx src/components/admin/AdminAgents.jsx src/components/admin/AdminCommissions.jsx src/components/admin/AgentLots.jsx src/components/admin/AgentSales.jsx src/components/admin/AgentCommissions.jsx src/components/admin/AgentDownline.jsx
 git commit -m "feat(admin): gate dashboard tabs by agent role"
 ```
 
