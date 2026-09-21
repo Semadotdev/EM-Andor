@@ -171,6 +171,8 @@ describe('agents', () => {
     expect(supabase.functions.invoke).toHaveBeenCalledWith('create-agent', {
       body: { name: 'New', email: 'new@x.com', phone: '0917', role: 'sub_agent', upline_id: 'a1', password: 'secret123' },
     })
+    expect(supabase.from).toHaveBeenCalledWith('agents')
+    expect(supabase.from).toHaveBeenCalledWith('properties')
     expect(result).toEqual(created)
   })
 
@@ -186,5 +188,16 @@ describe('agents', () => {
     await expect(
       createAgent({ name: 'New', email: 'new@x.com', role: 'sub_agent', password: 'secret123' }),
     ).rejects.toThrow('Email already registered')
+  })
+
+  it('createAgent falls back to the SDK message when there is no error body', async () => {
+    supabase.functions.invoke.mockResolvedValue({
+      data: null,
+      error: { message: 'Failed to send a request to the Edge Function' },
+    })
+
+    await expect(
+      createAgent({ name: 'New', email: 'new@x.com', role: 'sub_agent', password: 'secret123' }),
+    ).rejects.toThrow('Failed to send a request to the Edge Function')
   })
 })

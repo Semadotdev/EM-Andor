@@ -86,8 +86,15 @@ export async function createAgent({ name, email, phone, role, uplineId, password
   }
   if (data?.error) throw new Error(data.error)
 
-  await applyEligiblePromotions()
-  return data.agent
+  const agent = data?.agent
+  if (!agent) throw new Error('Could not create the agent account.')
+
+  try {
+    await applyEligiblePromotions()
+  } catch {
+    // The account already exists; a later trigger (or deactivate/reactivate) re-runs promotions.
+  }
+  return agent
 }
 
 export async function fetchCommissionRates() {
