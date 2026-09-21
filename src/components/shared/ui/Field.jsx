@@ -21,16 +21,27 @@ function FieldLabel({ label, id }) {
   )
 }
 
-export function Input({ label, id, error, className = '', ...rest }) {
+export function Input({ label, id, error, className = '', suffix, ...rest }) {
+  const input = (
+    <input
+      id={id}
+      aria-invalid={error ? true : undefined}
+      className={[inputClass, suffix ? 'pr-16' : '', className].filter(Boolean).join(' ')}
+      {...rest}
+    />
+  )
+
   return (
     <div>
       <FieldLabel label={label} id={id} />
-      <input
-        id={id}
-        aria-invalid={error ? true : undefined}
-        className={`${inputClass} ${className}`.trim()}
-        {...rest}
-      />
+      {suffix ? (
+        <div className="relative">
+          {input}
+          <div className="absolute inset-y-0 right-3 flex items-center">{suffix}</div>
+        </div>
+      ) : (
+        input
+      )}
       <FieldError>{error}</FieldError>
     </div>
   )

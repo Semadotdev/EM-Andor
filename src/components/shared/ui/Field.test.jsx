@@ -17,6 +17,16 @@ describe('Field', () => {
     expect(screen.getByLabelText('Name')).toHaveClass('mt-2')
   })
 
+  it('renders a suffix inside the input container', () => {
+    render(<Input label="Password" id="password" suffix={<button type="button">Show</button>} />)
+
+    const input = screen.getByLabelText('Password')
+    expect(input).toHaveClass('pr-16')
+
+    const suffix = screen.getByRole('button', { name: 'Show' }).parentElement
+    expect(suffix).toHaveClass('absolute', 'inset-y-0', 'right-3')
+  })
+
   it('shows the error in a role="alert" paragraph', () => {
     render(<Input label="Name" id="name" error="Name is required." />)
 

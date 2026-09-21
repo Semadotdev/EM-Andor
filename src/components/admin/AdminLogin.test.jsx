@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, fireEvent, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import AdminLogin from './AdminLogin.jsx'
@@ -45,6 +45,38 @@ describe('AdminLogin', () => {
 
     expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({ email: 'admin@emandor.com', password: 'secret' })
     expect(await screen.findByText('DashboardTarget')).toBeInTheDocument()
+  })
+
+  it('toggles password visibility', async () => {
+    const user = userEvent.setup()
+
+    renderLogin()
+
+    const show = screen.getByRole('button', { name: 'Show password' })
+    expect(show).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password')
+
+    await user.click(show)
+
+    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('button', { name: 'Hide password' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(screen.getByRole('button', { name: 'Hide password' }))
+
+    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password')
+    expect(screen.getByRole('button', { name: 'Show password' })).toBeInTheDocument()
+  })
+
+  it('shows a caps lock hint while the password field reports caps lock', () => {
+    renderLogin()
+
+    const password = screen.getByLabelText('Password')
+
+    fireEvent.keyDown(password, { key: 'A', modifierCapsLock: true })
+    expect(screen.getByText('Caps Lock is on')).toBeInTheDocument()
+
+    fireEvent.keyUp(password, { key: 'A', modifierCapsLock: false })
+    expect(screen.queryByText('Caps Lock is on')).not.toBeInTheDocument()
   })
 
   it('shows an error message on failed sign-in', async () => {
