@@ -2913,7 +2913,7 @@ describe('CreateAgentModal', () => {
     await user.type(screen.getByLabelText('Name'), 'Cara New')
     await user.type(screen.getByLabelText('Email'), 'cara@example.com')
     await user.type(screen.getByLabelText('Phone (optional)'), '0917')
-    await user.selectOptions(screen.getByLabelText('Role'), 'sub_agent')
+    await user.selectOptions(screen.getByLabelText('Role'), 'direct_agent')
     await user.selectOptions(screen.getByLabelText('Upline (optional)'), 'a1')
     await user.type(screen.getByLabelText('Temporary Password'), 'secret123')
     await user.click(screen.getByRole('button', { name: 'Create Agent' }))
@@ -2922,7 +2922,7 @@ describe('CreateAgentModal', () => {
       name: 'Cara New',
       email: 'cara@example.com',
       phone: '0917',
-      role: 'sub_agent',
+      role: 'direct_agent',
       uplineId: 'a1',
       password: 'secret123',
     })
@@ -2942,6 +2942,16 @@ describe('CreateAgentModal', () => {
 
     expect(await screen.findByText('Email already registered')).toBeInTheDocument()
   })
+
+  it('closes on Escape', async () => {
+    const onClose = vi.fn()
+
+    render(<CreateAgentModal agents={agents} onClose={onClose} onCreated={vi.fn()} />)
+
+    await userEvent.keyboard('{Escape}')
+
+    expect(onClose).toHaveBeenCalled()
+  })
 })
 ```
 
@@ -2953,7 +2963,7 @@ Expected: FAIL — cannot resolve `./CreateAgentModal.jsx`.
 - [ ] **Step 3: Write the implementation**
 
 ```jsx
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createAgent } from '../../lib/agents.js'
 import { ROLE_LABELS } from '../../lib/agentMeta.js'
 
@@ -2967,7 +2977,18 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
 
-  const setField = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  const setField = (field) => (e) => {
+    setForm((f) => ({ ...f, [field]: e.target.value }))
+    setError(null)
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -2996,7 +3017,10 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-brand-deep/60 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-brand-deep/60 p-4"
+      onClick={saving ? undefined : onClose}
+    >
       <div
         className="w-full max-w-lg rounded-lg bg-white p-6 sm:p-8"
         onClick={(e) => e.stopPropagation()}
@@ -3049,10 +3073,10 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
           </div>
           <div className="sm:col-span-2">
             <label htmlFor="ca-password" className="mb-1.5 block text-sm font-semibold text-brand-deep">Temporary Password</label>
-            <input id="ca-password" type="text" className={inputCls} value={form.password} onChange={setField('password')} placeholder="Share this with the agent" />
+            <input id="ca-password" type="text" autoComplete="new-password" spellCheck={false} className={inputCls} value={form.password} onChange={setField('password')} placeholder="Share this with the agent" />
           </div>
           <div className="mt-2 flex flex-wrap justify-end gap-3 sm:col-span-2">
-            <button type="button" onClick={onClose} className="btn border border-mist bg-white text-ink/70 hover:border-brand/30 hover:text-brand">
+            <button type="button" onClick={onClose} disabled={saving} className="btn border border-mist bg-white text-ink/70 hover:border-brand/30 hover:text-brand disabled:opacity-60">
               Cancel
             </button>
             <button type="submit" disabled={saving} className="btn btn-gold disabled:opacity-60">
@@ -3069,7 +3093,7 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run src/components/admin/CreateAgentModal.test.jsx`
-Expected: PASS — 2 tests.
+Expected: PASS — 3 tests.
 
 - [ ] **Step 5: Commit**
 
