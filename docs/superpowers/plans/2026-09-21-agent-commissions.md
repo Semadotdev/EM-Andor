@@ -1078,17 +1078,25 @@ import { applyEligiblePromotions, fetchSoldCounts } from './agents.js'
     }))
     const agents = [{ ...sub, id: 'a1' }, ...recruits]
     const sold = Array.from({ length: 5 }, () => ({ sold_by: 'a1' }))
+    const updateChain = chain({ data: { ...sub, role: 'direct_agent' }, error: null })
 
     supabase.from
       .mockImplementationOnce(() => chain({ data: agents, error: null }))
       .mockImplementationOnce(() => chain({ data: sold, error: null }))
-      .mockImplementationOnce(() => chain({ data: { ...sub, role: 'direct_agent' }, error: null }))
+      .mockImplementationOnce(() => updateChain)
       .mockImplementationOnce(() => chain({ data: [{ ...sub, role: 'direct_agent' }, ...recruits], error: null }))
       .mockImplementationOnce(() => chain({ data: sold, error: null }))
 
     const promoted = await applyEligiblePromotions()
 
+    expect(updateChain.update).toHaveBeenCalledWith({ role: 'direct_agent' })
+    expect(updateChain.eq).toHaveBeenCalledWith('id', 'a1')
     expect(promoted).toEqual([{ id: 'a1', name: 'Sub', from: 'sub_agent', to: 'direct_agent' }])
+    expect(logActivity).toHaveBeenCalledWith('agent', 'a1', 'promote', {
+      from: 'sub_agent',
+      to: 'direct_agent',
+      counts: { ownSales: 5, directRecruits: 5 },
+    })
   })
 ```
 
