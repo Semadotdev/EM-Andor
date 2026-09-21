@@ -3676,6 +3676,7 @@ export default function AdminCommissions() {
 
   const loadCommissions = useCallback(() => {
     setState('loading')
+    setError(null)
     fetchCommissions(statusFilter ? { status: statusFilter } : {})
       .then((rows) => {
         setCommissions(rows)
@@ -3708,6 +3709,7 @@ export default function AdminCommissions() {
   const handleMarkPaid = async () => {
     if (!confirmPaid || savingPaid) return
     setSavingPaid(true)
+    setError(null)
     try {
       await markCommissionPaid(confirmPaid.id)
       setCommissions((list) => list.map((c) => (c.id === confirmPaid.id ? { ...c, status: 'paid' } : c)))
