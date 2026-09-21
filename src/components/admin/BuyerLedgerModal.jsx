@@ -201,12 +201,8 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
                   <dd className="text-right text-ink/70">{sale?.buyer_name ?? '—'}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <dt className="font-semibold text-brand-deep">Project</dt>
-                  <dd className="text-right text-ink/70">{project?.name ?? '—'}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="font-semibold text-brand-deep">Remaining balance</dt>
-                  <dd className="text-right font-semibold text-ink">{formatPrice(ledger.remainingBalance) ?? '—'}</dd>
+                  <dt className="font-semibold text-brand-deep">Blk/Lot</dt>
+                  <dd className="text-right text-ink/70">{lotLabel}</dd>
                 </div>
               </dl>
 
@@ -217,10 +213,6 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
                 <div className="overflow-hidden">
                   {showDetails && (
                     <dl className="grid gap-x-6 gap-y-3 pt-3 sm:grid-cols-2">
-                      <div className="flex justify-between gap-4">
-                        <dt className="font-semibold text-brand-deep">Blk/Lot</dt>
-                        <dd className="text-right text-ink/70">{lotLabel}</dd>
-                      </div>
                       <div className="flex justify-between gap-4">
                         <dt className="font-semibold text-brand-deep">Area</dt>
                         <dd className="text-right text-ink/70">

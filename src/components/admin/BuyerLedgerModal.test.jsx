@@ -74,7 +74,7 @@ const payments = [
   },
 ]
 
-const DETAIL_VALUES = ['Block 1 Lot 1', '100 sqm', '₱ 1,000 / m²', '₱ 20,000', '₱ 4,000', '₱ 1,500', '12 months', 'Cebu City']
+const DETAIL_VALUES = ['100 sqm', '₱ 1,000 / m²', '₱ 20,000', '₱ 4,000', '₱ 1,500', '12 months', 'Cebu City']
 
 const CSV_HEADERS = ['DATE', 'OR#', 'AMOUNT', 'SURCHARGE', 'INTEREST', 'PRINCIPAL', 'BALANCE OF PRINCIPAL', 'REMARKS']
 
@@ -95,10 +95,9 @@ describe('BuyerLedgerModal', () => {
 
     expect(await screen.findByText('Juan Dela Cruz')).toBeInTheDocument()
     expect(screen.getByText('Buyer')).toBeInTheDocument()
-    expect(screen.getByText('Project')).toBeInTheDocument()
-    expect(screen.getByText('Andor Farm')).toBeInTheDocument()
-    expect(screen.getByText('Remaining balance')).toBeInTheDocument()
-    expect(screen.getAllByText('₱ 12,450').length).toBeGreaterThan(0)
+    expect(screen.getByText('Block 1 Lot 1')).toBeInTheDocument()
+    expect(screen.queryByText('Project')).not.toBeInTheDocument()
+    expect(screen.queryByText('Andor Farm')).not.toBeInTheDocument()
     expect(screen.getByRole('dialog')).toHaveClass('max-w-6xl')
 
     for (const value of DETAIL_VALUES) {
@@ -134,7 +133,7 @@ describe('BuyerLedgerModal', () => {
     expect(screen.getByText('₱ 4,700')).toBeInTheDocument()
     expect(screen.getByText('₱ 15,300')).toBeInTheDocument()
     expect(screen.getByText('₱ 2,850')).toBeInTheDocument()
-    expect(screen.getAllByText('₱ 12,450')).toHaveLength(3)
+    expect(screen.getAllByText('₱ 12,450')).toHaveLength(2)
     expect(screen.getByText('Total paid')).toBeInTheDocument()
     expect(screen.getByText('₱ 8,000')).toBeInTheDocument()
     expect(screen.getByText('Total principal')).toBeInTheDocument()
