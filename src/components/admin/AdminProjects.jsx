@@ -80,7 +80,8 @@ export default function AdminProjects() {
     {
       key: 'actions',
       header: 'Actions',
-      className: 'text-right',
+      align: 'right',
+      noWrap: true,
       render: (project) => (
         <Link
           to={`/admin/projects/${project.id}`}

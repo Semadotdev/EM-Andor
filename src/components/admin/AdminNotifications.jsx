@@ -196,7 +196,8 @@ export default function AdminNotifications() {
     {
       key: 'actions',
       header: 'Actions',
-      className: 'text-right',
+      align: 'right',
+      noWrap: true,
       render: (setting) => (
         <Button size="sm" variant="secondary" onClick={() => handleEdit(setting)}>
           Edit Template

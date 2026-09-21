@@ -244,7 +244,7 @@ export default function AdminInquiries() {
       header: 'Status',
       render: (inquiry) => <Badge tone={readTone(inquiry.is_read)}>{inquiry.is_read ? 'Read' : 'Unread'}</Badge>,
     },
-    { key: 'actions', header: 'Actions', className: 'text-right', render: rowActions },
+    { key: 'actions', header: 'Actions', align: 'right', noWrap: true, render: rowActions },
   ]
 
   const inquiryCard = (inquiry) => (

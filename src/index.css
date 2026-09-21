@@ -16,6 +16,37 @@
 
   --shadow-card: 0 10px 30px -12px rgb(18 53 42 / 0.18);
   --shadow-lift: 0 24px 48px -16px rgb(0 75 45 / 0.28);
+
+  --animate-brand-spin: brand-spin 2.4s linear infinite;
+  --animate-brand-pulse: brand-pulse 1.8s ease-in-out infinite;
+  --animate-brand-progress: brand-progress 1.4s ease-in-out infinite;
+
+  @keyframes brand-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes brand-pulse {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(0.92);
+    }
+  }
+
+  @keyframes brand-progress {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(300%);
+    }
+  }
 }
 
 @layer base {
@@ -56,6 +87,10 @@
 @layer components {
   .container-x {
     @apply mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-12;
+  }
+
+  .container-wide {
+    @apply mx-auto w-full max-w-[1600px] px-5 sm:px-8 lg:px-12;
   }
 
   .skip-link {

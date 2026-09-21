@@ -136,12 +136,15 @@ export default function AdminCommissions() {
     {
       key: 'status',
       header: 'Status',
+      align: 'center',
       render: (row) => <Badge tone={commissionTone(row.status)}>{row.status === 'paid' ? 'Paid' : 'Earned'}</Badge>,
     },
     {
       key: 'actions',
       header: 'Actions',
-      className: 'text-right',
+      align: 'right',
+      noWrap: true,
+      className: 'min-w-[110px]',
       render: (row) =>
         row.status === 'earned' ? (
           <Button

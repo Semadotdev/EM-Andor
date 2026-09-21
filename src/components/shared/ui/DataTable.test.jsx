@@ -80,6 +80,51 @@ describe('DataTable', () => {
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
+  it('applies per-column alignment to headers and cells', () => {
+    const alignedColumns = [
+      { key: 'name', header: 'Name', align: 'center' },
+      { key: 'rate', header: 'Rate', align: 'right' },
+      { key: 'note', header: 'Note', align: 'left' },
+      { key: 'extra', header: 'Extra' },
+    ]
+
+    render(
+      <DataTable
+        columns={alignedColumns}
+        rows={[{ id: '1', name: 'Ana', rate: '3%', note: 'steady', extra: 'plain' }]}
+        getRowKey={getRowKey}
+      />,
+    )
+
+    expect(screen.getByRole('columnheader', { name: 'Name' })).toHaveClass('text-center')
+    expect(screen.getByText('Ana')).toHaveClass('text-center')
+    expect(screen.getByRole('columnheader', { name: 'Rate' })).toHaveClass('text-right')
+    expect(screen.getByText('3%')).toHaveClass('text-right')
+    expect(screen.getByRole('columnheader', { name: 'Note' })).toHaveClass('text-left')
+    expect(screen.getByText('steady')).toHaveClass('text-left')
+    expect(screen.getByRole('columnheader', { name: 'Extra' })).not.toHaveClass('text-center', 'text-right')
+    expect(screen.getByText('plain')).not.toHaveClass('text-center', 'text-right')
+  })
+
+  it('adds whitespace-nowrap to columns with noWrap', () => {
+    const wrappedColumns = [
+      { key: 'actions', header: 'Actions', align: 'right', noWrap: true },
+      { key: 'note', header: 'Note' },
+    ]
+
+    render(
+      <DataTable
+        columns={wrappedColumns}
+        rows={[{ id: '1', actions: 'Mark Paid', note: 'steady' }]}
+        getRowKey={getRowKey}
+      />,
+    )
+
+    expect(screen.getByRole('columnheader', { name: 'Actions' })).toHaveClass('whitespace-nowrap', 'text-right')
+    expect(screen.getByText('Mark Paid')).toHaveClass('whitespace-nowrap')
+    expect(screen.getByText('steady')).not.toHaveClass('whitespace-nowrap')
+  })
+
   it('renders the footer slot', () => {
     render(<DataTable columns={columns} rows={rows} getRowKey={getRowKey} footer="2 records" />)
 

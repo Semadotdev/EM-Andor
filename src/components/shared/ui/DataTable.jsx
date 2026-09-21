@@ -6,8 +6,23 @@ const HIDE_BELOW = {
   lg: 'hidden lg:table-cell',
 }
 
+const ALIGN = {
+  left: 'text-left',
+  center: 'text-center',
+  right: 'text-right',
+}
+
 const cellClass = (column, extra = '') =>
-  ['px-4 py-3', HIDE_BELOW[column.hideBelow], column.className, extra].filter(Boolean).join(' ')
+  [
+    'px-4 py-3',
+    HIDE_BELOW[column.hideBelow],
+    ALIGN[column.align],
+    column.noWrap ? 'whitespace-nowrap' : '',
+    column.className,
+    extra,
+  ]
+    .filter(Boolean)
+    .join(' ')
 
 function TableHead({ columns }) {
   return (

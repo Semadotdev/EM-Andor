@@ -297,7 +297,7 @@ export default function ProjectDetail() {
       className: 'text-ink/70',
       render: (lot) => (lot.status === 'sold' ? (agentNames[lot.sold_by] ?? '—') : '—'),
     },
-    { key: 'actions', header: 'Actions', className: 'text-right', render: lotActions },
+    { key: 'actions', header: 'Actions', align: 'right', noWrap: true, render: lotActions },
   ]
 
   const lotCard = (lot) => (
