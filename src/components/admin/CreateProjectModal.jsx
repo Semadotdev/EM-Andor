@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchCommissionRates } from '../../lib/agents.js'
-import { createProject } from '../../lib/projects.js'
+import { createProject, fetchProjectRates, updateProject } from '../../lib/projects.js'
 import { ROLE_LABELS } from '../../lib/agentMeta.js'
 import { COMMISSION_ROLES } from '../../lib/commissions.js'
 
@@ -14,8 +14,15 @@ const PROJECT_TYPES = [
   { value: 'development', label: 'Development', enabled: false },
 ]
 
-export default function CreateProjectModal({ onClose, onCreated }) {
-  const [form, setForm] = useState({ name: '', type: 'farm_lot', address: '', pricePerSqm: '' })
+export default function CreateProjectModal({ project, onClose, onCreated }) {
+  const isEdit = Boolean(project?.id)
+
+  const [form, setForm] = useState({
+    name: project?.name ?? '',
+    type: project?.type ?? 'farm_lot',
+    address: project?.address ?? '',
+    pricePerSqm: project?.price_per_sqm ?? '',
+  })
   const [rateInputs, setRateInputs] = useState({})
   const [ratesState, setRatesState] = useState('loading')
   const [errors, setErrors] = useState({})
@@ -32,17 +39,30 @@ export default function CreateProjectModal({ onClose, onCreated }) {
 
   useEffect(() => {
     let mounted = true
-    fetchCommissionRates()
-      .then((rows) => {
+    const loadRates = async () => {
+      const globalRows = await fetchCommissionRates()
+      const rates = Object.fromEntries(globalRows.map((r) => [r.role, Number(r.rate)]))
+      if (project?.id) {
+        try {
+          const projectRows = await fetchProjectRates(project.id)
+          for (const row of projectRows) rates[row.role] = Number(row.rate)
+        } catch {
+          // fall back to the global rates when the project rates cannot be read
+        }
+      }
+      return rates
+    }
+    loadRates()
+      .then((rates) => {
         if (!mounted) return
-        setRateInputs(Object.fromEntries(rows.map((r) => [r.role, String(+(Number(r.rate) * 100).toFixed(2))])))
+        setRateInputs(Object.fromEntries(Object.entries(rates).map(([role, rate]) => [role, String(+(rate * 100).toFixed(2))])))
         setRatesState('ready')
       })
       .catch(() => {
         if (mounted) setRatesState('error')
       })
     return () => { mounted = false }
-  }, [])
+  }, [project?.id])
 
   const setField = (field) => (e) => {
     setForm((f) => ({ ...f, [field]: e.target.value }))
@@ -73,7 +93,7 @@ export default function CreateProjectModal({ onClose, onCreated }) {
 
   const submit = async (e) => {
     e.preventDefault()
-    if (saving) return
+    if (saving || ratesState === 'loading') return
     const next = validate()
     setErrors(next)
     setError(null)
@@ -81,16 +101,18 @@ export default function CreateProjectModal({ onClose, onCreated }) {
 
     setSaving(true)
     try {
-      await createProject({
+      const payload = {
         name: form.name.trim(),
         type: form.type,
         address: form.address.trim(),
         pricePerSqm: Number(form.pricePerSqm),
         rates: Object.fromEntries(COMMISSION_ROLES.map((role) => [role, Number(rateInputs[role]) / 100])),
-      })
+      }
+      if (isEdit) await updateProject(project.id, payload)
+      else await createProject(payload)
       onCreated()
     } catch (err) {
-      setError(err?.message || 'Could not create the project. Please try again.')
+      setError(err?.message || `Could not ${isEdit ? 'update' : 'create'} the project. Please try again.`)
     } finally {
       setSaving(false)
     }
@@ -106,10 +128,10 @@ export default function CreateProjectModal({ onClose, onCreated }) {
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label="Create project"
+        aria-label={isEdit ? 'Edit project' : 'Create project'}
       >
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="font-display text-xl font-extrabold text-brand-deep">Create Project</h2>
+          <h2 className="font-display text-xl font-extrabold text-brand-deep">{isEdit ? 'Edit Project' : 'Create Project'}</h2>
           <button onClick={onClose} className="rounded-md px-2 py-1 text-ink/50 hover:text-ink" aria-label="Close">
             ✕
           </button>
@@ -169,9 +191,10 @@ export default function CreateProjectModal({ onClose, onCreated }) {
           <div className="sm:col-span-2">
             <h3 className="mb-1 font-display text-sm font-bold text-brand-deep">Commission Rates</h3>
             <p className="mb-3 text-xs text-ink/50">Percent of the lot price paid to each level. Defaults come from the global rates.</p>
-            {ratesState === 'loading' && <p className="text-sm text-ink/60">Loading rates…</p>}
-            {ratesState === 'error' && <p className="text-sm text-ink/60">Could not load the default rates.</p>}
-            {ratesState === 'ready' && (
+            {ratesState === 'error' && (
+              <p className="mb-3 text-sm text-ink/60">Could not load current rates — enter them manually.</p>
+            )}
+            {ratesState !== 'loading' && (
               <div className="flex flex-wrap gap-4">
                 {COMMISSION_ROLES.map((role) => (
                   <div key={role}>
@@ -201,8 +224,8 @@ export default function CreateProjectModal({ onClose, onCreated }) {
             <button type="button" onClick={onClose} disabled={saving} className="btn border border-mist bg-white text-ink/70 hover:border-brand/30 hover:text-brand disabled:opacity-60">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn btn-gold disabled:opacity-60">
-              {saving ? 'Creating…' : 'Create Project'}
+            <button type="submit" disabled={saving || ratesState === 'loading'} className="btn btn-gold disabled:opacity-60">
+              {saving ? (isEdit ? 'Saving…' : 'Creating…') : isEdit ? 'Save Changes' : 'Create Project'}
             </button>
           </div>
         </form>

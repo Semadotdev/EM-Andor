@@ -149,17 +149,23 @@ export async function createLots(projectId, project, rows) {
 export async function updateLot(lot, project, updates = {}) {
   const blockNo = updates.block_no ?? lot.block_no
   const lotNo = updates.lot_no ?? lot.lot_no
-  const area = updates.area ?? lot.lot_area_sqm
+  const isAvailable = lot.status === 'available'
+
+  const payload = {
+    block_no: blockNo,
+    lot_no: lotNo,
+    name: `Block ${blockNo} Lot ${lotNo}`,
+  }
+
+  if (isAvailable) {
+    const area = updates.area ?? lot.lot_area_sqm
+    payload.lot_area_sqm = area
+    payload.price = lotPrice(area, project.price_per_sqm)
+  }
 
   const { data, error } = await supabase
     .from('properties')
-    .update({
-      block_no: blockNo,
-      lot_no: lotNo,
-      lot_area_sqm: area,
-      name: `Block ${blockNo} Lot ${lotNo}`,
-      price: lotPrice(area, project.price_per_sqm),
-    })
+    .update(payload)
     .eq('id', lot.id)
     .select()
     .single()

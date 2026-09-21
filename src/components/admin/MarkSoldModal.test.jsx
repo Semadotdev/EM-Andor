@@ -19,6 +19,8 @@ const lot = {
   price: 100000,
   status: 'available',
   sold_by: null,
+  created_at: '2026-09-01T00:00:00Z',
+  updated_at: '2026-09-01T00:00:00Z',
 }
 
 const project = { id: 'pr1', name: 'Andor Farm' }
@@ -54,7 +56,16 @@ describe('MarkSoldModal', () => {
     expect(savePropertyWithCommission).toHaveBeenCalledWith({
       mode: 'edit',
       propertyId: 'l1',
-      payload: { ...lot, status: 'sold', sold_by: 'a1' },
+      payload: {
+        project_id: 'pr1',
+        name: 'Block 1 Lot 1',
+        block_no: '1',
+        lot_no: '1',
+        lot_area_sqm: 100,
+        price: 100000,
+        status: 'sold',
+        sold_by: 'a1',
+      },
     })
     expect(onSold).toHaveBeenCalled()
   })
@@ -81,6 +92,22 @@ describe('MarkSoldModal', () => {
     await user.click(screen.getByRole('button', { name: 'Mark Sold' }))
 
     expect(await screen.findByText('Select an active selling agent.')).toBeInTheDocument()
+    expect(screen.queryByText('Could not record the sale. Please try again.')).not.toBeInTheDocument()
+  })
+
+  it('renders a generic message for non-seller field errors', async () => {
+    savePropertyWithCommission.mockRejectedValue({
+      fieldErrors: { price: 'Set a price before marking this property sold.' },
+    })
+    const user = userEvent.setup()
+
+    render(<MarkSoldModal lot={lot} project={project} onClose={vi.fn()} onSold={vi.fn()} />)
+
+    await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
+    await user.click(screen.getByRole('button', { name: 'Mark Sold' }))
+
+    expect(await screen.findByText('Set a price before marking this property sold.')).toBeInTheDocument()
+    expect(screen.getByText('Could not record the sale. Please try again.')).toBeInTheDocument()
   })
 
   it('surfaces the paid-commission block', async () => {

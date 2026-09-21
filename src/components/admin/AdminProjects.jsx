@@ -36,7 +36,10 @@ export default function AdminProjects() {
         setProjects(rows)
         setState('ready')
       })
-      .catch(() => setState('error'))
+      .catch((err) => {
+        setError(err?.message || 'Could not load projects.')
+        setState('error')
+      })
   }, [])
 
   useEffect(load, [load])
@@ -115,6 +118,7 @@ export default function AdminProjects() {
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => setSelected(project)}
+                        aria-label={`Open ${project.name}`}
                         className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
                       >
                         Open

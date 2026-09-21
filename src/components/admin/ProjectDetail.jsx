@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import ConfirmModal from '../shared/ConfirmModal.jsx'
-import { deleteLot, fetchProjectLots, updateLot } from '../../lib/projects.js'
+import { deleteLot, fetchProject, fetchProjectLots, updateLot } from '../../lib/projects.js'
 import { setPropertyPinned } from '../../lib/api.js'
 import { fetchAllAgents } from '../../lib/agents.js'
 import { formatPrice } from '../../lib/format.js'
+import CreateProjectModal from './CreateProjectModal.jsx'
 import MarkSoldModal from './MarkSoldModal.jsx'
 import UploadLotsModal from './UploadLotsModal.jsx'
 
@@ -127,6 +128,7 @@ function EditLotModal({ lot, project, onClose, onSaved }) {
 }
 
 export default function ProjectDetail({ project, onBack }) {
+  const [currentProject, setCurrentProject] = useState(project)
   const [lots, setLots] = useState([])
   const [agentNames, setAgentNames] = useState({})
   const [state, setState] = useState('loading')
@@ -134,11 +136,16 @@ export default function ProjectDetail({ project, onBack }) {
   const [notice, setNotice] = useState('')
   const [pendingPins, setPendingPins] = useState({})
   const [showUpload, setShowUpload] = useState(false)
+  const [showEditProject, setShowEditProject] = useState(false)
   const [markSoldLot, setMarkSoldLot] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
+
+  useEffect(() => {
+    setCurrentProject(project)
+  }, [project])
 
   const load = useCallback(() => {
     setState('loading')
@@ -194,6 +201,17 @@ export default function ProjectDetail({ project, onBack }) {
     }
   }
 
+  const handleProjectSaved = async () => {
+    setShowEditProject(false)
+    try {
+      const fresh = await fetchProject(project.id)
+      setCurrentProject(fresh)
+    } catch {
+      // keep the current project details when the refresh fails
+    }
+    load()
+  }
+
   const counts = {
     total: lots.length,
     available: lots.filter((lot) => lot.status === 'available').length,
@@ -211,9 +229,9 @@ export default function ProjectDetail({ project, onBack }) {
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-extrabold text-brand-deep">{project.name}</h1>
+          <h1 className="font-display text-2xl font-extrabold text-brand-deep">{currentProject.name}</h1>
           <p className="mt-1 text-sm text-ink/70">
-            {TYPE_LABELS[project.type] ?? project.type} · {project.address} · {formatPrice(project.price_per_sqm) ?? '—'} / m²
+            {TYPE_LABELS[currentProject.type] ?? currentProject.type} · {currentProject.address} · {formatPrice(currentProject.price_per_sqm) ?? '—'} / m²
           </p>
           <p className="mt-2 flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-wide text-ink/50">
             <span>{counts.total} lots</span>
@@ -221,7 +239,15 @@ export default function ProjectDetail({ project, onBack }) {
             <span>{counts.sold} sold</span>
           </p>
         </div>
-        <button onClick={() => setShowUpload(true)} className="btn btn-gold">Upload Lots</button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => setShowEditProject(true)}
+            className="btn border border-mist bg-white text-ink/70 hover:border-brand/30 hover:text-brand"
+          >
+            Edit Project
+          </button>
+          <button onClick={() => setShowUpload(true)} className="btn btn-gold">Upload Lots</button>
+        </div>
       </div>
 
       {error && (
@@ -304,12 +330,14 @@ export default function ProjectDetail({ project, onBack }) {
                           Mark Sold
                         </button>
                       )}
-                      <button
-                        onClick={() => setEditTarget(lot)}
-                        className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-                      >
-                        Edit
-                      </button>
+                      {lot.status === 'available' && (
+                        <button
+                          onClick={() => setEditTarget(lot)}
+                          className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
+                        >
+                          Edit
+                        </button>
+                      )}
                       {lot.status === 'available' && (
                         <button
                           onClick={() => {
@@ -330,10 +358,18 @@ export default function ProjectDetail({ project, onBack }) {
         </div>
       )}
 
+      {showEditProject && (
+        <CreateProjectModal
+          project={currentProject}
+          onClose={() => setShowEditProject(false)}
+          onCreated={handleProjectSaved}
+        />
+      )}
+
       {markSoldLot && (
         <MarkSoldModal
           lot={markSoldLot}
-          project={project}
+          project={currentProject}
           onClose={() => setMarkSoldLot(null)}
           onSold={() => {
             setMarkSoldLot(null)
@@ -344,7 +380,7 @@ export default function ProjectDetail({ project, onBack }) {
 
       {showUpload && (
         <UploadLotsModal
-          project={project}
+          project={currentProject}
           onClose={() => setShowUpload(false)}
           onImported={(count) => {
             setShowUpload(false)
@@ -357,7 +393,7 @@ export default function ProjectDetail({ project, onBack }) {
       {editTarget && (
         <EditLotModal
           lot={editTarget}
-          project={project}
+          project={currentProject}
           onClose={() => setEditTarget(null)}
           onSaved={() => {
             setEditTarget(null)

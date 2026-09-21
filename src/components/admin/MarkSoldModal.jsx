@@ -48,16 +48,26 @@ export default function MarkSoldModal({ lot, project, onClose, onSold }) {
     setErrors({})
     setError(null)
     try {
+      const lotFields = { ...lot }
+      delete lotFields.id
+      delete lotFields.created_at
+      delete lotFields.updated_at
       await savePropertyWithCommission({
         mode: 'edit',
         propertyId: lot.id,
-        payload: { ...lot, status: 'sold', sold_by: sellerId },
+        payload: { ...lotFields, status: 'sold', sold_by: sellerId },
       })
       onSold()
     } catch (err) {
-      if (err?.fieldErrors) setErrors(err.fieldErrors)
-      else if (err?.message?.includes('Commission already paid')) setError(err.message)
-      else setError('Could not record the sale. Please try again.')
+      if (err?.fieldErrors) {
+        setErrors(err.fieldErrors)
+        const hasNonSellerError = Object.keys(err.fieldErrors).some((field) => field !== 'sold_by')
+        if (hasNonSellerError) setError('Could not record the sale. Please try again.')
+      } else if (err?.message?.includes('Commission already paid')) {
+        setError(err.message)
+      } else {
+        setError('Could not record the sale. Please try again.')
+      }
     } finally {
       setSaving(false)
     }
@@ -129,6 +139,11 @@ export default function MarkSoldModal({ lot, project, onClose, onSold }) {
             {errors.sold_by && (
               <p className="mt-1.5 text-xs font-medium text-red-600" role="alert">{errors.sold_by}</p>
             )}
+            {Object.entries(errors)
+              .filter(([field]) => field !== 'sold_by')
+              .map(([field, message]) => (
+                <p key={field} className="mt-1.5 text-xs font-medium text-red-600" role="alert">{message}</p>
+              ))}
           </div>
 
           <div className="flex flex-wrap justify-end gap-3">

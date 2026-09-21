@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import ProjectDetail from './ProjectDetail.jsx'
 
 vi.mock('../../lib/projects.js', () => ({
+  fetchProject: vi.fn(),
   fetchProjectLots: vi.fn(),
   updateLot: vi.fn(),
   deleteLot: vi.fn(),
@@ -12,6 +13,15 @@ vi.mock('../../lib/projects.js', () => ({
 vi.mock('../../lib/api.js', () => ({ setPropertyPinned: vi.fn() }))
 
 vi.mock('../../lib/agents.js', () => ({ fetchAllAgents: vi.fn() }))
+
+vi.mock('./CreateProjectModal.jsx', () => ({
+  default: ({ onClose, onCreated }) => (
+    <div role="dialog" aria-label="Edit project">
+      <button onClick={onClose}>Close</button>
+      <button onClick={() => onCreated()}>Save project</button>
+    </div>
+  ),
+}))
 
 vi.mock('./MarkSoldModal.jsx', () => ({
   default: ({ onSold }) => (
@@ -25,7 +35,7 @@ vi.mock('./UploadLotsModal.jsx', () => ({
   default: () => <div role="dialog" aria-label="Upload lots" />,
 }))
 
-import { deleteLot, fetchProjectLots, updateLot } from '../../lib/projects.js'
+import { deleteLot, fetchProject, fetchProjectLots, updateLot } from '../../lib/projects.js'
 import { setPropertyPinned } from '../../lib/api.js'
 import { fetchAllAgents } from '../../lib/agents.js'
 
@@ -64,6 +74,7 @@ describe('ProjectDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     fetchProjectLots.mockResolvedValue([availableLot, soldLot])
+    fetchProject.mockResolvedValue(project)
     fetchAllAgents.mockResolvedValue([{ id: 'a1', name: 'Ana Agent', role: 'sub_agent', is_active: true }])
     setPropertyPinned.mockResolvedValue(undefined)
     deleteLot.mockResolvedValue(undefined)
@@ -82,6 +93,7 @@ describe('ProjectDetail', () => {
     expect(screen.getAllByText('100 sqm')).toHaveLength(2)
     expect(screen.getAllByRole('button', { name: 'Mark Sold' })).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: 'Delete' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(1)
   })
 
   it('pins a lot optimistically and persists it', async () => {
@@ -205,6 +217,23 @@ describe('ProjectDetail', () => {
     await user.click(screen.getByRole('button', { name: 'Upload Lots' }))
 
     expect(screen.getByRole('dialog', { name: 'Upload lots' })).toBeInTheDocument()
+  })
+
+  it('edits the project and refreshes the project and its lots', async () => {
+    fetchProject.mockResolvedValue({ ...project, name: 'Andor Farm Updated' })
+    const user = userEvent.setup()
+
+    render(<ProjectDetail project={project} onBack={vi.fn()} />)
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Project' }))
+    expect(screen.getByRole('dialog', { name: 'Edit project' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Save project' }))
+
+    expect(fetchProject).toHaveBeenCalledWith('pr1')
+    expect(await screen.findByText('Andor Farm Updated')).toBeInTheDocument()
+    expect(fetchProjectLots).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('dialog', { name: 'Edit project' })).not.toBeInTheDocument()
   })
 
   it('calls onBack when going back', async () => {

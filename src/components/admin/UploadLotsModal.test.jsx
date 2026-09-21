@@ -43,6 +43,8 @@ describe('UploadLotsModal', () => {
 
     render(<UploadLotsModal project={project} onClose={vi.fn()} onImported={onImported} />)
 
+    expect(screen.getByLabelText('Lots Excel file')).toHaveAttribute('accept', '.xlsx')
+    expect(screen.getByText(/Only \.xlsx files are supported\./)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Import Lots' })).toBeDisabled()
 
     await chooseFile(user)

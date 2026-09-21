@@ -107,13 +107,13 @@ export default function UploadLotsModal({ project, onClose, onImported }) {
             <input
               id="ul-file"
               type="file"
-              accept=".xlsx,.xls"
+              accept=".xlsx"
               aria-label="Lots Excel file"
               onChange={handleFile}
               className="w-full rounded-md border border-mist bg-white px-4 py-3 text-sm text-ink transition-colors file:mr-3 file:rounded-md file:border-0 file:bg-brand/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-brand focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             />
             <p className="mt-1.5 text-xs text-ink/50">
-              Expected columns: Block No, Lot No, Area. {fileName ? `Selected: ${fileName}` : ''}
+              Expected columns: Block No, Lot No, Area. Only .xlsx files are supported.{fileName ? ` Selected: ${fileName}` : ''}
             </p>
           </div>
 

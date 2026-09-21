@@ -79,7 +79,7 @@ describe('AdminProjects', () => {
 
     render(<AdminProjects />)
 
-    const openButtons = await screen.findAllByRole('button', { name: 'Open' })
+    const openButtons = await screen.findAllByRole('button', { name: 'Open Andor Farm' })
     await user.click(openButtons[0])
 
     expect(screen.getByRole('dialog', { name: 'Andor Farm detail' })).toBeInTheDocument()
@@ -90,13 +90,21 @@ describe('AdminProjects', () => {
     expect(screen.queryByRole('dialog', { name: 'Andor Farm detail' })).not.toBeInTheDocument()
   })
 
+  it('labels each open action with the project name', async () => {
+    render(<AdminProjects />)
+
+    expect(await screen.findByRole('button', { name: 'Open Andor Farm' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open Andor Homes' })).toBeInTheDocument()
+  })
+
   it('shows a retry state when loading fails', async () => {
     fetchProjects.mockRejectedValueOnce(new Error('boom'))
     const user = userEvent.setup()
 
     render(<AdminProjects />)
 
-    expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('boom')
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Retry' }))
 

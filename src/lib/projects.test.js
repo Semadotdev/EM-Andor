@@ -326,7 +326,7 @@ describe('projects', () => {
   })
 
   it('updateLot recomputes name and price from the project rate', async () => {
-    const lot = { id: 'lot1', project_id: 'pr1', block_no: '1', lot_no: '3', lot_area_sqm: 100 }
+    const lot = { id: 'lot1', project_id: 'pr1', block_no: '1', lot_no: '3', lot_area_sqm: 100, status: 'available' }
     const updated = { ...lot, block_no: '2', lot_no: '5', lot_area_sqm: 120 }
     const c = chain({ data: updated, error: null })
     supabase.from.mockReturnValue(c)
@@ -346,7 +346,7 @@ describe('projects', () => {
   })
 
   it('updateLot falls back to the existing block, lot, and area', async () => {
-    const lot = { id: 'lot1', project_id: 'pr1', block_no: '1', lot_no: '3', lot_area_sqm: 100 }
+    const lot = { id: 'lot1', project_id: 'pr1', block_no: '1', lot_no: '3', lot_area_sqm: 100, status: 'available' }
     const c = chain({ data: lot, error: null })
     supabase.from.mockReturnValue(c)
 
@@ -358,6 +358,28 @@ describe('projects', () => {
       lot_area_sqm: 50,
       name: 'Block 1 Lot 3',
       price: 49999.5,
+    })
+  })
+
+  it('updateLot keeps a sold lot price and area while renaming it', async () => {
+    const lot = {
+      id: 'lot1',
+      project_id: 'pr1',
+      block_no: '1',
+      lot_no: '3',
+      lot_area_sqm: 100,
+      price: 95000,
+      status: 'sold',
+    }
+    const updated = { ...lot, block_no: '2', lot_no: '5' }
+    const c = chain({ data: updated, error: null })
+    supabase.from.mockReturnValue(c)
+
+    expect(await updateLot(lot, project, { block_no: '2', lot_no: '5', area: 250 })).toEqual(updated)
+    expect(c.update).toHaveBeenCalledWith({
+      block_no: '2',
+      lot_no: '5',
+      name: 'Block 2 Lot 5',
     })
   })
 
