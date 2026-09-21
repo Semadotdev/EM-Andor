@@ -256,7 +256,7 @@ describe('promotions', () => {
       agent('d3', 'direct_agent', 's1'),
       agent('d4', 'direct_agent', 's1', false),
     ]
-    expect(countDownlineDirectAgents(agents, 'head1')).toBe(2)
+    expect(countDownlineDirectAgents(agents, 'head1')).toBe(3)
   })
 
   it('returns every agent that is currently eligible', () => {
