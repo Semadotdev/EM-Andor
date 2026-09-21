@@ -1989,20 +1989,17 @@ Add this effect after the existing Escape-key effect:
 ```js
   useEffect(() => {
     if (form.status !== 'sold' || agentsState !== 'idle') return
-    let mounted = true
     setAgentsState('loading')
     fetchAllAgents()
       .then((rows) => {
-        if (!mounted) return
         setAgents(rows.filter((a) => a.role !== 'admin' && a.is_active))
         setAgentsState('ready')
       })
-      .catch(() => {
-        if (mounted) setAgentsState('error')
-      })
-    return () => { mounted = false }
+      .catch(() => setAgentsState('error'))
   }, [form.status, agentsState])
 ```
+
+Note: do NOT use a `mounted` cleanup flag here — `setAgentsState('loading')` re-runs the effect, so the cleanup would set `mounted = false` before the fetch resolves and the UI would stay stuck on "Loading agents…". Setting state after unmount is a no-op in React 18+, so the flag is unnecessary.
 
 - [ ] **Step 3: Extend validation and payload**
 
@@ -2054,7 +2051,7 @@ with:
 ```js
     } catch (err) {
       if (err?.fieldErrors) setErrors(err.fieldErrors)
-      else if (err?.message && err.message !== 'Validation failed') setError(err.message)
+      else if (err?.message?.includes('Commission already paid')) setError(err.message)
       else setError('Could not save the property. Please try again.')
     } finally {
 ```
@@ -2184,7 +2181,11 @@ becomes:
     )
 ```
 
-Also set `savePropertyWithCommission.mockResolvedValue({ id: 'p7' })` inside those two tests (replacing the old `updateProperty` resolutions).
+Also set `savePropertyWithCommission.mockResolvedValue(updated)` in the name-edit test (so its `onSaved` assertion receives the updated row) and `mockResolvedValue({ id: 'p7' })` in the pins test (replacing the old `updateProperty` resolutions).
+
+Two fixture notes:
+- Add `sold_by: null` to the `payload` fixture: the component now always emits `sold_by`, and the create test uses an exact `toHaveBeenCalledWith(payload)` match.
+- Leave the existing `'shows a save error and re-enables the submit button'` test unchanged: the narrowed catch still shows `'Could not save the property. Please try again.'` for non-commission errors.
 
 - [ ] **Step 8: Add the sold-flow tests**
 
