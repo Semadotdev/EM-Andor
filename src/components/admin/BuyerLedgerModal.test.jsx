@@ -267,6 +267,38 @@ describe('BuyerLedgerModal', () => {
     expect(fetchPayments).toHaveBeenCalledTimes(2)
   })
 
+  it('paginates the payments table and slices the displayed rows', async () => {
+    const manyPayments = Array.from({ length: 12 }, (_, index) => ({
+      id: `pay${index + 1}`,
+      property_id: 'l1',
+      entry_date: `2026-01-${String(index + 1).padStart(2, '0')}`,
+      or_number: `OR-${index + 1}`,
+      amount: 1000,
+      surcharge: 0,
+      interest: 0,
+      remarks: '',
+    }))
+    fetchPayments.mockResolvedValue(manyPayments)
+    const user = userEvent.setup()
+
+    render(<BuyerLedgerModal lot={lot} project={project} onClose={vi.fn()} onChanged={vi.fn()} />)
+
+    expect(await screen.findByText('OR-1')).toBeInTheDocument()
+    expect(screen.getByText('Showing 1–10 of 12')).toBeInTheDocument()
+    expect(screen.getByText('OR-10')).toBeInTheDocument()
+    expect(screen.queryByText('OR-11')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Rows per page')).toHaveValue('10')
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: 'Next page' }))
+
+    expect(screen.getByText('Showing 11–12 of 12')).toBeInTheDocument()
+    expect(screen.getByText('OR-11')).toBeInTheDocument()
+    expect(screen.getByText('OR-12')).toBeInTheDocument()
+    expect(screen.queryByText('OR-1')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
+  })
+
   it('exports the ledger rows as CSV', async () => {
     const user = userEvent.setup()
 

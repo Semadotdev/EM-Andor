@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchActivityLog } from '../../lib/api.js'
 import { exportToCSV } from '../../lib/csv.js'
 import { formatRelativeTime } from '../../lib/format.js'
-import { Badge, DataTable, ErrorState, LoadingState, PageHeader } from '../shared/ui'
+import { Badge, DataTable, ErrorState, LoadingState, PageHeader, Pagination } from '../shared/ui'
+
+const PAGE_SIZE = 20
 
 const ACTION_TONES = {
   create: 'green',
@@ -53,15 +55,18 @@ export default function AdminActivityLog() {
   }, [load])
 
   useEffect(() => {
+    if (searchInput === search) return undefined
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       setSearch(searchInput)
       setPage(1)
     }, 300)
     return () => clearTimeout(debounceRef.current)
-  }, [searchInput])
+  }, [searchInput, search])
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / 20))
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const from = (page - 1) * PAGE_SIZE + 1
+  const to = from + entries.length - 1
 
   const exportCSV = () => {
     const headers = ['Action', 'Table', 'Record ID', 'Timestamp', 'Details']
@@ -215,48 +220,34 @@ export default function AdminActivityLog() {
       {status === 'ready' && (
         <>
           {entries.length > 0 && (
-            <>
-              <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-brand/20 bg-brand/5 p-3">
-                <button
-                  onClick={exportCSV}
-                  className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-                >
-                  Export CSV
-                </button>
-              </div>
-
-              <p className="mb-3 text-xs font-semibold text-ink/50">
-                Showing {entries.length} of {totalCount} entries
-              </p>
-            </>
+            <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-brand/20 bg-brand/5 p-3">
+              <button
+                onClick={exportCSV}
+                className="rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
+              >
+                Export CSV
+              </button>
+            </div>
           )}
 
           <DataTable
             columns={columns}
             rows={entries}
             getRowKey={(entry) => entry.id}
+            pageSize={0}
             emptyMessage={hasFilters ? 'No log entries match your filters.' : 'No activity recorded yet.'}
             mobileCard={activityCard}
           />
 
-          {totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="rounded-md border border-mist px-4 py-2 text-sm font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand disabled:opacity-40"
-              >
-                Previous
-              </button>
-              <span className="text-sm text-ink/60">Page {page} of {totalPages}</span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="rounded-md border border-mist px-4 py-2 text-sm font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand disabled:opacity-40"
-              >
-                Next
-              </button>
-            </div>
+          {entries.length > 0 && (
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              total={totalCount}
+              from={from}
+              to={to}
+            />
           )}
         </>
       )}

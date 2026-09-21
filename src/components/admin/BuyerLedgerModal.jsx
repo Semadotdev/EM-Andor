@@ -3,7 +3,7 @@ import { buildLedger, ledgerCsvRows } from '../../lib/ledger.js'
 import { exportToCSV } from '../../lib/csv.js'
 import { createPayment, deletePayment, fetchPayments, fetchSale, updatePayment } from '../../lib/sales.js'
 import { formatPrice } from '../../lib/format.js'
-import { Button, ConfirmModal, ErrorState, Input, LoadingState, Modal, useToast } from '../shared/ui'
+import { Button, ConfirmModal, ErrorState, Input, LoadingState, Modal, Pagination, useToast } from '../shared/ui'
 import SaleDetailsModal from './SaleDetailsModal.jsx'
 
 const CSV_HEADERS = ['DATE', 'OR#', 'AMOUNT', 'SURCHARGE', 'INTEREST', 'PRINCIPAL', 'BALANCE OF PRINCIPAL', 'REMARKS']
@@ -50,9 +50,24 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [showEditSale, setShowEditSale] = useState(false)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   const ledger = useMemo(() => buildLedger(payments, sale?.tcp), [payments, sale?.tcp])
   const isEditingPayment = paymentModal?.mode === 'edit'
+
+  const totalRows = ledger.rows.length
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize))
+  const start = (page - 1) * pageSize
+  const visibleRows = ledger.rows.slice(start, start + pageSize)
+
+  useEffect(() => {
+    setPage(1)
+  }, [payments])
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages))
+  }, [totalPages])
 
   const load = () => {
     setState('loading')
@@ -299,7 +314,7 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
                       </td>
                     </tr>
                   )}
-                  {ledger.rows.map((row) => (
+                  {visibleRows.map((row) => (
                     <tr key={row.id} className="border-b border-mist/70 last:border-0">
                       <td className="whitespace-nowrap px-3 py-3 text-ink/70">{row.entry_date ?? '—'}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-ink/70">{row.or_number ?? '—'}</td>
@@ -336,6 +351,22 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
                 </tfoot>
               </table>
             </div>
+
+            {totalRows > 0 && (
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                total={totalRows}
+                from={start + 1}
+                to={Math.min(start + pageSize, totalRows)}
+                pageSize={pageSize}
+                onPageSizeChange={(nextSize) => {
+                  setPageSize(nextSize)
+                  setPage(1)
+                }}
+              />
+            )}
           </>
         )}
       </div>

@@ -50,7 +50,7 @@ describe('AdminActivityLog', () => {
   it('renders log entries', async () => {
     render(<AdminActivityLog />)
 
-    expect(await screen.findByText('Showing 3 of 3 entries')).toBeInTheDocument()
+    expect(await screen.findByText('Showing 1–3 of 3')).toBeInTheDocument()
     expect(screen.getAllByText('Create').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Update').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Delete').length).toBeGreaterThanOrEqual(1)
@@ -135,7 +135,7 @@ describe('AdminActivityLog', () => {
   it('shows result count', async () => {
     render(<AdminActivityLog />)
 
-    expect(await screen.findByText('Showing 3 of 3 entries')).toBeInTheDocument()
+    expect(await screen.findByText('Showing 1–3 of 3')).toBeInTheDocument()
   })
 
   it('shows loading state', async () => {
@@ -193,7 +193,26 @@ describe('AdminActivityLog', () => {
 
     expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Retry' }))
-    expect(await screen.findByText('Showing 3 of 3 entries')).toBeInTheDocument()
+    expect(await screen.findByText('Showing 1–3 of 3')).toBeInTheDocument()
+  })
+
+  it('pages through the server-side results with the shared control', async () => {
+    fetchActivityLog.mockResolvedValue({ data: sample, count: 45 })
+    const user = userEvent.setup()
+
+    render(<AdminActivityLog />)
+
+    expect(await screen.findByText('Showing 1–3 of 45')).toBeInTheDocument()
+    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: 'Next page' }))
+
+    await waitFor(() => {
+      expect(fetchActivityLog).toHaveBeenCalledWith(expect.objectContaining({ page: 2 }))
+    })
+    expect(await screen.findByText('Page 2 of 3')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Rows per page')).not.toBeInTheDocument()
   })
 
   it('clears filters when Clear filters is clicked', async () => {

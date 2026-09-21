@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { EmptyState, ErrorState } from './States.jsx'
+import Pagination from './Pagination.jsx'
 
 const HIDE_BELOW = {
   sm: 'hidden sm:table-cell',
@@ -70,16 +72,59 @@ export default function DataTable({
   loadingMessage = 'Loading…',
   footer,
   mobileCard,
+  pageSize = 10,
+  pageSizeOptions,
 }) {
   const rowKey = getRowKey ?? ((row, index) => row?.id ?? index)
+  const paginated = pageSize > 0
+  const [page, setPage] = useState(1)
+  const [size, setSize] = useState(pageSize)
+
+  useEffect(() => {
+    setSize(pageSize)
+  }, [pageSize])
+
+  useEffect(() => {
+    setPage(1)
+  }, [rows])
+
+  const totalPages = paginated && size > 0 ? Math.max(1, Math.ceil(rows.length / size)) : 1
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages))
+  }, [totalPages])
+
+  const start = paginated && size > 0 ? (page - 1) * size : 0
+  const visibleRows = paginated && size > 0 ? rows.slice(start, start + size) : rows
 
   if (state === 'error') {
     return <ErrorState onRetry={onRetry} />
   }
 
+  const pagination = paginated ? (
+    <Pagination
+      page={page}
+      totalPages={totalPages}
+      onPageChange={setPage}
+      total={rows.length}
+      from={start + 1}
+      to={Math.min(start + size, rows.length)}
+      pageSize={size}
+      onPageSizeChange={
+        pageSizeOptions
+          ? (nextSize) => {
+              setSize(nextSize)
+              setPage(1)
+            }
+          : undefined
+      }
+      pageSizeOptions={pageSizeOptions}
+    />
+  ) : null
+
   const table = (
     <div className={mobileCard ? 'hidden md:block' : undefined}>
-      <Table columns={columns} rows={rows} getRowKey={rowKey} footer={footer} />
+      <Table columns={columns} rows={visibleRows} getRowKey={rowKey} footer={footer} />
     </div>
   )
 
@@ -111,16 +156,24 @@ export default function DataTable({
     return <EmptyState message={emptyMessage} />
   }
 
-  if (!mobileCard) return table
+  if (!mobileCard) {
+    return (
+      <div>
+        {table}
+        {pagination}
+      </div>
+    )
+  }
 
   return (
     <div>
       <div className="grid gap-3 md:hidden">
-        {rows.map((row, index) => (
+        {visibleRows.map((row, index) => (
           <div key={rowKey(row, index)}>{mobileCard(row)}</div>
         ))}
       </div>
       {table}
+      {pagination}
     </div>
   )
 }

@@ -14,6 +14,7 @@ describe('shared ui barrel', () => {
       'Button',
       'PageHeader',
       'DataTable',
+      'Pagination',
       'Badge',
       'StatCard',
       'EmptyState',

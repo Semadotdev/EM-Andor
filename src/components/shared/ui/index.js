@@ -4,6 +4,7 @@ export { inputClass, Input, Select, Textarea, Checkbox, FieldError } from './Fie
 export { default as Button } from './Button.jsx'
 export { default as PageHeader } from './PageHeader.jsx'
 export { default as DataTable } from './DataTable.jsx'
+export { default as Pagination } from './Pagination.jsx'
 export { default as Badge, statusTone } from './Badge.jsx'
 export { default as StatCard } from './StatCard.jsx'
 export { EmptyState, LoadingState, ErrorState } from './States.jsx'
