@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { deleteLot, fetchProject, fetchProjectLots, updateLot } from '../../lib/projects.js'
-import { setPropertyPinned } from '../../lib/api.js'
 import { fetchAllAgents } from '../../lib/agents.js'
 import { formatPrice } from '../../lib/format.js'
 import BuyerLedgerModal from './BuyerLedgerModal.jsx'
@@ -123,8 +122,6 @@ export default function ProjectDetail() {
   const [lots, setLots] = useState([])
   const [agentNames, setAgentNames] = useState({})
   const [state, setState] = useState('loading')
-  const [error, setError] = useState(null)
-  const [pendingPins, setPendingPins] = useState({})
   const [showUpload, setShowUpload] = useState(false)
   const [showEditProject, setShowEditProject] = useState(false)
   const [markSoldLot, setMarkSoldLot] = useState(null)
@@ -167,23 +164,6 @@ export default function ProjectDetail() {
       .catch(() => {})
     return () => { mounted = false }
   }, [])
-
-  const togglePin = async (lot) => {
-    if (pendingPins[lot.id]) return
-    const next = !lot.is_pinned
-    const prev = lot.is_pinned
-    setError(null)
-    setPendingPins((pins) => ({ ...pins, [lot.id]: true }))
-    setLots((list) => list.map((x) => (x.id === lot.id ? { ...x, is_pinned: next } : x)))
-    try {
-      await setPropertyPinned(lot.id, next)
-    } catch {
-      setLots((list) => list.map((x) => (x.id === lot.id ? { ...x, is_pinned: prev } : x)))
-      setError('Could not update pin status. Please try again.')
-    } finally {
-      setPendingPins((pins) => ({ ...pins, [lot.id]: false }))
-    }
-  }
 
   const handleDelete = async () => {
     if (!confirmDelete || deleting) return
@@ -230,15 +210,6 @@ export default function ProjectDetail() {
 
   const lotActions = (lot) => (
     <div className="flex flex-wrap justify-end gap-2">
-      <Button
-        size="sm"
-        variant={lot.is_pinned ? 'gold' : 'secondary'}
-        onClick={() => togglePin(lot)}
-        disabled={Boolean(pendingPins[lot.id])}
-        aria-pressed={lot.is_pinned}
-      >
-        {lot.is_pinned ? 'Pinned' : 'Pin'}
-      </Button>
       {lot.status === 'available' && (
         <Button size="sm" variant="secondary" onClick={() => setMarkSoldLot(lot)}>
           Mark Sold
@@ -383,12 +354,6 @@ export default function ProjectDetail() {
         <span>{counts.available} available</span>
         <span>{counts.sold} sold</span>
       </p>
-
-      {error && (
-        <p role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
-          {error}
-        </p>
-      )}
 
       {state === 'loading' && <LoadingState label="Loading lots…" />}
 

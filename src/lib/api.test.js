@@ -9,7 +9,6 @@ import {
   fetchProperties,
   fetchPropertyStats,
   setInquiryRead,
-  setPropertyPinned,
   submitInquiry,
   updateProperty,
   uploadPropertyImage,
@@ -85,18 +84,6 @@ describe('api', () => {
     expect(c.update).toHaveBeenCalledWith({ name: 'Lot A edited' })
     expect(c.eq).toHaveBeenCalledWith('id', 'p1')
     expect(result).toEqual(row)
-  })
-
-  it('setPropertyPinned updates only is_pinned', async () => {
-    const row = { id: 'p1', is_pinned: true }
-    const c = makeChain()
-    c.single.mockResolvedValue({ data: row, error: null })
-    supabase.from.mockReturnValue(c)
-
-    await setPropertyPinned('p1', true)
-
-    expect(c.update).toHaveBeenCalledWith({ is_pinned: true })
-    expect(c.eq).toHaveBeenCalledWith('id', 'p1')
   })
 
   it('deleteProperty deletes by id', async () => {
@@ -290,9 +277,9 @@ describe('api', () => {
     const allChain = makeChain()
     allChain.select.mockResolvedValue({
       data: [
-        { id: 'p1', is_pinned: true, type: 'residential lot' },
-        { id: 'p2', is_pinned: false, type: 'residential lot' },
-        { id: 'p3', is_pinned: true, type: 'commercial lot' },
+        { id: 'p1', type: 'residential lot' },
+        { id: 'p2', type: 'residential lot' },
+        { id: 'p3', type: 'commercial lot' },
       ],
       error: null,
     })
@@ -302,6 +289,8 @@ describe('api', () => {
 
     const result = await fetchPropertyStats()
 
+    expect(supabase.from).toHaveBeenCalledWith('properties')
+    expect(allChain.select).toHaveBeenCalledWith('id, type')
     expect(supabase.from).toHaveBeenCalledWith('projects')
     expect(projectsChain.select).toHaveBeenCalledWith('id')
     expect(result).toEqual({

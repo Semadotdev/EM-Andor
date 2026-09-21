@@ -12,8 +12,6 @@ vi.mock('../../lib/projects.js', () => ({
   deleteLot: vi.fn(),
 }))
 
-vi.mock('../../lib/api.js', () => ({ setPropertyPinned: vi.fn() }))
-
 vi.mock('../../lib/agents.js', () => ({ fetchAllAgents: vi.fn() }))
 
 vi.mock('./CreateProjectModal.jsx', () => ({
@@ -46,7 +44,6 @@ vi.mock('./BuyerLedgerModal.jsx', () => ({
 }))
 
 import { deleteLot, fetchProject, fetchProjectLots, updateLot } from '../../lib/projects.js'
-import { setPropertyPinned } from '../../lib/api.js'
 import { fetchAllAgents } from '../../lib/agents.js'
 
 const project = {
@@ -66,7 +63,6 @@ const availableLot = {
   lot_area_sqm: 100,
   price: 100000,
   status: 'available',
-  is_pinned: false,
   sold_by: null,
 }
 
@@ -76,7 +72,6 @@ const soldLot = {
   block_no: '1',
   lot_no: '2',
   status: 'sold',
-  is_pinned: true,
   sold_by: 'a1',
   sales: { buyer_name: 'Juan Dela Cruz' },
 }
@@ -98,7 +93,6 @@ describe('ProjectDetail', () => {
     fetchProjectLots.mockResolvedValue([availableLot, soldLot])
     fetchProject.mockResolvedValue(project)
     fetchAllAgents.mockResolvedValue([{ id: 'a1', name: 'Ana Agent', role: 'sub_agent', is_active: true }])
-    setPropertyPinned.mockResolvedValue(undefined)
     deleteLot.mockResolvedValue(undefined)
   })
 
@@ -156,35 +150,6 @@ describe('ProjectDetail', () => {
     await user.click(screen.getByRole('button', { name: 'Close ledger' }))
 
     expect(screen.queryByRole('dialog', { name: 'Buyer ledger' })).not.toBeInTheDocument()
-  })
-
-  it('pins a lot optimistically and persists it', async () => {
-    const user = userEvent.setup()
-
-    renderDetail()
-
-    const table = await screen.findByRole('table')
-    const pinButtons = within(table).getAllByRole('button', { name: 'Pin' })
-    expect(pinButtons).toHaveLength(1)
-
-    await user.click(pinButtons[0])
-
-    expect(setPropertyPinned).toHaveBeenCalledWith('l1', true)
-    expect(within(table).getAllByRole('button', { name: 'Pinned' })).toHaveLength(2)
-  })
-
-  it('reverts the pin toggle on failure and shows an error', async () => {
-    setPropertyPinned.mockRejectedValue(new Error('fail'))
-    const user = userEvent.setup()
-
-    renderDetail()
-
-    const table = await screen.findByRole('table')
-    const pinButtons = within(table).getAllByRole('button', { name: 'Pin' })
-    await user.click(pinButtons[0])
-
-    expect(await screen.findByText(/Could not update pin status/)).toBeInTheDocument()
-    expect(within(table).getAllByRole('button', { name: 'Pin' })).toHaveLength(1)
   })
 
   it('opens the mark sold modal and reloads the lots after a sale', async () => {

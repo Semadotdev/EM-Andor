@@ -68,10 +68,6 @@ export async function updateProperty(id, updates) {
   return data
 }
 
-export async function setPropertyPinned(id, isPinned) {
-  return updateProperty(id, { is_pinned: isPinned })
-}
-
 export async function deleteProperty(id) {
   const { error } = await supabase.from('properties').delete().eq('id', id)
   if (error) throw error
@@ -142,7 +138,7 @@ export async function bulkSetInquiryRead(ids, isRead) {
 export async function fetchPropertyStats() {
   const { data: all, error: e1 } = await supabase
     .from('properties')
-    .select('id, is_pinned, type')
+    .select('id, type')
   if (e1) throw e1
   const { data: projects, error: e3 } = await supabase
     .from('projects')
