@@ -73,10 +73,6 @@ create table if not exists public.agents (
 create index if not exists agents_user_id_idx on public.agents(user_id);
 create index if not exists agents_upline_id_idx on public.agents(upline_id);
 
-drop trigger if exists set_updated_at on public.agents;
-create trigger set_updated_at before update on public.agents
-  for each row execute function public.set_updated_at();
-
 -- Commission rates per role
 create table if not exists public.commission_settings (
   id uuid primary key default gen_random_uuid(),
@@ -84,10 +80,6 @@ create table if not exists public.commission_settings (
   rate numeric(6,4) not null default 0 check (rate >= 0 and rate <= 1),
   updated_at timestamptz not null default now()
 );
-
-drop trigger if exists set_updated_at on public.commission_settings;
-create trigger set_updated_at before update on public.commission_settings
-  for each row execute function public.set_updated_at();
 
 insert into public.commission_settings (role, rate) values
   ('sub_agent', 0.0300),
@@ -250,6 +242,14 @@ begin
   return new;
 end;
 $$ language plpgsql;
+
+drop trigger if exists set_updated_at on public.agents;
+create trigger set_updated_at before update on public.agents
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists set_updated_at on public.commission_settings;
+create trigger set_updated_at before update on public.commission_settings
+  for each row execute function public.set_updated_at();
 
 -- Add updated_at to properties
 alter table public.properties add column if not exists updated_at timestamptz not null default now();
