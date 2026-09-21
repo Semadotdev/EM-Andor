@@ -302,7 +302,7 @@ describe('api', () => {
     expect(c.order).toHaveBeenCalledWith('name', { ascending: true })
   })
 
-  it('fetchPropertyStats returns totals, pinned count, project count and types', async () => {
+  it('fetchPropertyStats returns totals, project count and types', async () => {
     const allChain = makeChain()
     allChain.select.mockResolvedValue({
       data: [
@@ -312,16 +312,9 @@ describe('api', () => {
       ],
       error: null,
     })
-    const pinnedChain = makeChain()
-    pinnedChain.eq.mockResolvedValue({ data: [{ id: 'p1' }, { id: 'p3' }], error: null })
     const projectsChain = makeChain()
     projectsChain.select.mockResolvedValue({ data: [{ id: 'pr1' }], error: null })
-    let propertyCalls = 0
-    supabase.from.mockImplementation((table) => {
-      if (table === 'projects') return projectsChain
-      propertyCalls += 1
-      return propertyCalls === 1 ? allChain : pinnedChain
-    })
+    supabase.from.mockImplementation((table) => (table === 'projects' ? projectsChain : allChain))
 
     const result = await fetchPropertyStats()
 
@@ -329,7 +322,6 @@ describe('api', () => {
     expect(projectsChain.select).toHaveBeenCalledWith('id')
     expect(result).toEqual({
       total: 3,
-      pinned: 2,
       projects: 1,
       types: { 'residential lot': 2, 'commercial lot': 1 },
     })

@@ -36,6 +36,7 @@ export default function DashboardStats({ onJumpToInquiries }) {
     'commercial lot': 'Commercial Lot',
     'house & lot': 'House & Lot',
     'development lot': 'Development Lot',
+    'farm lot': 'Farm Lot',
   }
 
   return (

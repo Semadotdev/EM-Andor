@@ -154,11 +154,6 @@ export async function fetchPropertyStats() {
     .from('properties')
     .select('id, is_pinned, type')
   if (e1) throw e1
-  const { data: pinned, error: e2 } = await supabase
-    .from('properties')
-    .select('id')
-    .eq('is_pinned', true)
-  if (e2) throw e2
   const { data: projects, error: e3 } = await supabase
     .from('projects')
     .select('id')
@@ -169,7 +164,6 @@ export async function fetchPropertyStats() {
   }
   return {
     total: all.length,
-    pinned: pinned.length,
     projects: projects.length,
     types,
   }
