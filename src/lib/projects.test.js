@@ -240,7 +240,7 @@ describe('projects', () => {
       ],
       error: null,
     })
-    const lotUpdateChain = chain({ data: null, error: null })
+    const lotUpdateChain = chain({ data: [{ id: 'lot1' }], error: null })
     supabase.from
       .mockImplementationOnce(() => lotsChain)
       .mockImplementation(() => lotUpdateChain)
@@ -256,6 +256,7 @@ describe('projects', () => {
     expect(lotUpdateChain.update).toHaveBeenCalledWith({ price: 300000 })
     expect(lotUpdateChain.eq).toHaveBeenCalledWith('id', 'lot1')
     expect(lotUpdateChain.eq).toHaveBeenCalledWith('status', 'available')
+    expect(lotUpdateChain.select).toHaveBeenCalledWith('id')
   })
 
   it('fetchProjectLots filters by project and sorts by block then lot', async () => {
@@ -360,31 +361,48 @@ describe('projects', () => {
     })
   })
 
-  it('deleteLot removes an available lot after checking its status', async () => {
-    const readChain = chain({ data: { id: 'lot1', status: 'available' }, error: null })
-    const deleteChain = chain({ data: null, error: null })
-    supabase.from
-      .mockImplementationOnce(() => readChain)
-      .mockImplementationOnce(() => deleteChain)
+  it('deleteLot deletes an available lot in one guarded statement', async () => {
+    const deleteChain = chain({ data: [{ id: 'lot1' }], error: null })
+    supabase.from.mockImplementationOnce(() => deleteChain)
 
     await deleteLot('lot1')
 
-    expect(readChain.select).toHaveBeenCalledWith('id, status')
-    expect(readChain.eq).toHaveBeenCalledWith('id', 'lot1')
-    expect(readChain.single).toHaveBeenCalled()
     expect(deleteChain.delete).toHaveBeenCalled()
     expect(deleteChain.eq).toHaveBeenCalledWith('id', 'lot1')
+    expect(deleteChain.eq).toHaveBeenCalledWith('status', 'available')
+    expect(deleteChain.select).toHaveBeenCalledWith('id')
+    expect(logActivity).toHaveBeenCalledWith('property', 'lot1', 'delete')
   })
 
   it('deleteLot blocks a non-available lot', async () => {
-    const readChain = chain({ data: { id: 'lot1', status: 'sold' }, error: null })
-    supabase.from.mockReturnValue(readChain)
+    supabase.from.mockReturnValue(chain({ data: [], error: null }))
 
     await expect(deleteLot('lot1')).rejects.toThrow(
       'Only available lots can be deleted. Un-sell the lot first.',
     )
-    expect(readChain.select).toHaveBeenCalledWith('id, status')
-    expect(supabase.from).toHaveBeenCalledTimes(1)
+  })
+
+  it('createProject rolls back the project when the rates upsert fails', async () => {
+    const insertChain = chain({ data: { ...project, id: 'pr9' }, error: null })
+    const ratesChain = chain({ data: null, error: new Error('rates down') })
+    const rollbackChain = chain({ data: null, error: null })
+    supabase.from
+      .mockImplementationOnce(() => insertChain)
+      .mockImplementationOnce(() => ratesChain)
+      .mockImplementationOnce(() => rollbackChain)
+
+    await expect(
+      createProject({
+        name: 'Andor Farm',
+        address: 'Brgy. Andor',
+        pricePerSqm: 999.99,
+        rates: { sub_agent: 0.03 },
+      }),
+    ).rejects.toThrow('rates down')
+
+    expect(rollbackChain.delete).toHaveBeenCalled()
+    expect(rollbackChain.eq).toHaveBeenCalledWith('id', 'pr9')
+    expect(logActivity).not.toHaveBeenCalled()
   })
 
   it('upsertProjectRates surfaces supabase errors', async () => {

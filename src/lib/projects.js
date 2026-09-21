@@ -39,7 +39,7 @@ export async function upsertProjectRates(projectId, rates) {
   const rows = Object.entries(rates ?? {}).map(([role, rate]) => ({
     project_id: projectId,
     role,
-    rate,
+    rate: Number(rate),
   }))
   if (rows.length === 0) return []
 
@@ -59,7 +59,14 @@ export async function createProject({ name, type = 'farm_lot', address, pricePer
     .single()
   if (error) throw error
 
-  await upsertProjectRates(data.id, rates)
+  try {
+    await upsertProjectRates(data.id, rates)
+  } catch (ratesError) {
+    const { error: rollbackError } = await supabase.from('projects').delete().eq('id', data.id)
+    if (rollbackError) console.error('createProject: rollback delete failed', rollbackError)
+    throw ratesError
+  }
+
   logActivity('project', data.id, 'create').catch(() => {})
   return data
 }
@@ -92,13 +99,14 @@ export async function repriceAvailableLots(projectId, pricePerSqm) {
   let repriced = 0
   for (const lot of data ?? []) {
     if (lot.lot_area_sqm === null || lot.lot_area_sqm === undefined) continue
-    const { error: updateError } = await supabase
+    const { data: updated, error: updateError } = await supabase
       .from('properties')
       .update({ price: lotPrice(lot.lot_area_sqm, pricePerSqm) })
       .eq('id', lot.id)
       .eq('status', 'available')
+      .select('id')
     if (updateError) throw updateError
-    repriced++
+    repriced += updated?.length ?? 0
   }
   return repriced
 }
@@ -160,13 +168,17 @@ export async function updateLot(lot, project, updates = {}) {
 }
 
 export async function deleteLot(id) {
-  const { data, error } = await supabase.from('properties').select('id, status').eq('id', id).single()
+  const { data, error } = await supabase
+    .from('properties')
+    .delete()
+    .eq('id', id)
+    .eq('status', 'available')
+    .select('id')
   if (error) throw error
 
-  if (data?.status !== 'available') {
+  if (!data || data.length === 0) {
     throw new Error('Only available lots can be deleted. Un-sell the lot first.')
   }
 
-  const { error: deleteError } = await supabase.from('properties').delete().eq('id', id)
-  if (deleteError) throw deleteError
+  logActivity('property', id, 'delete').catch(() => {})
 }
