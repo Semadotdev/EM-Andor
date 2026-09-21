@@ -309,8 +309,71 @@ export type Database = {
         }
         Relationships: []
       }
+      project_commission_rates: {
+        Row: {
+          id: string
+          project_id: string
+          rate: number
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          rate?: number
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          rate?: number
+          role?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_commission_rates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          name: string
+          price_per_sqm: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          id?: string
+          name: string
+          price_per_sqm?: number
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          name?: string
+          price_per_sqm?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       properties: {
         Row: {
+          block_no: string | null
           created_at: string
           description: string | null
           id: string
@@ -318,9 +381,11 @@ export type Database = {
           is_pinned: boolean
           location: string
           lot_area_sqm: number | null
+          lot_no: string | null
           map_pins: Json
           name: string
           price: number | null
+          project_id: string | null
           sold_at: string | null
           sold_by: string | null
           status: string
@@ -328,6 +393,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          block_no?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -335,9 +401,11 @@ export type Database = {
           is_pinned?: boolean
           location: string
           lot_area_sqm?: number | null
+          lot_no?: string | null
           map_pins?: Json
           name: string
           price?: number | null
+          project_id?: string | null
           sold_at?: string | null
           sold_by?: string | null
           status?: string
@@ -345,6 +413,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          block_no?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -352,9 +421,11 @@ export type Database = {
           is_pinned?: boolean
           location?: string
           lot_area_sqm?: number | null
+          lot_no?: string | null
           map_pins?: Json
           name?: string
           price?: number | null
+          project_id?: string | null
           sold_at?: string | null
           sold_by?: string | null
           status?: string
@@ -362,6 +433,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "properties_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "properties_sold_by_fkey"
             columns: ["sold_by"]

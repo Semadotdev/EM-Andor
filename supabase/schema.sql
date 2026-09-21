@@ -177,6 +177,56 @@ create policy "agent read commissions" on public.commissions
 -- Add status to properties
 alter table public.properties add column if not exists status text not null default 'available';
 
+-- Projects
+create table if not exists public.projects (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  type text not null default 'farm_lot' check (type in ('farm_lot', 'housing', 'commercial', 'development')),
+  address text not null,
+  price_per_sqm numeric not null default 0 check (price_per_sqm >= 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.project_commission_rates (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  role text not null check (role in ('sub_agent', 'direct_agent', 'agent_head')),
+  rate numeric(6,4) not null default 0 check (rate >= 0 and rate <= 1),
+  updated_at timestamptz not null default now(),
+  unique (project_id, role)
+);
+
+create index if not exists project_commission_rates_project_id_idx
+  on public.project_commission_rates(project_id);
+
+alter table public.properties add column if not exists project_id uuid references public.projects(id) on delete set null;
+alter table public.properties add column if not exists block_no text;
+alter table public.properties add column if not exists lot_no text;
+
+create unique index if not exists properties_project_block_lot_idx
+  on public.properties (project_id, block_no, lot_no)
+  where project_id is not null;
+
+alter table public.projects enable row level security;
+alter table public.project_commission_rates enable row level security;
+
+drop policy if exists "admin all on projects" on public.projects;
+create policy "admin all on projects" on public.projects
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "public read projects" on public.projects;
+create policy "public read projects" on public.projects
+  for select to anon, authenticated using (true);
+
+drop policy if exists "admin all on project_commission_rates" on public.project_commission_rates;
+create policy "admin all on project_commission_rates" on public.project_commission_rates
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "authenticated read project_commission_rates" on public.project_commission_rates;
+create policy "authenticated read project_commission_rates" on public.project_commission_rates
+  for select to authenticated using (true);
+
 alter table public.properties enable row level security;
 alter table public.inquiries enable row level security;
 
@@ -242,6 +292,14 @@ begin
   return new;
 end;
 $$ language plpgsql;
+
+drop trigger if exists set_updated_at on public.projects;
+create trigger set_updated_at before update on public.projects
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists set_updated_at on public.project_commission_rates;
+create trigger set_updated_at before update on public.project_commission_rates
+  for each row execute function public.set_updated_at();
 
 drop trigger if exists set_updated_at on public.agents;
 create trigger set_updated_at before update on public.agents
