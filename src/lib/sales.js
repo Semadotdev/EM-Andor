@@ -33,22 +33,31 @@ export async function resolveChainForAgent(sellerId) {
 }
 
 async function createCommissionRows(property) {
-  const rates = await fetchCommissionRatesMap()
-  const chain = await resolveChainForAgent(property.sold_by)
+  const [rates, chain] = await Promise.all([
+    fetchCommissionRatesMap(),
+    resolveChainForAgent(property.sold_by),
+  ])
   const { rows, warnings } = buildCommissionRows(Number(property.price), chain, rates)
+
+  for (const warning of warnings) {
+    logActivity('commission', property.id, 'skip', { warning }).catch(() => {})
+  }
   if (rows.length === 0) return []
 
   const payload = rows.map((row) => ({ ...row, property_id: property.id, status: 'earned' }))
   const { data, error } = await supabase.from('commissions').insert(payload).select()
   if (error) throw error
 
-  for (const warning of warnings) {
-    logActivity('commission', property.id, 'skip', { warning }).catch(() => {})
-  }
   for (const row of data ?? []) {
     logActivity('commission', row.agent_id, 'earned', { property_id: property.id, amount: row.amount }).catch(() => {})
   }
   return data ?? []
+}
+
+async function commissionsMissing(propertyId) {
+  const { data, error } = await supabase.from('commissions').select('id').eq('property_id', propertyId).limit(1)
+  if (error) throw error
+  return (data ?? []).length === 0
 }
 
 export async function fetchPropertyById(id) {
@@ -63,6 +72,13 @@ export async function savePropertyWithCommission({ mode, propertyId, payload }) 
 
   if (isSold) {
     const fieldErrors = validateSale(payload)
+    if (!fieldErrors.sold_by) {
+      const agents = await fetchAllAgents()
+      const seller = agents.find((a) => a.id === payload.sold_by)
+      if (!seller || seller.role === 'admin' || seller.is_active === false) {
+        fieldErrors.sold_by = 'Select an active selling agent.'
+      }
+    }
     if (Object.keys(fieldErrors).length > 0) {
       const error = new Error('Validation failed')
       error.fieldErrors = fieldErrors
@@ -72,13 +88,21 @@ export async function savePropertyWithCommission({ mode, propertyId, payload }) 
 
   const wasSold = existing?.status === 'sold'
   const sellerChanged = wasSold && existing.sold_by !== payload.sold_by
-  const commissionStateChanged = isSold && (!wasSold || sellerChanged)
+
+  let commissionStateChanged = isSold && (!wasSold || sellerChanged)
+  if (isSold && !commissionStateChanged) {
+    commissionStateChanged = await commissionsMissing(propertyId)
+  }
 
   if (wasSold && (!isSold || sellerChanged)) {
     await clearCommissionsForProperty(propertyId)
   }
 
-  const saved = mode === 'edit' ? await updateProperty(propertyId, payload) : await createProperty(payload)
+  const savePayload = isSold
+    ? { ...payload, sold_at: wasSold && existing?.sold_at ? existing.sold_at : new Date().toISOString() }
+    : { ...payload, sold_at: null }
+
+  const saved = mode === 'edit' ? await updateProperty(propertyId, savePayload) : await createProperty(savePayload)
 
   if (commissionStateChanged) {
     await createCommissionRows(saved)
