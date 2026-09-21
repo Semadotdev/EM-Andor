@@ -17,6 +17,15 @@ const emptyPaymentForm = {
   remarks: '',
 }
 
+const paymentFormFrom = (payment) => ({
+  entry_date: payment.entry_date ?? '',
+  or_number: payment.or_number ?? '',
+  amount: payment.amount != null ? String(payment.amount) : '',
+  surcharge: payment.surcharge != null ? String(payment.surcharge) : '',
+  interest: payment.interest != null ? String(payment.interest) : '',
+  remarks: payment.remarks ?? '',
+})
+
 const slug = (value) =>
   String(value ?? '')
     .trim()
@@ -32,17 +41,18 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
   const [sale, setSale] = useState(null)
   const [payments, setPayments] = useState([])
   const [state, setState] = useState('loading')
-  const [addForm, setAddForm] = useState(emptyPaymentForm)
-  const [addErrors, setAddErrors] = useState({})
-  const [addError, setAddError] = useState(null)
-  const [adding, setAdding] = useState(false)
-  const [editForm, setEditForm] = useState(null)
-  const [editErrors, setEditErrors] = useState({})
+  const [showDetails, setShowDetails] = useState(false)
+  const [paymentModal, setPaymentModal] = useState(null)
+  const [paymentForm, setPaymentForm] = useState(emptyPaymentForm)
+  const [paymentErrors, setPaymentErrors] = useState({})
+  const [paymentError, setPaymentError] = useState(null)
+  const [savingPayment, setSavingPayment] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [showEditSale, setShowEditSale] = useState(false)
 
   const ledger = useMemo(() => buildLedger(payments, sale?.tcp), [payments, sale?.tcp])
+  const isEditingPayment = paymentModal?.mode === 'edit'
 
   const load = () => {
     setState('loading')
@@ -59,94 +69,77 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
 
   const reloadPayments = () => fetchPayments(lot.id).then(setPayments)
 
-  const setAddField = (field) => (e) => {
-    setAddForm((f) => ({ ...f, [field]: e.target.value }))
-    setAddErrors((errs) => ({ ...errs, [field]: undefined }))
-    setAddError(null)
+  const setPaymentField = (field) => (e) => {
+    setPaymentForm((f) => ({ ...f, [field]: e.target.value }))
+    setPaymentErrors((errs) => ({ ...errs, [field]: undefined }))
+    setPaymentError(null)
+  }
+
+  const openAddPayment = () => {
+    setPaymentForm(emptyPaymentForm)
+    setPaymentErrors({})
+    setPaymentError(null)
+    setPaymentModal({ mode: 'add' })
+  }
+
+  const openEditPayment = (payment) => {
+    setPaymentForm(paymentFormFrom(payment))
+    setPaymentErrors({})
+    setPaymentError(null)
+    setPaymentModal({ mode: 'edit', payment })
+  }
+
+  const closePaymentModal = () => {
+    if (savingPayment) return
+    setPaymentModal(null)
+    setPaymentForm(emptyPaymentForm)
+    setPaymentErrors({})
+    setPaymentError(null)
   }
 
   const submitPayment = async (e) => {
     e.preventDefault()
-    if (adding) return
+    if (savingPayment || !paymentModal) return
 
     const errors = {}
-    if (!addForm.entry_date) errors.entry_date = 'DATE is required.'
-    const amount = Number(addForm.amount)
-    if (addForm.amount === '' || Number.isNaN(amount) || amount <= 0) errors.amount = 'AMOUNT must be greater than 0.'
+    if (!paymentForm.entry_date) errors.entry_date = 'DATE is required.'
+    const amount = Number(paymentForm.amount)
+    if (paymentForm.amount === '' || Number.isNaN(amount) || amount <= 0) errors.amount = 'AMOUNT must be greater than 0.'
     if (Object.keys(errors).length > 0) {
-      setAddErrors(errors)
+      setPaymentErrors(errors)
       return
     }
 
-    setAdding(true)
-    setAddErrors({})
-    setAddError(null)
+    const editing = paymentModal.mode === 'edit'
+    const payload = {
+      entry_date: paymentForm.entry_date,
+      or_number: paymentForm.or_number.trim(),
+      amount,
+      surcharge: Number(paymentForm.surcharge) || 0,
+      interest: Number(paymentForm.interest) || 0,
+      remarks: paymentForm.remarks.trim(),
+    }
+
+    setSavingPayment(true)
+    setPaymentErrors({})
+    setPaymentError(null)
     try {
-      await createPayment(lot.id, {
-        entry_date: addForm.entry_date,
-        or_number: addForm.or_number.trim(),
-        amount,
-        surcharge: Number(addForm.surcharge) || 0,
-        interest: Number(addForm.interest) || 0,
-        remarks: addForm.remarks.trim(),
-      })
-      setAddForm(emptyPaymentForm)
+      if (editing) {
+        await updatePayment(paymentModal.payment.id, payload)
+      } else {
+        await createPayment(lot.id, payload)
+      }
+      setPaymentModal(null)
+      setPaymentForm(emptyPaymentForm)
       await reloadPayments()
-      showToast('Payment added.')
+      showToast(editing ? 'Payment updated.' : 'Payment added.')
       onChanged?.()
     } catch {
-      setAddError('Could not add the payment. Please try again.')
+      setPaymentError(
+        editing ? 'Could not save the payment. Please try again.' : 'Could not add the payment. Please try again.',
+      )
     } finally {
-      setAdding(false)
-    }
-  }
-
-  const startEdit = (payment) => {
-    setEditErrors({})
-    setEditForm({
-      id: payment.id,
-      entry_date: payment.entry_date ?? '',
-      or_number: payment.or_number ?? '',
-      amount: payment.amount != null ? String(payment.amount) : '',
-      surcharge: payment.surcharge != null ? String(payment.surcharge) : '',
-      interest: payment.interest != null ? String(payment.interest) : '',
-      remarks: payment.remarks ?? '',
-    })
-  }
-
-  const setEditField = (field) => (e) => {
-    setEditForm((f) => ({ ...f, [field]: e.target.value }))
-    setEditErrors((errs) => ({ ...errs, [field]: undefined }))
-  }
-
-  const submitEdit = async (e) => {
-    e.preventDefault()
-    if (!editForm) return
-
-    const errors = {}
-    if (!editForm.entry_date) errors.entry_date = 'DATE is required.'
-    const amount = Number(editForm.amount)
-    if (editForm.amount === '' || Number.isNaN(amount) || amount <= 0) errors.amount = 'AMOUNT must be greater than 0.'
-    if (Object.keys(errors).length > 0) {
-      setEditErrors(errors)
-      return
-    }
-
-    try {
-      await updatePayment(editForm.id, {
-        entry_date: editForm.entry_date,
-        or_number: editForm.or_number.trim(),
-        amount,
-        surcharge: Number(editForm.surcharge) || 0,
-        interest: Number(editForm.interest) || 0,
-        remarks: editForm.remarks.trim(),
-      })
-      setEditForm(null)
-      await reloadPayments()
-      showToast('Payment updated.')
-      onChanged?.()
-    } catch {
-      setEditErrors({ form: 'Could not save the payment. Please try again.' })
+      setSavingPayment(false)
     }
   }
 
@@ -201,58 +194,82 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
 
         {state === 'ready' && (
           <>
-            <dl className="mb-5 grid gap-x-6 gap-y-3 rounded-lg border border-mist bg-surface p-4 text-sm sm:grid-cols-2">
-              <div className="flex justify-between gap-4">
-                <dt className="font-semibold text-brand-deep">Buyer</dt>
-                <dd className="text-right text-ink/70">{sale?.buyer_name ?? '—'}</dd>
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-lg border border-mist bg-surface p-4 text-sm">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                <p className="flex items-baseline gap-2">
+                  <span className="font-semibold text-ink/60">Buyer</span>
+                  <span className="font-bold text-brand-deep">{sale?.buyer_name ?? '—'}</span>
+                </p>
+                <p className="flex items-baseline gap-2">
+                  <span className="font-semibold text-ink/60">Project</span>
+                  <span className="text-ink/70">{project?.name ?? '—'}</span>
+                </p>
+                <p className="flex items-baseline gap-2">
+                  <span className="font-semibold text-ink/60">Remaining balance</span>
+                  <span className="font-bold text-brand-deep">{formatPrice(ledger.remainingBalance) ?? '—'}</span>
+                </p>
               </div>
-              <div className="flex justify-between gap-4">
-                <dt className="font-semibold text-brand-deep">Project</dt>
-                <dd className="text-right text-ink/70">{project?.name ?? '—'}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="font-semibold text-brand-deep">Blk/Lot</dt>
-                <dd className="text-right text-ink/70">{lotLabel}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="font-semibold text-brand-deep">Area</dt>
-                <dd className="text-right text-ink/70">
-                  {lot.lot_area_sqm != null ? `${Number(lot.lot_area_sqm).toLocaleString('en-PH')} sqm` : '—'}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="font-semibold text-brand-deep">Price/m²</dt>
-                <dd className="text-right text-ink/70">
-                  {project?.price_per_sqm != null ? `${formatPrice(project.price_per_sqm)} / m²` : '—'}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="font-semibold text-brand-deep">TCP</dt>
-                <dd className="text-right text-ink/70">{formatPrice(sale?.tcp) ?? '—'}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="font-semibold text-brand-deep">Downpayment</dt>
-                <dd className="text-right text-ink/70">{formatPrice(sale?.downpayment) ?? '—'}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="font-semibold text-brand-deep">M.A.</dt>
-                <dd className="text-right text-ink/70">{formatPrice(sale?.monthly_amortization) ?? '—'}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="font-semibold text-brand-deep">Terms</dt>
-                <dd className="text-right text-ink/70">{sale?.terms_of_payment ?? '—'}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="font-semibold text-brand-deep">Buyer Address</dt>
-                <dd className="text-right text-ink/70">{sale?.buyer_address ?? '—'}</dd>
-              </div>
-            </dl>
+              <button
+                type="button"
+                onClick={() => setShowDetails((shown) => !shown)}
+                aria-expanded={showDetails}
+                aria-controls="ledger-details"
+                className="rounded-md border border-mist bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/30 hover:text-brand"
+              >
+                {showDetails ? 'Hide details' : 'View details'}
+                <span aria-hidden="true" className="ml-1">
+                  {showDetails ? '▴' : '▾'}
+                </span>
+              </button>
+            </div>
+
+            {showDetails && (
+              <dl id="ledger-details" className="mb-5 grid gap-x-6 gap-y-3 rounded-lg border border-mist bg-surface p-4 text-sm sm:grid-cols-2">
+                <div className="flex justify-between gap-4">
+                  <dt className="font-semibold text-brand-deep">Blk/Lot</dt>
+                  <dd className="text-right text-ink/70">{lotLabel}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="font-semibold text-brand-deep">Area</dt>
+                  <dd className="text-right text-ink/70">
+                    {lot.lot_area_sqm != null ? `${Number(lot.lot_area_sqm).toLocaleString('en-PH')} sqm` : '—'}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="font-semibold text-brand-deep">Price/m²</dt>
+                  <dd className="text-right text-ink/70">
+                    {project?.price_per_sqm != null ? `${formatPrice(project.price_per_sqm)} / m²` : '—'}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="font-semibold text-brand-deep">TCP</dt>
+                  <dd className="text-right text-ink/70">{formatPrice(sale?.tcp) ?? '—'}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="font-semibold text-brand-deep">Downpayment</dt>
+                  <dd className="text-right text-ink/70">{formatPrice(sale?.downpayment) ?? '—'}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="font-semibold text-brand-deep">M.A.</dt>
+                  <dd className="text-right text-ink/70">{formatPrice(sale?.monthly_amortization) ?? '—'}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="font-semibold text-brand-deep">Terms</dt>
+                  <dd className="text-right text-ink/70">{sale?.terms_of_payment ?? '—'}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="font-semibold text-brand-deep">Buyer Address</dt>
+                  <dd className="text-right text-ink/70">{sale?.buyer_address ?? '—'}</dd>
+                </div>
+              </dl>
+            )}
 
             <div className="mb-4 flex flex-wrap justify-end gap-3">
-              <Button variant="secondary" size="sm" onClick={() => setShowEditSale(true)}>
+              <Button onClick={openAddPayment}>Add Payment</Button>
+              <Button variant="secondary" onClick={() => setShowEditSale(true)}>
                 Edit Sale
               </Button>
-              <Button variant="secondary" size="sm" onClick={exportCsv}>
+              <Button variant="secondary" onClick={exportCsv}>
                 Export CSV
               </Button>
             </div>
@@ -261,15 +278,15 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-mist bg-surface text-xs font-bold uppercase tracking-wide text-ink/60">
                   <tr>
-                    <th className="px-3 py-3">Date</th>
-                    <th className="px-3 py-3">OR#</th>
-                    <th className="px-3 py-3">Amount</th>
-                    <th className="px-3 py-3">Surcharge</th>
-                    <th className="px-3 py-3">Interest</th>
-                    <th className="px-3 py-3">Principal</th>
-                    <th className="px-3 py-3">Balance of Principal</th>
-                    <th className="px-3 py-3">Remarks</th>
-                    <th className="px-3 py-3 text-right">Actions</th>
+                    <th scope="col" className="whitespace-nowrap px-3 py-3">Date</th>
+                    <th scope="col" className="whitespace-nowrap px-3 py-3">OR#</th>
+                    <th scope="col" className="whitespace-nowrap px-3 py-3">Amount</th>
+                    <th scope="col" className="whitespace-nowrap px-3 py-3">Surcharge</th>
+                    <th scope="col" className="whitespace-nowrap px-3 py-3">Interest</th>
+                    <th scope="col" className="whitespace-nowrap px-3 py-3">Principal</th>
+                    <th scope="col" className="whitespace-nowrap px-3 py-3">Balance of Principal</th>
+                    <th scope="col" className="px-3 py-3">Remarks</th>
+                    <th scope="col" className="whitespace-nowrap px-3 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -282,73 +299,24 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
                   )}
                   {ledger.rows.map((row) => (
                     <tr key={row.id} className="border-b border-mist/70 last:border-0">
-                      {editForm?.id === row.id ? (
-                        <>
-                          <td className="px-3 py-2">
-                            <Input
-                              type="date"
-                              aria-label="DATE"
-                              value={editForm.entry_date}
-                              onChange={setEditField('entry_date')}
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <Input aria-label="OR#" value={editForm.or_number} onChange={setEditField('or_number')} />
-                          </td>
-                          <td className="px-3 py-2">
-                            <Input type="number" min="0" step="any" aria-label="AMOUNT" value={editForm.amount} onChange={setEditField('amount')} />
-                          </td>
-                          <td className="px-3 py-2">
-                            <Input type="number" min="0" step="any" aria-label="SURCHARGE" value={editForm.surcharge} onChange={setEditField('surcharge')} />
-                          </td>
-                          <td className="px-3 py-2">
-                            <Input type="number" min="0" step="any" aria-label="INTEREST" value={editForm.interest} onChange={setEditField('interest')} />
-                          </td>
-                          <td className="px-3 py-2 font-semibold text-ink"><Money value={row.principal} /></td>
-                          <td className="px-3 py-2 font-semibold text-ink"><Money value={row.balance} /></td>
-                          <td className="px-3 py-2">
-                            <Input aria-label="REMARKS" value={editForm.remarks} onChange={setEditField('remarks')} />
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex flex-wrap justify-end gap-2">
-                              <Button size="sm" onClick={submitEdit}>
-                                Save
-                              </Button>
-                              <Button size="sm" variant="secondary" onClick={() => setEditForm(null)}>
-                                Cancel
-                              </Button>
-                            </div>
-                            {Object.entries(editErrors)
-                              .filter(([, message]) => message)
-                              .map(([field, message]) => (
-                                <p key={field} className="mt-1.5 text-right text-xs font-medium text-red-600" role="alert">
-                                  {message}
-                                </p>
-                              ))}
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="px-3 py-3 text-ink/70">{row.entry_date ?? '—'}</td>
-                          <td className="px-3 py-3 text-ink/70">{row.or_number ?? '—'}</td>
-                          <td className="px-3 py-3 text-ink"><Money value={row.amount} /></td>
-                          <td className="px-3 py-3 text-ink/70"><Money value={row.surcharge} /></td>
-                          <td className="px-3 py-3 text-ink/70"><Money value={row.interest} /></td>
-                          <td className="px-3 py-3 font-semibold text-ink"><Money value={row.principal} /></td>
-                          <td className="px-3 py-3 font-semibold text-ink"><Money value={row.balance} /></td>
-                          <td className="px-3 py-3 text-ink/70">{row.remarks || '—'}</td>
-                          <td className="px-3 py-3">
-                            <div className="flex flex-wrap justify-end gap-2">
-                              <Button size="sm" variant="secondary" onClick={() => startEdit(row)}>
-                                Edit
-                              </Button>
-                              <Button size="sm" variant="danger" onClick={() => setConfirmDelete(row)}>
-                                Delete
-                              </Button>
-                            </div>
-                          </td>
-                        </>
-                      )}
+                      <td className="whitespace-nowrap px-3 py-3 text-ink/70">{row.entry_date ?? '—'}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-ink/70">{row.or_number ?? '—'}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-ink"><Money value={row.amount} /></td>
+                      <td className="whitespace-nowrap px-3 py-3 text-ink/70"><Money value={row.surcharge} /></td>
+                      <td className="whitespace-nowrap px-3 py-3 text-ink/70"><Money value={row.interest} /></td>
+                      <td className="whitespace-nowrap px-3 py-3 font-semibold text-ink"><Money value={row.principal} /></td>
+                      <td className="whitespace-nowrap px-3 py-3 font-semibold text-ink"><Money value={row.balance} /></td>
+                      <td className="px-3 py-3 text-ink/70">{row.remarks || '—'}</td>
+                      <td className="whitespace-nowrap px-3 py-3">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button size="sm" variant="secondary" onClick={() => openEditPayment(row)}>
+                            Edit
+                          </Button>
+                          <Button size="sm" variant="danger" onClick={() => setConfirmDelete(row)}>
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -366,43 +334,93 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
                 </tfoot>
               </table>
             </div>
-
-            <form onSubmit={submitPayment} noValidate className="mt-6 rounded-lg border border-mist bg-surface p-4">
-              <h3 className="mb-3 text-sm font-bold text-brand-deep">Add payment</h3>
-
-              {addError && (
-                <p role="alert" className="mb-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
-                  {addError}
-                </p>
-              )}
-
-              <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                <Input id="bl-date" type="date" label="DATE" value={addForm.entry_date} onChange={setAddField('entry_date')} error={addErrors.entry_date} />
-                <Input id="bl-or" label="OR#" value={addForm.or_number} onChange={setAddField('or_number')} />
-                <Input
-                  id="bl-amount"
-                  type="number"
-                  min="0"
-                  step="any"
-                  label="AMOUNT"
-                  value={addForm.amount}
-                  onChange={setAddField('amount')}
-                  error={addErrors.amount}
-                />
-                <Input id="bl-surcharge" type="number" min="0" step="any" label="SURCHARGE" value={addForm.surcharge} onChange={setAddField('surcharge')} />
-                <Input id="bl-interest" type="number" min="0" step="any" label="INTEREST" value={addForm.interest} onChange={setAddField('interest')} />
-                <Input id="bl-remarks" label="REMARKS" value={addForm.remarks} onChange={setAddField('remarks')} />
-              </div>
-
-              <div className="mt-3 flex justify-end">
-                <Button type="submit" disabled={adding}>
-                  {adding ? 'Adding…' : 'Add Payment'}
-                </Button>
-              </div>
-            </form>
           </>
         )}
       </div>
+
+      {paymentModal && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <Modal
+            open
+            onClose={closePaymentModal}
+            label={isEditingPayment ? 'Edit payment' : 'Add payment'}
+            size="lg"
+            busy={savingPayment}
+          >
+            <form onSubmit={submitPayment} noValidate className="grid gap-5 sm:grid-cols-2">
+              {paymentError && (
+                <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700 sm:col-span-2">
+                  {paymentError}
+                </p>
+              )}
+
+              <Input
+                id="bl-date"
+                type="date"
+                label="DATE"
+                value={paymentForm.entry_date}
+                onChange={setPaymentField('entry_date')}
+                error={paymentErrors.entry_date}
+              />
+              <Input
+                id="bl-or"
+                label="OR#"
+                value={paymentForm.or_number}
+                onChange={setPaymentField('or_number')}
+                error={paymentErrors.or_number}
+              />
+              <Input
+                id="bl-amount"
+                type="number"
+                min="0"
+                step="any"
+                label="AMOUNT"
+                value={paymentForm.amount}
+                onChange={setPaymentField('amount')}
+                error={paymentErrors.amount}
+              />
+              <Input
+                id="bl-surcharge"
+                type="number"
+                min="0"
+                step="any"
+                label="SURCHARGE"
+                value={paymentForm.surcharge}
+                onChange={setPaymentField('surcharge')}
+                error={paymentErrors.surcharge}
+              />
+              <Input
+                id="bl-interest"
+                type="number"
+                min="0"
+                step="any"
+                label="INTEREST"
+                value={paymentForm.interest}
+                onChange={setPaymentField('interest')}
+                error={paymentErrors.interest}
+              />
+              <div className="sm:col-span-2">
+                <Input
+                  id="bl-remarks"
+                  label="REMARKS"
+                  value={paymentForm.remarks}
+                  onChange={setPaymentField('remarks')}
+                  error={paymentErrors.remarks}
+                />
+              </div>
+
+              <div className="flex flex-wrap justify-end gap-3 sm:col-span-2">
+                <Button variant="secondary" onClick={closePaymentModal} disabled={savingPayment}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={savingPayment}>
+                  {savingPayment ? (isEditingPayment ? 'Saving…' : 'Adding…') : isEditingPayment ? 'Save Changes' : 'Add Payment'}
+                </Button>
+              </div>
+            </form>
+          </Modal>
+        </div>
+      )}
 
       {showEditSale && (
         <div onClick={(e) => e.stopPropagation()}>

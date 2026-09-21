@@ -74,6 +74,8 @@ const payments = [
   },
 ]
 
+const DETAIL_VALUES = ['Block 1 Lot 1', '100 sqm', '₱ 1,000 / m²', '₱ 20,000', '₱ 4,000', '₱ 1,500', '12 months', 'Cebu City']
+
 const CSV_HEADERS = ['DATE', 'OR#', 'AMOUNT', 'SURCHARGE', 'INTEREST', 'PRINCIPAL', 'BALANCE OF PRINCIPAL', 'REMARKS']
 
 describe('BuyerLedgerModal', () => {
@@ -86,19 +88,38 @@ describe('BuyerLedgerModal', () => {
     deletePayment.mockResolvedValue(undefined)
   })
 
-  it('renders the buyer header block for the lot', async () => {
+  it('summarises the sale and reveals the hidden details on demand', async () => {
+    const user = userEvent.setup()
+
     render(<BuyerLedgerModal lot={lot} project={project} onClose={vi.fn()} onChanged={vi.fn()} />)
 
     expect(await screen.findByText('Juan Dela Cruz')).toBeInTheDocument()
     expect(screen.getByText('Andor Farm')).toBeInTheDocument()
-    expect(screen.getByText('Block 1 Lot 1')).toBeInTheDocument()
-    expect(screen.getByText('100 sqm')).toBeInTheDocument()
-    expect(screen.getByText('₱ 20,000')).toBeInTheDocument()
-    expect(screen.getByText('₱ 4,000')).toBeInTheDocument()
-    expect(screen.getByText('₱ 1,500')).toBeInTheDocument()
-    expect(screen.getByText('12 months')).toBeInTheDocument()
-    expect(screen.getByText('Cebu City')).toBeInTheDocument()
+    expect(screen.getByText('Remaining balance')).toBeInTheDocument()
+    expect(screen.getAllByText('₱ 12,450').length).toBeGreaterThan(0)
     expect(screen.getByRole('dialog')).toHaveClass('max-w-6xl')
+
+    for (const value of DETAIL_VALUES) {
+      expect(screen.queryByText(value)).not.toBeInTheDocument()
+    }
+
+    const toggle = screen.getByRole('button', { name: 'View details' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await user.click(toggle)
+
+    expect(screen.getByRole('button', { name: 'Hide details' })).toHaveAttribute('aria-expanded', 'true')
+    expect(document.getElementById('ledger-details')).toBeInTheDocument()
+
+    for (const value of DETAIL_VALUES) {
+      expect(screen.getByText(value)).toBeInTheDocument()
+    }
+
+    await user.click(screen.getByRole('button', { name: 'Hide details' }))
+
+    for (const value of DETAIL_VALUES) {
+      expect(screen.queryByText(value)).not.toBeInTheDocument()
+    }
+
     expect(fetchSale).toHaveBeenCalledWith('l1')
     expect(fetchPayments).toHaveBeenCalledWith('l1')
   })
@@ -110,26 +131,29 @@ describe('BuyerLedgerModal', () => {
     expect(screen.getByText('₱ 4,700')).toBeInTheDocument()
     expect(screen.getByText('₱ 15,300')).toBeInTheDocument()
     expect(screen.getByText('₱ 2,850')).toBeInTheDocument()
-    expect(screen.getAllByText('₱ 12,450')).toHaveLength(2)
+    expect(screen.getAllByText('₱ 12,450')).toHaveLength(3)
     expect(screen.getByText('Total paid')).toBeInTheDocument()
     expect(screen.getByText('₱ 8,000')).toBeInTheDocument()
     expect(screen.getByText('Total principal')).toBeInTheDocument()
     expect(screen.getByText('₱ 7,550')).toBeInTheDocument()
-    expect(screen.getByText(/Remaining balance/)).toBeInTheDocument()
+    expect(within(screen.getByRole('table')).getByText(/Remaining balance/)).toBeInTheDocument()
   })
 
-  it('adds a payment and reloads the ledger', async () => {
+  it('adds a payment from the modal and reloads the ledger', async () => {
     const onChanged = vi.fn()
     const user = userEvent.setup()
 
     render(<BuyerLedgerModal lot={lot} project={project} onClose={vi.fn()} onChanged={onChanged} />)
 
     await screen.findByText('OR-1')
-    await user.type(screen.getByLabelText('DATE'), '2026-03-05')
-    await user.type(screen.getByLabelText('OR#'), 'OR-3')
-    await user.type(screen.getByLabelText('AMOUNT'), '2500')
-    await user.type(screen.getByLabelText('REMARKS'), 'March')
     await user.click(screen.getByRole('button', { name: 'Add Payment' }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Add payment' })
+    await user.type(within(dialog).getByLabelText('DATE'), '2026-03-05')
+    await user.type(within(dialog).getByLabelText('OR#'), 'OR-3')
+    await user.type(within(dialog).getByLabelText('AMOUNT'), '2500')
+    await user.type(within(dialog).getByLabelText('REMARKS'), 'March')
+    await user.click(within(dialog).getByRole('button', { name: 'Add Payment' }))
 
     expect(createPayment).toHaveBeenCalledWith('l1', {
       entry_date: '2026-03-05',
@@ -142,6 +166,24 @@ describe('BuyerLedgerModal', () => {
     expect(fetchPayments).toHaveBeenCalledTimes(2)
     expect(onChanged).toHaveBeenCalled()
     expect(await screen.findByText('Payment added.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Add payment' })).not.toBeInTheDocument()
+  })
+
+  it('shows a payment modal error when adding fails', async () => {
+    createPayment.mockRejectedValueOnce(new Error('boom'))
+    const user = userEvent.setup()
+
+    render(<BuyerLedgerModal lot={lot} project={project} onClose={vi.fn()} onChanged={vi.fn()} />)
+
+    await screen.findByText('OR-1')
+    await user.click(screen.getByRole('button', { name: 'Add Payment' }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Add payment' })
+    await user.type(within(dialog).getByLabelText('DATE'), '2026-03-05')
+    await user.type(within(dialog).getByLabelText('AMOUNT'), '2500')
+    await user.click(within(dialog).getByRole('button', { name: 'Add Payment' }))
+
+    expect(await within(dialog).findByText('Could not add the payment. Please try again.')).toBeInTheDocument()
   })
 
   it('blocks adding a payment without a date or a positive amount', async () => {
@@ -152,12 +194,15 @@ describe('BuyerLedgerModal', () => {
     await screen.findByText('OR-1')
     await user.click(screen.getByRole('button', { name: 'Add Payment' }))
 
+    const dialog = screen.getByRole('dialog', { name: 'Add payment' })
+    await user.click(within(dialog).getByRole('button', { name: 'Add Payment' }))
+
     expect(createPayment).not.toHaveBeenCalled()
-    expect(screen.getByText('DATE is required.')).toBeInTheDocument()
-    expect(screen.getByText('AMOUNT must be greater than 0.')).toBeInTheDocument()
+    expect(within(dialog).getByText('DATE is required.')).toBeInTheDocument()
+    expect(within(dialog).getByText('AMOUNT must be greater than 0.')).toBeInTheDocument()
   })
 
-  it('edits a payment inline and reloads the ledger', async () => {
+  it('edits a payment in the modal and reloads the ledger', async () => {
     const user = userEvent.setup()
 
     render(<BuyerLedgerModal lot={lot} project={project} onClose={vi.fn()} onChanged={vi.fn()} />)
@@ -166,10 +211,15 @@ describe('BuyerLedgerModal', () => {
     const row = screen.getAllByRole('row')[1]
     await user.click(within(row).getByRole('button', { name: 'Edit' }))
 
-    const editRow = screen.getAllByRole('row')[1]
-    await user.clear(within(editRow).getByLabelText('AMOUNT'))
-    await user.type(within(editRow).getByLabelText('AMOUNT'), '5500')
-    await user.click(within(editRow).getByRole('button', { name: 'Save' }))
+    const dialog = screen.getByRole('dialog', { name: 'Edit payment' })
+    expect(within(dialog).getByLabelText('DATE')).toHaveValue('2026-01-05')
+    expect(within(dialog).getByLabelText('OR#')).toHaveValue('OR-1')
+    expect(within(dialog).getByLabelText('AMOUNT')).toHaveValue(5000)
+    expect(within(dialog).getByLabelText('REMARKS')).toHaveValue('first payment')
+
+    await user.clear(within(dialog).getByLabelText('AMOUNT'))
+    await user.type(within(dialog).getByLabelText('AMOUNT'), '5500')
+    await user.click(within(dialog).getByRole('button', { name: 'Save Changes' }))
 
     expect(updatePayment).toHaveBeenCalledWith('pay1', {
       entry_date: '2026-01-05',
@@ -180,6 +230,24 @@ describe('BuyerLedgerModal', () => {
       remarks: 'first payment',
     })
     expect(fetchPayments).toHaveBeenCalledTimes(2)
+    expect(await screen.findByText('Payment updated.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Edit payment' })).not.toBeInTheDocument()
+  })
+
+  it('closes the payment modal on cancel without saving', async () => {
+    const user = userEvent.setup()
+
+    render(<BuyerLedgerModal lot={lot} project={project} onClose={vi.fn()} onChanged={vi.fn()} />)
+
+    await screen.findByText('OR-1')
+    await user.click(screen.getByRole('button', { name: 'Add Payment' }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Add payment' })
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Add payment' })).not.toBeInTheDocument()
+    expect(createPayment).not.toHaveBeenCalled()
+    expect(updatePayment).not.toHaveBeenCalled()
   })
 
   it('deletes a payment after confirmation and reloads the ledger', async () => {
@@ -273,6 +341,23 @@ describe('BuyerLedgerModal', () => {
 
     expect(onClose).not.toHaveBeenCalled()
     expect(screen.getByRole('dialog', { name: /ledger/i })).toBeInTheDocument()
+  })
+
+  it('closes only the payment modal when Escape dismisses it', async () => {
+    const onClose = vi.fn()
+    const user = userEvent.setup()
+
+    render(<BuyerLedgerModal lot={lot} project={project} onClose={onClose} onChanged={vi.fn()} />)
+
+    await screen.findByText('OR-1')
+    await user.click(screen.getByRole('button', { name: 'Add Payment' }))
+    await screen.findByRole('dialog', { name: 'Add payment' })
+
+    await user.keyboard('{Escape}')
+
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog', { name: 'Add payment' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Buyer ledger' })).toBeInTheDocument()
   })
 
   it('closes on Escape', async () => {
