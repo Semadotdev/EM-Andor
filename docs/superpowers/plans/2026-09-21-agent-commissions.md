@@ -4188,6 +4188,14 @@ describe('AgentCommissions', () => {
 
     expect(await screen.findByText('No commissions yet.')).toBeInTheDocument()
   })
+
+  it('shows an error state when the fetch fails', async () => {
+    fetchCommissions.mockRejectedValue(new Error('boom'))
+
+    render(<AgentCommissions agent={{ id: 'a1', name: 'Ana' }} />)
+
+    expect(await screen.findByText('Could not load your commissions. Please refresh.')).toBeInTheDocument()
+  })
 })
 ```
 
@@ -4216,6 +4224,7 @@ describe('AgentDownline', () => {
   it('summarizes each downline member', async () => {
     fetchTeamSales.mockResolvedValue([{ id: 'p1', sold_by: 'a2' }])
     fetchCommissions.mockResolvedValue([
+      { id: 'c0', agent_id: 'a1', amount: 99999, status: 'earned' },
       { id: 'c1', agent_id: 'a2', amount: 30000, status: 'earned' },
       { id: 'c2', agent_id: 'a3', amount: 10000, status: 'paid' },
     ])
@@ -4227,6 +4236,15 @@ describe('AgentDownline', () => {
     expect(screen.getByText('Earned: ₱ 30,000')).toBeInTheDocument()
     expect(screen.getByText('Earned: ₱ 10,000')).toBeInTheDocument()
     expect(screen.getByText('Paid: ₱ 10,000')).toBeInTheDocument()
+    expect(screen.queryByText('Earned: ₱ 99,999')).not.toBeInTheDocument()
+  })
+
+  it('shows an error state when the fetch fails', async () => {
+    fetchTeamSales.mockRejectedValue(new Error('boom'))
+
+    render(<AgentDownline members={members} />)
+
+    expect(await screen.findByText('Could not load your downline. Please refresh.')).toBeInTheDocument()
   })
 })
 ```
@@ -4407,7 +4425,7 @@ export default function AgentDownline({ members }) {
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `npx vitest run src/components/admin/AgentCommissions.test.jsx src/components/admin/AgentDownline.test.jsx`
-Expected: PASS — 3 tests.
+Expected: PASS — 5 tests.
 
 - [ ] **Step 6: Commit**
 
