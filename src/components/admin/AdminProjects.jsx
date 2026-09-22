@@ -115,13 +115,15 @@ export default function AdminProjects() {
             </dd>
           </div>
         </dl>
-        <Link
-          to={`/admin/projects/${project.id}`}
-          aria-label={`Open ${project.name}`}
-          className="inline-flex rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-        >
-          Open
-        </Link>
+        <div className="mt-3 flex justify-end">
+          <Link
+            to={`/admin/projects/${project.id}`}
+            aria-label={`Open ${project.name}`}
+            className="inline-flex rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
+          >
+            Open
+          </Link>
+        </div>
       </div>
     )
   }

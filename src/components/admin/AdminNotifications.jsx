@@ -231,9 +231,11 @@ export default function AdminNotifications() {
         </button>
       </div>
       <p className="mb-3 text-xs text-ink/60">{TYPE_DESCRIPTIONS[setting.notification_type] ?? ''}</p>
-      <Button size="sm" variant="secondary" onClick={() => handleEdit(setting)}>
-        Edit Template
-      </Button>
+      <div className="mt-3 flex justify-end">
+        <Button size="sm" variant="secondary" onClick={() => handleEdit(setting)}>
+          Edit Template
+        </Button>
+      </div>
     </div>
   )
 

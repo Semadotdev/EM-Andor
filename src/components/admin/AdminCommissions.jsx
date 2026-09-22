@@ -184,16 +184,18 @@ export default function AdminCommissions() {
         </div>
       </dl>
       {row.status === 'earned' && (
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => {
-            setPaidError(null)
-            setConfirmPaid(row)
-          }}
-        >
-          Mark Paid
-        </Button>
+        <div className="mt-3 flex justify-end">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setPaidError(null)
+              setConfirmPaid(row)
+            }}
+          >
+            Mark Paid
+          </Button>
+        </div>
       )}
     </div>
   )
