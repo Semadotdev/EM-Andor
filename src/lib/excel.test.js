@@ -55,6 +55,38 @@ describe('mapLotRows', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0].area).toBeNaN()
   })
+
+  it('maps optional price and price-per-sqm columns', () => {
+    const { rows, errors } = mapLotRows([['Block No', 'Lot No', 'Area', 'Price', 'Price per m²'], ['1', '7', '120.5', '750000', '6500']])
+
+    expect(errors).toEqual([])
+    expect(rows).toEqual([{ rowNumber: 2, block_no: '1', lot_no: '7', area: 120.5, price: 750000, price_per_sqm: 6500 }])
+  })
+
+  it('accepts price header aliases', () => {
+    const { rows, errors } = mapLotRows([['block', 'lot number', 'sqm', 'Total Price', 'Unit Price'], ['3', '9', 80, 100000, 1250]])
+
+    expect(errors).toEqual([])
+    expect(rows).toEqual([{ rowNumber: 2, block_no: '3', lot_no: '9', area: 80, price: 100000, price_per_sqm: 1250 }])
+  })
+
+  it('leaves prices undefined when the columns are absent', () => {
+    const { rows } = mapLotRows([['Block No', 'Lot No', 'Area'], ['1', '7', '120.5']])
+
+    expect(rows).toEqual([{ rowNumber: 2, block_no: '1', lot_no: '7', area: 120.5 }])
+  })
+
+  it('leaves a blank price cell undefined instead of zero', () => {
+    const { rows } = mapLotRows([['Block No', 'Lot No', 'Area', 'Price', 'Price per m²'], ['1', '7', '120.5', '', '']])
+
+    expect(rows).toEqual([{ rowNumber: 2, block_no: '1', lot_no: '7', area: 120.5 }])
+  })
+
+  it('keeps non-numeric prices so validation can flag them', () => {
+    const { rows } = mapLotRows([['Block No', 'Lot No', 'Area', 'Price', 'Price per m²'], ['1', '7', '120.5', 'abc', 'xyz']])
+
+    expect(rows).toEqual([{ rowNumber: 2, block_no: '1', lot_no: '7', area: 120.5, price: NaN, price_per_sqm: NaN }])
+  })
 })
 
 describe('validateLotRows', () => {
@@ -82,6 +114,22 @@ describe('validateLotRows', () => {
       'Row 2: Area must be a number greater than 0.',
       'Row 3: Area must be a number greater than 0.',
       'Row 4: Area must be a number greater than 0.',
+    ])
+  })
+
+  it('rejects non-numeric, zero, and negative prices', () => {
+    const rows = [
+      row({ rowNumber: 2, lot_no: '2', price: NaN }),
+      row({ rowNumber: 3, lot_no: '3', price: 0 }),
+      row({ rowNumber: 4, lot_no: '4', price_per_sqm: -5 }),
+      row({ rowNumber: 5, lot_no: '5', price_per_sqm: NaN }),
+    ]
+
+    expect(validateLotRows(rows)).toEqual([
+      'Row 2: Price must be a number.',
+      'Row 3: Price must be greater than 0.',
+      'Row 4: Price per m² must be greater than 0.',
+      'Row 5: Price per m² must be a number.',
     ])
   })
 

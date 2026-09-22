@@ -20,7 +20,6 @@ export default function CreateProjectModal({ project, onClose, onCreated }) {
     name: project?.name ?? '',
     type: project?.type ?? 'farm_lot',
     address: project?.address ?? '',
-    pricePerSqm: project?.price_per_sqm ?? '',
   })
   const [rateInputs, setRateInputs] = useState({})
   const [ratesState, setRatesState] = useState('loading')
@@ -69,10 +68,6 @@ export default function CreateProjectModal({ project, onClose, onCreated }) {
     const next = {}
     if (!form.name.trim()) next.name = 'Name is required.'
     if (!form.address.trim()) next.address = 'Address is required.'
-    const price = Number(form.pricePerSqm)
-    if (form.pricePerSqm === '' || Number.isNaN(price) || price <= 0) {
-      next.pricePerSqm = 'Price per m² must be greater than 0.'
-    }
     const invalidRate = COMMISSION_ROLES.some((role) => {
       const value = rateInputs[role]
       const num = Number(value)
@@ -96,7 +91,6 @@ export default function CreateProjectModal({ project, onClose, onCreated }) {
         name: form.name.trim(),
         type: form.type,
         address: form.address.trim(),
-        pricePerSqm: Number(form.pricePerSqm),
         rates: Object.fromEntries(COMMISSION_ROLES.map((role) => [role, Number(rateInputs[role]) / 100])),
       }
       if (isEdit) await updateProject(project.id, payload)
@@ -149,18 +143,6 @@ export default function CreateProjectModal({ project, onClose, onCreated }) {
             </option>
           ))}
         </Select>
-
-        <Input
-          id="cp-price"
-          type="number"
-          min="0"
-          step="any"
-          label="Price per m² (PHP)"
-          value={form.pricePerSqm}
-          onChange={setField('pricePerSqm')}
-          placeholder="1200"
-          error={errors.pricePerSqm}
-        />
 
         <div className="sm:col-span-2">
           <Input id="cp-address" label="Address" value={form.address} onChange={setField('address')} placeholder="Brgy. Andor, Batangas City" error={errors.address} />

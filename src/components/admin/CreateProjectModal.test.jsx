@@ -62,7 +62,6 @@ describe('CreateProjectModal', () => {
 
     await user.type(screen.getByLabelText('Name'), 'Andor Farm')
     await user.type(screen.getByLabelText('Address'), 'Brgy. Andor')
-    await user.type(screen.getByLabelText('Price per m² (PHP)'), '1000')
     await screen.findByLabelText('Sub Agent rate (%)')
     await user.click(screen.getByRole('button', { name: 'Create Project' }))
 
@@ -70,7 +69,6 @@ describe('CreateProjectModal', () => {
       name: 'Andor Farm',
       type: 'farm_lot',
       address: 'Brgy. Andor',
-      pricePerSqm: 1000,
       rates: { sub_agent: 0.03, direct_agent: 0.015, agent_head: 0.05 },
     })
     expect(onCreated).toHaveBeenCalled()
@@ -86,7 +84,6 @@ describe('CreateProjectModal', () => {
 
     expect(await screen.findByText('Name is required.')).toBeInTheDocument()
     expect(screen.getByText('Address is required.')).toBeInTheDocument()
-    expect(screen.getByText('Price per m² must be greater than 0.')).toBeInTheDocument()
     expect(createProject).not.toHaveBeenCalled()
   })
 
@@ -99,7 +96,6 @@ describe('CreateProjectModal', () => {
 
     await user.type(screen.getByLabelText('Name'), 'Andor Farm')
     await user.type(screen.getByLabelText('Address'), 'Brgy. Andor')
-    await user.type(screen.getByLabelText('Price per m² (PHP)'), '1000')
     await screen.findByLabelText('Sub Agent rate (%)')
     await user.click(screen.getByRole('button', { name: 'Create Project' }))
 
@@ -145,7 +141,7 @@ describe('CreateProjectModal', () => {
     expect(screen.getByText('Edit Project')).toBeInTheDocument()
     expect(screen.getByLabelText('Name')).toHaveValue('Andor Farm')
     expect(screen.getByLabelText('Address')).toHaveValue('Brgy. Andor')
-    expect(screen.getByLabelText('Price per m² (PHP)')).toHaveValue(1000)
+    expect(screen.queryByLabelText('Price per m² (PHP)')).not.toBeInTheDocument()
     expect(await screen.findByLabelText('Sub Agent rate (%)')).toHaveValue(4)
     expect(screen.getByLabelText('Direct Agent rate (%)')).toHaveValue(1.5)
     expect(screen.getByLabelText('Agent Head rate (%)')).toHaveValue(5)
@@ -176,7 +172,6 @@ describe('CreateProjectModal', () => {
       name: 'Andor Farm Updated',
       type: 'farm_lot',
       address: 'Brgy. Andor',
-      pricePerSqm: 1000,
       rates: { sub_agent: 0.04, direct_agent: 0.015, agent_head: 0.05 },
     })
     expect(createProject).not.toHaveBeenCalled()

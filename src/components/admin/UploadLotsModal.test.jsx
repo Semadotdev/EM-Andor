@@ -13,10 +13,11 @@ vi.mock('../../lib/excel.js', () => ({
 vi.mock('../../lib/projects.js', () => ({
   fetchProjectLots: vi.fn(),
   createLots: vi.fn(),
+  resolveLotPrice: vi.fn(),
 }))
 
 import { mapLotRows, readLotsFile, validateLotRows } from '../../lib/excel.js'
-import { createLots, fetchProjectLots } from '../../lib/projects.js'
+import { createLots, fetchProjectLots, resolveLotPrice } from '../../lib/projects.js'
 
 const project = { id: 'pr1', name: 'Andor Farm', address: 'Brgy. Andor', price_per_sqm: 1000 }
 const rows = [{ rowNumber: 2, block_no: '1', lot_no: '1', area: 100 }]
@@ -36,6 +37,7 @@ describe('UploadLotsModal', () => {
     fetchProjectLots.mockResolvedValue([])
     validateLotRows.mockReturnValue([])
     createLots.mockResolvedValue([{ id: 'p1' }])
+    resolveLotPrice.mockReturnValue(100000)
   })
 
   it('previews a valid file and imports the lots', async () => {
@@ -62,6 +64,22 @@ describe('UploadLotsModal', () => {
     expect(createLots).toHaveBeenCalledWith('pr1', project, rows)
     expect(onImported).toHaveBeenCalledWith(1)
     expect(await screen.findByText('Imported 1 lot.')).toBeInTheDocument()
+  })
+
+  it('previews the resolved total and unit prices for transparency', async () => {
+    const rows = [{ rowNumber: 2, block_no: '1', lot_no: '1', area: 100, price: 750000, price_per_sqm: 7500 }]
+    mapLotRows.mockReturnValue({ rows, errors: [] })
+    resolveLotPrice.mockReturnValue(750000)
+    const user = userEvent.setup()
+
+    render(<UploadLotsModal project={project} onClose={vi.fn()} onImported={vi.fn()} />)
+
+    await chooseFile(user)
+
+    expect(await screen.findByText('₱ 750,000')).toBeInTheDocument()
+    expect(screen.getByText('₱ 7,500')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Price/m²' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Price' })).toBeInTheDocument()
   })
 
   it('disables import and shows row errors for an invalid file', async () => {

@@ -9,7 +9,7 @@ import {
   fetchProjectRates,
   fetchProjectRatesMap,
   lotPrice,
-  repriceAvailableLots,
+  resolveLotPrice,
   updateLot,
   updateProject,
   upsertProjectRates,
@@ -147,7 +147,6 @@ describe('projects', () => {
     const created = await createProject({
       name: 'Andor Farm',
       address: 'Brgy. Andor',
-      pricePerSqm: 999.99,
       rates: { sub_agent: 0.03 },
     })
 
@@ -156,7 +155,6 @@ describe('projects', () => {
       name: 'Andor Farm',
       type: 'farm_lot',
       address: 'Brgy. Andor',
-      price_per_sqm: 999.99,
     })
     expect(insertChain.select).toHaveBeenCalled()
     expect(insertChain.single).toHaveBeenCalled()
@@ -172,91 +170,66 @@ describe('projects', () => {
     const insertChain = chain({ data: { ...project, id: 'pr9' }, error: null })
     supabase.from.mockReturnValue(insertChain)
 
-    await createProject({ name: 'Andor Farm', address: 'Brgy. Andor', pricePerSqm: 999.99 })
+    await createProject({ name: 'Andor Farm', address: 'Brgy. Andor' })
 
     expect(supabase.from).toHaveBeenCalledTimes(1)
     expect(logActivity).toHaveBeenCalledWith('project', 'pr9', 'create')
   })
 
-  it('updateProject updates the project, upserts rates, and reprices available lots', async () => {
-    const updateChain = chain({ data: { ...project, price_per_sqm: 1200 }, error: null })
+  it('updateProject updates the project and upserts rates', async () => {
+    const updateChain = chain({ data: { ...project, name: 'Andor Farm Updated' }, error: null })
     const ratesChain = chain({ data: [], error: null })
-    const lotsChain = chain({ data: [{ id: 'lot1', lot_area_sqm: 250 }], error: null })
-    const lotUpdateChain = chain({ data: null, error: null })
     supabase.from
       .mockImplementationOnce(() => updateChain)
       .mockImplementationOnce(() => ratesChain)
-      .mockImplementationOnce(() => lotsChain)
-      .mockImplementation(() => lotUpdateChain)
 
     const updated = await updateProject('pr1', {
-      name: 'Andor Farm',
+      name: 'Andor Farm Updated',
       type: 'farm_lot',
       address: 'Brgy. Andor',
-      pricePerSqm: 1200,
       rates: { direct_agent: 0.01 },
     })
 
     expect(supabase.from).toHaveBeenNthCalledWith(1, 'projects')
     expect(updateChain.update).toHaveBeenCalledWith({
-      name: 'Andor Farm',
+      name: 'Andor Farm Updated',
       type: 'farm_lot',
       address: 'Brgy. Andor',
-      price_per_sqm: 1200,
     })
     expect(updateChain.eq).toHaveBeenCalledWith('id', 'pr1')
     expect(updateChain.single).toHaveBeenCalled()
+    expect(supabase.from).not.toHaveBeenCalledWith('properties')
     expect(ratesChain.upsert).toHaveBeenCalledWith(
       [{ project_id: 'pr1', role: 'direct_agent', rate: 0.01 }],
       { onConflict: 'project_id,role' },
     )
-    expect(lotsChain.eq).toHaveBeenCalledWith('project_id', 'pr1')
-    expect(lotsChain.eq).toHaveBeenCalledWith('status', 'available')
-    expect(lotUpdateChain.update).toHaveBeenCalledWith({ price: 300000 })
-    expect(lotUpdateChain.eq).toHaveBeenCalledWith('id', 'lot1')
-    expect(lotUpdateChain.eq).toHaveBeenCalledWith('status', 'available')
     expect(logActivity).toHaveBeenCalledWith('project', 'pr1', 'update')
-    expect(updated.price_per_sqm).toBe(1200)
+    expect(updated.name).toBe('Andor Farm Updated')
   })
 
-  it('updateProject without rates skips the rates table but still reprices', async () => {
-    const updateChain = chain({ data: { ...project, price_per_sqm: 1200 }, error: null })
-    const lotsChain = chain({ data: [], error: null })
-    supabase.from
-      .mockImplementationOnce(() => updateChain)
-      .mockImplementationOnce(() => lotsChain)
+  it('updateProject without rates skips the rates table', async () => {
+    const updateChain = chain({ data: { ...project }, error: null })
+    supabase.from.mockReturnValue(updateChain)
 
-    await updateProject('pr1', { name: 'Andor Farm', address: 'Brgy. Andor', pricePerSqm: 1200 })
+    await updateProject('pr1', { name: 'Andor Farm', address: 'Brgy. Andor' })
 
     expect(supabase.from).not.toHaveBeenCalledWith('project_commission_rates')
-    expect(supabase.from).toHaveBeenCalledWith('properties')
+    expect(supabase.from).not.toHaveBeenCalledWith('properties')
   })
 
-  it('repriceAvailableLots updates only available lots that have an area', async () => {
-    const lotsChain = chain({
-      data: [
-        { id: 'lot1', lot_area_sqm: 250 },
-        { id: 'lot2', lot_area_sqm: null },
-      ],
-      error: null,
-    })
-    const lotUpdateChain = chain({ data: [{ id: 'lot1' }], error: null })
-    supabase.from
-      .mockImplementationOnce(() => lotsChain)
-      .mockImplementation(() => lotUpdateChain)
+  it('resolveLotPrice uses the row total first, then price per m², then the project rate', () => {
+    const row = { rowNumber: 2, block_no: '1', lot_no: '2', area: 100 }
 
-    const repriced = await repriceAvailableLots('pr1', 1200)
+    expect(resolveLotPrice({ ...row, price: 750000 }, project)).toBe(750000)
+    expect(resolveLotPrice({ ...row, price_per_sqm: 6500 }, project)).toBe(650000)
+    expect(resolveLotPrice(row, project)).toBe(99999)
+    expect(resolveLotPrice({ ...row, price: 0, price_per_sqm: 6500 }, project)).toBe(650000)
+  })
 
-    expect(repriced).toBe(1)
-    expect(supabase.from).toHaveBeenCalledWith('properties')
-    expect(lotsChain.select).toHaveBeenCalledWith('id, lot_area_sqm')
-    expect(lotsChain.eq).toHaveBeenCalledWith('project_id', 'pr1')
-    expect(lotsChain.eq).toHaveBeenCalledWith('status', 'available')
-    expect(lotUpdateChain.update).toHaveBeenCalledTimes(1)
-    expect(lotUpdateChain.update).toHaveBeenCalledWith({ price: 300000 })
-    expect(lotUpdateChain.eq).toHaveBeenCalledWith('id', 'lot1')
-    expect(lotUpdateChain.eq).toHaveBeenCalledWith('status', 'available')
-    expect(lotUpdateChain.select).toHaveBeenCalledWith('id')
+  it('resolveLotPrice leaves the price unset when nothing is priced', () => {
+    const noRate = { ...project, price_per_sqm: null }
+    expect(resolveLotPrice({ rowNumber: 2, block_no: '1', lot_no: '2', area: 100 }, noRate)).toBeUndefined()
+    expect(resolveLotPrice({ rowNumber: 2, block_no: '1', lot_no: '2', area: 100 }, {})).toBeUndefined()
   })
 
   it('fetchProjectLots filters by project and sorts by block then lot', async () => {
@@ -325,6 +298,35 @@ describe('projects', () => {
     expect(logActivity).not.toHaveBeenCalled()
   })
 
+  it('createLots uses the excel total price and per-m² price when present', async () => {
+    const rows = [
+      { rowNumber: 2, block_no: '1', lot_no: '3', area: 100, price: 750000 },
+      { rowNumber: 3, block_no: '2', lot_no: '1', area: 200, price_per_sqm: 6500 },
+    ]
+    const c = chain({ data: [{ id: 'p1' }, { id: 'p2' }], error: null })
+    supabase.from.mockReturnValue(c)
+
+    await createLots('pr1', project, rows)
+
+    const payload = c.insert.mock.calls[0][0]
+    expect(payload).toHaveLength(2)
+    expect(payload[0]).toMatchObject({ block_no: '1', lot_no: '3', price: 750000 })
+    expect(payload[1]).toMatchObject({ block_no: '2', lot_no: '1', price: 1300000 })
+  })
+
+  it('createLots leaves the price unset when neither the excel nor the project has a price', async () => {
+    const noRate = { ...project, price_per_sqm: null }
+    const rows = [{ rowNumber: 2, block_no: '1', lot_no: '3', area: 100 }]
+    const c = chain({ data: [{ id: 'p1' }], error: null })
+    supabase.from.mockReturnValue(c)
+
+    await createLots('pr1', noRate, rows)
+
+    const payload = c.insert.mock.calls[0][0]
+    expect(payload[0]).toMatchObject({ block_no: '1', lot_no: '3', lot_area_sqm: 100 })
+    expect(payload[0]).not.toHaveProperty('price')
+  })
+
   it('updateLot recomputes name and price from the project rate', async () => {
     const lot = { id: 'lot1', project_id: 'pr1', block_no: '1', lot_no: '3', lot_area_sqm: 100, status: 'available' }
     const updated = { ...lot, block_no: '2', lot_no: '5', lot_area_sqm: 120 }
@@ -383,6 +385,21 @@ describe('projects', () => {
     })
   })
 
+  it('updateLot does not reprice available lots when the project has no price', async () => {
+    const lot = { id: 'lot1', project_id: 'pr1', block_no: '1', lot_no: '3', lot_area_sqm: 100, status: 'available' }
+    const updated = { ...lot, block_no: '2', lot_no: '5', lot_area_sqm: 120 }
+    const c = chain({ data: updated, error: null })
+    supabase.from.mockReturnValue(c)
+
+    expect(await updateLot(lot, { ...project, price_per_sqm: null }, { block_no: '2', lot_no: '5', area: 120 })).toEqual(updated)
+    expect(c.update).toHaveBeenCalledWith({
+      block_no: '2',
+      lot_no: '5',
+      name: 'Block 2 Lot 5',
+      lot_area_sqm: 120,
+    })
+  })
+
   it('deleteLot deletes an available lot in one guarded statement', async () => {
     const deleteChain = chain({ data: [{ id: 'lot1' }], error: null })
     supabase.from.mockImplementationOnce(() => deleteChain)
@@ -417,7 +434,6 @@ describe('projects', () => {
       createProject({
         name: 'Andor Farm',
         address: 'Brgy. Andor',
-        pricePerSqm: 999.99,
         rates: { sub_agent: 0.03 },
       }),
     ).rejects.toThrow('rates down')

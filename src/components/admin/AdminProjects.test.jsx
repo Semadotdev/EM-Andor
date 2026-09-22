@@ -57,7 +57,6 @@ describe('AdminProjects', () => {
 
     const farmRow = within(table).getByText('Andor Farm').closest('tr')
     expect(within(farmRow).getByText('2')).toBeInTheDocument()
-    expect(within(farmRow).getByText('₱ 1,000')).toBeInTheDocument()
   })
 
   it('renders projects as stacked mobile cards below the md breakpoint', async () => {

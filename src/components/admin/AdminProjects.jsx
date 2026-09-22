@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchProjectLots, fetchProjects } from '../../lib/projects.js'
-import { formatPrice } from '../../lib/format.js'
 import CreateProjectModal from './CreateProjectModal.jsx'
 import { Badge, Button, DataTable, ErrorState, LoadingState, PageHeader } from '../shared/ui'
 
@@ -53,13 +52,6 @@ export default function AdminProjects() {
     },
     { key: 'address', header: 'Address', hideBelow: 'md', className: 'text-ink/70', render: (project) => project.address },
     {
-      key: 'price',
-      header: 'Price/m²',
-      hideBelow: 'sm',
-      className: 'text-ink/70',
-      render: (project) => formatPrice(project.price_per_sqm) ?? '—',
-    },
-    {
       key: 'available',
       header: 'Available',
       className: 'text-ink/70',
@@ -104,10 +96,6 @@ export default function AdminProjects() {
         </div>
         {project.address && <p className="mb-3 text-xs text-ink/50">{project.address}</p>}
         <dl className="mb-3 space-y-1">
-          <div className="flex justify-between gap-3">
-            <dt className="text-ink/50">Price/m²</dt>
-            <dd className="text-ink/70">{formatPrice(project.price_per_sqm) ?? '—'}</dd>
-          </div>
           <div className="flex justify-between gap-3">
             <dt className="text-ink/50">Inventory</dt>
             <dd className="text-ink/70">

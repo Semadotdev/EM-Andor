@@ -51,10 +51,10 @@ export async function upsertProjectRates(projectId, rates) {
   return data ?? []
 }
 
-export async function createProject({ name, type = 'farm_lot', address, pricePerSqm, rates = {} }) {
+export async function createProject({ name, type = 'farm_lot', address, rates = {} }) {
   const { data, error } = await supabase
     .from('projects')
-    .insert({ name, type, address, price_per_sqm: pricePerSqm })
+    .insert({ name, type, address })
     .select()
     .single()
   if (error) throw error
@@ -71,10 +71,10 @@ export async function createProject({ name, type = 'farm_lot', address, pricePer
   return data
 }
 
-export async function updateProject(id, { name, type, address, pricePerSqm, rates }) {
+export async function updateProject(id, { name, type, address, rates }) {
   const { data, error } = await supabase
     .from('projects')
-    .update({ name, type, address, price_per_sqm: pricePerSqm })
+    .update({ name, type, address })
     .eq('id', id)
     .select()
     .single()
@@ -83,32 +83,20 @@ export async function updateProject(id, { name, type, address, pricePerSqm, rate
   if (rates !== undefined) {
     await upsertProjectRates(id, rates)
   }
-  await repriceAvailableLots(id, data.price_per_sqm)
   logActivity('project', id, 'update').catch(() => {})
   return data
 }
 
-export async function repriceAvailableLots(projectId, pricePerSqm) {
-  const { data, error } = await supabase
-    .from('properties')
-    .select('id, lot_area_sqm')
-    .eq('project_id', projectId)
-    .eq('status', 'available')
-  if (error) throw error
-
-  let repriced = 0
-  for (const lot of data ?? []) {
-    if (lot.lot_area_sqm === null || lot.lot_area_sqm === undefined) continue
-    const { data: updated, error: updateError } = await supabase
-      .from('properties')
-      .update({ price: lotPrice(lot.lot_area_sqm, pricePerSqm) })
-      .eq('id', lot.id)
-      .eq('status', 'available')
-      .select('id')
-    if (updateError) throw updateError
-    repriced += updated?.length ?? 0
+export const resolveLotPrice = (row, project) => {
+  if (Number.isFinite(row?.price) && row.price > 0) return row.price
+  if (Number.isFinite(row?.price_per_sqm) && row.price_per_sqm > 0 && Number.isFinite(row?.area) && row.area > 0) {
+    return lotPrice(row.area, row.price_per_sqm)
   }
-  return repriced
+  const projectRate = Number(project?.price_per_sqm)
+  if (Number.isFinite(projectRate) && projectRate > 0 && Number.isFinite(row?.area) && row.area > 0) {
+    return lotPrice(row.area, projectRate)
+  }
+  return undefined
 }
 
 export async function fetchProjectLots(projectId) {
@@ -125,19 +113,23 @@ export async function fetchProjectLots(projectId) {
 export async function createLots(projectId, project, rows) {
   if (!rows || rows.length === 0) return []
 
-  const payload = rows.map((row) => ({
-    project_id: projectId,
-    name: `Block ${row.block_no} Lot ${row.lot_no}`,
-    type: 'farm lot',
-    location: project.address,
-    block_no: row.block_no,
-    lot_no: row.lot_no,
-    lot_area_sqm: row.area,
-    price: lotPrice(row.area, project.price_per_sqm),
-    status: 'available',
-    is_pinned: false,
-    map_pins: [],
-  }))
+  const payload = rows.map((row) => {
+    const price = resolveLotPrice(row, project)
+    const lot = {
+      project_id: projectId,
+      name: `Block ${row.block_no} Lot ${row.lot_no}`,
+      type: 'farm lot',
+      location: project.address,
+      block_no: row.block_no,
+      lot_no: row.lot_no,
+      lot_area_sqm: row.area,
+      status: 'available',
+      is_pinned: false,
+      map_pins: [],
+    }
+    if (price !== undefined) lot.price = price
+    return lot
+  })
 
   const { data, error } = await supabase.from('properties').insert(payload).select()
   if (error) throw error
@@ -160,7 +152,10 @@ export async function updateLot(lot, project, updates = {}) {
   if (isAvailable) {
     const area = updates.area ?? lot.lot_area_sqm
     payload.lot_area_sqm = area
-    payload.price = lotPrice(area, project.price_per_sqm)
+    const projectRate = Number(project?.price_per_sqm)
+    if (Number.isFinite(projectRate) && projectRate > 0) {
+      payload.price = lotPrice(area, projectRate)
+    }
   }
 
   const { data, error } = await supabase

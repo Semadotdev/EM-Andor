@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { mapLotRows, readLotsFile, validateLotRows } from '../../lib/excel.js'
-import { createLots, fetchProjectLots } from '../../lib/projects.js'
+import { createLots, fetchProjectLots, resolveLotPrice } from '../../lib/projects.js'
+import { formatPrice } from '../../lib/format.js'
 import { Button, LoadingState, Modal, inputClass, useToast } from '../shared/ui'
 
 const isDuplicateKey = (err) =>
@@ -50,6 +51,13 @@ export default function UploadLotsModal({ project, onClose, onImported }) {
   }
 
   const canImport = rows.length > 0 && errors.length === 0 && !reading && !importing
+
+  const previewUnit = (row) => {
+    if (row.price_per_sqm !== undefined && Number.isFinite(row.price_per_sqm)) return row.price_per_sqm
+    const price = resolveLotPrice(row, project)
+    if (price !== undefined && Number.isFinite(row.area) && row.area > 0) return Math.round((price / row.area) * 100) / 100
+    return undefined
+  }
 
   const handleImport = async () => {
     if (!canImport) return
@@ -105,7 +113,7 @@ export default function UploadLotsModal({ project, onClose, onImported }) {
             className={`${inputClass} file:mr-3 file:rounded-md file:border-0 file:bg-brand/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-brand`}
           />
           <p className="mt-1.5 text-xs text-ink/50">
-            Expected columns: Block No, Lot No, Area. Only .xlsx files are supported.{fileName ? ` Selected: ${fileName}` : ''}
+            Expected columns: Block No, Lot No, Area. Optional: Price, Price per m². Only .xlsx files are supported.{fileName ? ` Selected: ${fileName}` : ''}
           </p>
         </div>
 
@@ -128,6 +136,8 @@ export default function UploadLotsModal({ project, onClose, onImported }) {
                   <th scope="col" className="px-4 py-2">Block</th>
                   <th scope="col" className="px-4 py-2">Lot</th>
                   <th scope="col" className="px-4 py-2">Area</th>
+                  <th scope="col" className="px-4 py-2">Price/m²</th>
+                  <th scope="col" className="px-4 py-2">Price</th>
                 </tr>
               </thead>
               <tbody>
@@ -140,6 +150,8 @@ export default function UploadLotsModal({ project, onClose, onImported }) {
                     <td className="px-4 py-2 font-semibold text-brand-deep">{row.block_no || '—'}</td>
                     <td className="px-4 py-2 text-ink/70">{row.lot_no || '—'}</td>
                     <td className="px-4 py-2 text-ink/70">{row.area}</td>
+                    <td className="px-4 py-2 text-ink/70">{formatPrice(previewUnit(row)) ?? '—'}</td>
+                    <td className="px-4 py-2 text-ink/70">{formatPrice(resolveLotPrice(row, project)) ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>

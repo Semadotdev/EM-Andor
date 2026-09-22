@@ -338,7 +338,7 @@ export default function ProjectDetail() {
 
       <PageHeader
         title={currentProject.name}
-        description={`${TYPE_LABELS[currentProject.type] ?? currentProject.type} · ${currentProject.address} · ${formatPrice(currentProject.price_per_sqm) ?? '—'} / m²`}
+        description={`${TYPE_LABELS[currentProject.type] ?? currentProject.type} · ${currentProject.address}`}
         actions={
           <>
             <Button variant="secondary" onClick={() => setShowEditProject(true)}>
