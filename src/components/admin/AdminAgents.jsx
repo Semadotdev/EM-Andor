@@ -26,7 +26,7 @@ const roleTone = (role) => {
   return 'gray'
 }
 
-function AgentDetail({ agent, onClose }) {
+function AgentDetail({ agent, onClose, onToggle, pending }) {
   const [sales, setSales] = useState([])
   const [commissions, setCommissions] = useState([])
   const [team, setTeam] = useState([])
@@ -56,6 +56,7 @@ function AgentDetail({ agent, onClose }) {
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-display text-xl font-extrabold text-brand-deep">
           {agent.name} · {ROLE_LABELS[agent.role] ?? agent.role}
+          {!agent.is_active && <Badge tone="red">Inactive</Badge>}
         </h2>
         <button onClick={onClose} className="rounded-md px-2 py-1 text-ink/50 hover:text-ink" aria-label="Close">✕</button>
       </div>
@@ -124,11 +125,23 @@ function AgentDetail({ agent, onClose }) {
           </div>
         </div>
       )}
+
+      {agent.role !== 'admin' && (
+        <div className="mt-6 flex justify-end">
+          <Button
+            variant={agent.is_active ? 'danger' : 'secondary'}
+            onClick={() => onToggle(agent)}
+            disabled={Boolean(pending?.[agent.id])}
+          >
+            {agent.is_active ? 'Deactivate' : 'Activate'}
+          </Button>
+        </div>
+      )}
     </Modal>
   )
 }
 
-function AgentNode({ node, depth, eligibility, onView, onToggle, pending }) {
+function AgentNode({ node, depth, eligibility, onView }) {
   const eligible = eligibility?.get?.(node.id)
   return (
     <>
@@ -147,16 +160,6 @@ function AgentNode({ node, depth, eligibility, onView, onToggle, pending }) {
           <Button size="sm" variant="secondary" onClick={() => onView(node)}>
             View
           </Button>
-          {node.role !== 'admin' && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => onToggle(node)}
-              disabled={Boolean(pending[node.id])}
-            >
-              {node.is_active ? 'Deactivate' : 'Activate'}
-            </Button>
-          )}
         </div>
       </li>
       {node.children.map((child) => (
@@ -166,8 +169,6 @@ function AgentNode({ node, depth, eligibility, onView, onToggle, pending }) {
           depth={depth + 1}
           eligibility={eligibility}
           onView={onView}
-          onToggle={onToggle}
-          pending={pending}
         />
       ))}
     </>
@@ -217,6 +218,7 @@ export default function AdminAgents() {
     try {
       await setAgentActive(id, next)
       setAgents((list) => list.map((a) => (a.id === id ? { ...a, is_active: next } : a)))
+      setDetail((d) => (d && d.id === id ? { ...d, is_active: next } : d))
       setConfirmToggle(null)
       showToast(next ? 'Agent activated.' : 'Agent deactivated.')
       load()
@@ -272,8 +274,6 @@ export default function AdminAgents() {
               depth={0}
               eligibility={eligibility}
               onView={setDetail}
-              onToggle={setConfirmToggle}
-              pending={pending}
             />
           ))}
         </ul>
@@ -290,7 +290,14 @@ export default function AdminAgents() {
         />
       )}
 
-      {detail && <AgentDetail agent={detail} onClose={() => setDetail(null)} />}
+      {detail && (
+        <AgentDetail
+          agent={detail}
+          onClose={() => setDetail(null)}
+          onToggle={setConfirmToggle}
+          pending={pending}
+        />
+      )}
 
       <ConfirmModal
         open={Boolean(confirmToggle)}

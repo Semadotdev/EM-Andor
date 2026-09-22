@@ -62,18 +62,38 @@ describe('AdminAgents', () => {
     expect(screen.getByRole('dialog', { name: 'Create agent' })).toBeInTheDocument()
   })
 
-  it('deactivates an agent after confirmation', async () => {
+  it('deactivates an agent from the view modal after confirmation', async () => {
     const user = userEvent.setup()
 
     render(<AdminAgents />)
 
     const row = (await screen.findByText('Ana Sub')).closest('li')
-    await user.click(within(row).getByRole('button', { name: 'Deactivate' }))
-    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(row).getByRole('button', { name: 'View' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Ana Sub details' })
     await user.click(within(dialog).getByRole('button', { name: 'Deactivate' }))
+
+    const confirm = await screen.findByRole('alertdialog')
+    await user.click(within(confirm).getByRole('button', { name: 'Deactivate' }))
 
     expect(setAgentActive).toHaveBeenCalledWith('a1', false)
     expect(await screen.findByText('Agent deactivated.')).toBeInTheDocument()
+  })
+
+  it('keeps activation actions inside the view modal and hides them for admins', async () => {
+    const user = userEvent.setup()
+
+    render(<AdminAgents />)
+
+    await screen.findByText('Ana Sub')
+    expect(screen.queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument()
+
+    const adminRow = screen.getAllByText('Admin')[0].closest('li')
+    await user.click(within(adminRow).getByRole('button', { name: 'View' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Admin details' })
+    expect(within(dialog).queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: 'Activate' })).not.toBeInTheDocument()
   })
 
   it('searches agents by name', async () => {
