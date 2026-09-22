@@ -47,22 +47,39 @@ describe('AdminProjects', () => {
   it('lists projects with type badges and per-project lot counts', async () => {
     renderProjects()
 
-    expect(await screen.findByText('Andor Farm')).toBeInTheDocument()
-    expect(screen.getByText('Andor Homes')).toBeInTheDocument()
-    expect(screen.getByText('Farm Lot')).toBeInTheDocument()
-    expect(screen.getByText('Housing')).toBeInTheDocument()
-    expect(screen.getAllByText('1 available')).toHaveLength(2)
-    expect(screen.getByText('1 sold')).toBeInTheDocument()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Andor Farm')).toBeInTheDocument()
+    expect(within(table).getByText('Andor Homes')).toBeInTheDocument()
+    expect(within(table).getByText('Farm Lot')).toBeInTheDocument()
+    expect(within(table).getByText('Housing')).toBeInTheDocument()
+    expect(within(table).getAllByText('1 available')).toHaveLength(2)
+    expect(within(table).getByText('1 sold')).toBeInTheDocument()
 
-    const farmRow = screen.getByText('Andor Farm').closest('tr')
+    const farmRow = within(table).getByText('Andor Farm').closest('tr')
     expect(within(farmRow).getByText('2')).toBeInTheDocument()
     expect(within(farmRow).getByText('₱ 1,000')).toBeInTheDocument()
+  })
+
+  it('renders projects as stacked mobile cards below the md breakpoint', async () => {
+    renderProjects()
+
+    const table = await screen.findByRole('table')
+    expect(table.closest('.md\\:block')).not.toBeNull()
+
+    const cardLinks = screen.getAllByRole('link', { name: 'Open Andor Farm' })
+    expect(cardLinks.length).toBe(2)
+    expect(cardLinks[0].closest('.md\\:hidden')).not.toBeNull()
+
+    const card = cardLinks[0].closest('.rounded-lg')
+    expect(within(card).getByText('Farm Lot')).toBeInTheDocument()
+    expect(within(card).getByText('Brgy. Andor')).toBeInTheDocument()
+    expect(within(card).getByText(/1 available · 1 sold · 2 total/)).toBeInTheDocument()
   })
 
   it('counts lots per project', async () => {
     renderProjects()
 
-    await screen.findByText('Andor Farm')
+    await screen.findByRole('table')
 
     expect(fetchProjectLots).toHaveBeenCalledWith('pr1')
     expect(fetchProjectLots).toHaveBeenCalledWith('pr2')
@@ -92,8 +109,9 @@ describe('AdminProjects', () => {
   it('labels each open action with the project name', async () => {
     renderProjects()
 
-    expect(await screen.findByRole('link', { name: 'Open Andor Farm' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Open Andor Homes' })).toBeInTheDocument()
+    const table = await screen.findByRole('table')
+    expect(within(table).findByRole('link', { name: 'Open Andor Farm' })).not.toBeNull()
+    expect(within(table).getByRole('link', { name: 'Open Andor Homes' })).toBeInTheDocument()
   })
 
   it('shows a retry state when loading fails', async () => {
@@ -107,7 +125,8 @@ describe('AdminProjects', () => {
 
     await user.click(screen.getByRole('button', { name: 'Retry' }))
 
-    expect(await screen.findByText('Andor Farm')).toBeInTheDocument()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Andor Farm')).toBeInTheDocument()
   })
 
   it('shows an empty state when there are no projects', async () => {

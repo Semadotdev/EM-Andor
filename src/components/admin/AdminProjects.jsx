@@ -94,6 +94,38 @@ export default function AdminProjects() {
     },
   ]
 
+  const projectCard = (project) => {
+    const countsFor = counts[project.id] ?? {}
+    return (
+      <div className="rounded-lg border border-mist bg-white p-4 text-sm">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="font-semibold text-brand-deep">{project.name}</p>
+          <Badge tone="brand">{TYPE_LABELS[project.type] ?? project.type}</Badge>
+        </div>
+        {project.address && <p className="mb-3 text-xs text-ink/50">{project.address}</p>}
+        <dl className="mb-3 space-y-1">
+          <div className="flex justify-between gap-3">
+            <dt className="text-ink/50">Price/m²</dt>
+            <dd className="text-ink/70">{formatPrice(project.price_per_sqm) ?? '—'}</dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="text-ink/50">Inventory</dt>
+            <dd className="text-ink/70">
+              {countsFor.available ?? 0} available · {countsFor.sold ?? 0} sold · {countsFor.total ?? 0} total
+            </dd>
+          </div>
+        </dl>
+        <Link
+          to={`/admin/projects/${project.id}`}
+          aria-label={`Open ${project.name}`}
+          className="inline-flex rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
+        >
+          Open
+        </Link>
+      </div>
+    )
+  }
+
   return (
     <div>
       <PageHeader
@@ -118,6 +150,7 @@ export default function AdminProjects() {
           rows={projects}
           getRowKey={(project) => project.id}
           emptyMessage='No projects yet. Click "Create Project" to add the first one.'
+          mobileCard={projectCard}
         />
       )}
 
