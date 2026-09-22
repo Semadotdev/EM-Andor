@@ -233,28 +233,33 @@ export default function AdminCommissions() {
         {ratesMessage && <p className="mt-3 text-sm font-medium text-ink/70">{ratesMessage}</p>}
       </form>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Select aria-label="Filter by agent" value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)}>
-          <option value="">All Agents</option>
-          {agents.map((agent) => (
-            <option key={agent.id} value={agent.id}>
-              {agent.name} ({ROLE_LABELS[agent.role] ?? agent.role})
-            </option>
-          ))}
-        </Select>
-        <Select id="cf-status" aria-label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="">All Status</option>
-          <option value="earned">Earned</option>
-          <option value="paid">Paid</option>
-        </Select>
-        <div className="min-w-0 flex-1">
-          <Input
-            type="text"
-            placeholder="Search by property…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search by property"
-          />
+      <div className="mb-4 flex flex-col gap-3 rounded-lg border border-mist bg-white p-4">
+        <Input
+          type="text"
+          placeholder="Search by property…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Search by property"
+          className="w-full sm:max-w-md"
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-full sm:w-48">
+            <Select aria-label="Filter by agent" value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)}>
+              <option value="">All Agents</option>
+              {agents.map((agent) => (
+                <option key={agent.id} value={agent.id}>
+                  {agent.name} ({ROLE_LABELS[agent.role] ?? agent.role})
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="w-full sm:w-48">
+            <Select id="cf-status" aria-label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="">All Status</option>
+              <option value="earned">Earned</option>
+              <option value="paid">Paid</option>
+            </Select>
+          </div>
         </div>
       </div>
 

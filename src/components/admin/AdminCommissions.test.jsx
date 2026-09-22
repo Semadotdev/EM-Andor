@@ -94,6 +94,22 @@ describe('AdminCommissions', () => {
     expect(screen.queryByText('Ana Sub')).not.toBeInTheDocument()
   })
 
+  it('places the search input above the filter dropdowns', async () => {
+    render(<AdminCommissions />)
+
+    await screen.findByRole('table')
+
+    const search = screen.getByLabelText('Search by property')
+    const agent = screen.getByLabelText('Filter by agent')
+    const status = screen.getByLabelText('Status')
+    const follows = (a, b) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+
+    expect(follows(search, agent)).toBe(true)
+    expect(follows(search, status)).toBe(true)
+    expect(follows(agent, status)).toBe(true)
+    expect(search).toHaveClass('sm:max-w-md')
+  })
+
   it('rejects out-of-range rates before saving', async () => {
     const user = userEvent.setup()
 
