@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import UploadLotsModal from './UploadLotsModal.jsx'
 import { renderWithToast as render } from '../../test/renderWithToast.jsx'
@@ -82,6 +82,30 @@ describe('UploadLotsModal', () => {
     expect(screen.getByRole('columnheader', { name: 'Location' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Price/m²' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Price' })).toBeInTheDocument()
+  })
+
+  it('paginates the preview when there are more than 10 rows', async () => {
+    const manyRows = Array.from({ length: 12 }, (_, i) => ({
+      rowNumber: i + 2,
+      block_no: '1',
+      lot_no: String(i + 1),
+      area: 100,
+      price_per_sqm: 1000,
+    }))
+    mapLotRows.mockReturnValue({ rows: manyRows, errors: [] })
+    const user = userEvent.setup()
+
+    render(<UploadLotsModal project={project} onClose={vi.fn()} onImported={vi.fn()} />)
+
+    await chooseFile(user)
+
+    expect(await screen.findByText('Showing 1–10 of 12')).toBeInTheDocument()
+    expect(within(document.querySelector('table tbody')).getAllByRole('row')).toHaveLength(10)
+
+    await user.click(screen.getByRole('button', { name: 'Next page' }))
+
+    expect(await screen.findByText('Showing 11–12 of 12')).toBeInTheDocument()
+    expect(within(document.querySelector('table tbody')).getAllByRole('row')).toHaveLength(2)
   })
 
   it('disables import and shows row errors for an invalid file', async () => {

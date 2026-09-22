@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { mapLotRows, readLotsFile, validateLotRows } from '../../lib/excel.js'
 import { createLots, fetchProjectLots, resolveLotPrice } from '../../lib/projects.js'
 import { formatPrice } from '../../lib/format.js'
-import { Button, LoadingState, Modal, inputClass, useToast } from '../shared/ui'
+import { Button, LoadingState, Modal, Pagination, inputClass, useToast } from '../shared/ui'
 
 const isDuplicateKey = (err) =>
   err?.code === '23505' || String(err?.message ?? '').includes('duplicate key')
@@ -16,6 +16,8 @@ const rowNumbersInErrors = (errors) => {
   return rows
 }
 
+const PREVIEW_PAGE_SIZE = 10
+
 export default function UploadLotsModal({ project, onClose, onImported }) {
   const { showToast } = useToast()
   const [fileName, setFileName] = useState('')
@@ -24,6 +26,11 @@ export default function UploadLotsModal({ project, onClose, onImported }) {
   const [reading, setReading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState(null)
+  const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    setPage(1)
+  }, [rows])
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0]
@@ -77,6 +84,9 @@ export default function UploadLotsModal({ project, onClose, onImported }) {
   }
 
   const errorRows = rowNumbersInErrors(errors)
+  const totalPages = Math.max(1, Math.ceil(rows.length / PREVIEW_PAGE_SIZE))
+  const previewStart = (page - 1) * PREVIEW_PAGE_SIZE
+  const visibleRows = rows.slice(previewStart, previewStart + PREVIEW_PAGE_SIZE)
 
   return (
     <Modal open onClose={onClose} label="Upload lots" size="lg" busy={importing}>
@@ -128,36 +138,47 @@ export default function UploadLotsModal({ project, onClose, onImported }) {
         )}
 
         {rows.length > 0 && (
-          <div className="overflow-x-auto rounded-lg border border-mist">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-mist bg-surface text-xs font-bold uppercase tracking-wide text-ink/60">
-                <tr>
-                  <th scope="col" className="px-4 py-2">Row</th>
-                  <th scope="col" className="px-4 py-2">Block</th>
-                  <th scope="col" className="px-4 py-2">Lot</th>
-                  <th scope="col" className="px-4 py-2">Location</th>
-                  <th scope="col" className="px-4 py-2">Area</th>
-                  <th scope="col" className="px-4 py-2">Price/m²</th>
-                  <th scope="col" className="px-4 py-2">Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.rowNumber}
-                    className={`border-b border-mist/70 last:border-0 ${errorRows.has(row.rowNumber) ? 'bg-red-50' : ''}`}
-                  >
-                    <td className="px-4 py-2 text-ink/50">{row.rowNumber}</td>
-                    <td className="px-4 py-2 font-semibold text-brand-deep">{row.block_no || '—'}</td>
-                    <td className="px-4 py-2 text-ink/70">{row.lot_no || '—'}</td>
-                    <td className="px-4 py-2 text-ink/50">{row.lot_location || '—'}</td>
-                    <td className="px-4 py-2 text-ink/70">{row.area}</td>
-                    <td className="px-4 py-2 text-ink/70">{formatPrice(previewUnit(row)) ?? '—'}</td>
-                    <td className="px-4 py-2 text-ink/70">{formatPrice(resolveLotPrice(row, project)) ?? '—'}</td>
+          <div className="space-y-3">
+            <div className="overflow-x-auto rounded-lg border border-mist">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-mist bg-surface text-xs font-bold uppercase tracking-wide text-ink/60">
+                  <tr>
+                    <th scope="col" className="px-4 py-2">Row</th>
+                    <th scope="col" className="px-4 py-2">Block</th>
+                    <th scope="col" className="px-4 py-2">Lot</th>
+                    <th scope="col" className="px-4 py-2">Location</th>
+                    <th scope="col" className="px-4 py-2">Area</th>
+                    <th scope="col" className="px-4 py-2">Price/m²</th>
+                    <th scope="col" className="px-4 py-2">Price</th>
                   </tr>
-                ))}
+                </thead>
+                <tbody>
+                  {visibleRows.map((row) => (
+                    <tr
+                      key={row.rowNumber}
+                      className={`border-b border-mist/70 last:border-0 ${errorRows.has(row.rowNumber) ? 'bg-red-50' : ''}`}
+                    >
+                      <td className="px-4 py-2 text-ink/50">{row.rowNumber}</td>
+                      <td className="px-4 py-2 font-semibold text-brand-deep">{row.block_no || '—'}</td>
+                      <td className="px-4 py-2 text-ink/70">{row.lot_no || '—'}</td>
+                      <td className="px-4 py-2 text-ink/50">{row.lot_location || '—'}</td>
+                      <td className="px-4 py-2 text-ink/70">{row.area}</td>
+                      <td className="px-4 py-2 text-ink/70">{formatPrice(previewUnit(row)) ?? '—'}</td>
+                      <td className="px-4 py-2 text-ink/70">{formatPrice(resolveLotPrice(row, project)) ?? '—'}</td>
+                    </tr>
+                  ))}
               </tbody>
-            </table>
+              </table>
+            </div>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              total={rows.length}
+              from={previewStart + 1}
+              to={Math.min(previewStart + PREVIEW_PAGE_SIZE, rows.length)}
+              pageSize={PREVIEW_PAGE_SIZE}
+            />
           </div>
         )}
 
