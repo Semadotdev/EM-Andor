@@ -10,6 +10,7 @@ vi.mock('../../lib/projects.js', () => ({
   fetchProjectLots: vi.fn(),
   updateLot: vi.fn(),
   deleteLot: vi.fn(),
+  lotPrice: (area, pricePerSqm) => Math.round(Number(area) * Number(pricePerSqm) * 100) / 100,
 }))
 
 vi.mock('../../lib/agents.js', () => ({ fetchAllAgents: vi.fn() }))
@@ -192,9 +193,58 @@ describe('ProjectDetail', () => {
     await user.type(within(dialog).getByLabelText('Area (sqm)'), '120')
     await user.click(within(dialog).getByRole('button', { name: 'Save Changes' }))
 
-    expect(updateLot).toHaveBeenCalledWith(availableLot, project, { block_no: '2', lot_no: '5', area: 120 })
+    expect(updateLot).toHaveBeenCalledWith(availableLot, project, {
+      block_no: '2',
+      lot_no: '5',
+      area: 120,
+      price_per_sqm: 1000,
+    })
     expect(await screen.findAllByText('120 sqm')).toHaveLength(2)
     expect(await screen.findByText('Lot updated.')).toBeInTheDocument()
+  })
+
+  it('edits the per-m² price and shows the recomputed total before saving', async () => {
+    updateLot.mockResolvedValue({ ...availableLot, price: 750000, price_per_sqm: 7500 })
+    const user = userEvent.setup()
+
+    renderDetail()
+
+    const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
+    await user.click(editButtons[0])
+    const dialog = await screen.findByRole('dialog', { name: 'Edit lot' })
+
+    expect(within(dialog).getByLabelText('Price per m² (PHP)')).toHaveValue(1000)
+
+    await user.clear(within(dialog).getByLabelText('Price per m² (PHP)'))
+    await user.type(within(dialog).getByLabelText('Price per m² (PHP)'), '7500')
+
+    expect(within(dialog).getByText('Total price: ₱ 750,000')).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Save Changes' }))
+
+    expect(updateLot).toHaveBeenCalledWith(availableLot, project, {
+      block_no: '1',
+      lot_no: '1',
+      area: 100,
+      price_per_sqm: 7500,
+    })
+  })
+
+  it('rejects a non-positive per-m² price in the edit modal', async () => {
+    const user = userEvent.setup()
+
+    renderDetail()
+
+    const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
+    await user.click(editButtons[0])
+    const dialog = await screen.findByRole('dialog', { name: 'Edit lot' })
+
+    await user.clear(within(dialog).getByLabelText('Price per m² (PHP)'))
+    await user.type(within(dialog).getByLabelText('Price per m² (PHP)'), '0')
+    await user.click(within(dialog).getByRole('button', { name: 'Save Changes' }))
+
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('Price per m² must be a number greater than 0.')
+    expect(updateLot).not.toHaveBeenCalled()
   })
 
   it('translates a unique violation on edit into a friendly message', async () => {

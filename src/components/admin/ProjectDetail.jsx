@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { deleteLot, fetchProject, fetchProjectLots, updateLot } from '../../lib/projects.js'
+import { deleteLot, fetchProject, fetchProjectLots, lotPrice, updateLot } from '../../lib/projects.js'
 import { fetchAllAgents } from '../../lib/agents.js'
 import { formatPrice } from '../../lib/format.js'
 import BuyerLedgerModal from './BuyerLedgerModal.jsx'
@@ -33,12 +33,24 @@ const isDuplicateKey = (err) =>
 
 const statusLabel = (status) => (status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Available')
 
+const initialPerSqm = (lot) => {
+  const stored = Number(lot.price_per_sqm)
+  if (Number.isFinite(stored) && stored > 0) return String(stored)
+  const price = Number(lot.price)
+  const area = Number(lot.lot_area_sqm)
+  if (Number.isFinite(price) && price > 0 && Number.isFinite(area) && area > 0) {
+    return String(Math.round((price / area) * 100) / 100)
+  }
+  return ''
+}
+
 function EditLotModal({ lot, project, onClose, onSaved }) {
   const { showToast } = useToast()
   const [form, setForm] = useState({
     block_no: lot.block_no ?? '',
     lot_no: lot.lot_no ?? '',
     area: lot.lot_area_sqm ?? '',
+    price_per_sqm: initialPerSqm(lot),
   })
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -60,10 +72,21 @@ function EditLotModal({ lot, project, onClose, onSaved }) {
       setError('Area must be a number greater than 0.')
       return
     }
+    const perSqmRaw = form.price_per_sqm.trim()
+    let pricePerSqm
+    if (perSqmRaw !== '') {
+      pricePerSqm = Number(perSqmRaw)
+      if (Number.isNaN(pricePerSqm) || pricePerSqm <= 0) {
+        setError('Price per m² must be a number greater than 0.')
+        return
+      }
+    }
     setSaving(true)
     setError(null)
     try {
-      await updateLot(lot, project, { block_no: form.block_no.trim(), lot_no: form.lot_no.trim(), area })
+      const updates = { block_no: form.block_no.trim(), lot_no: form.lot_no.trim(), area }
+      if (pricePerSqm !== undefined) updates.price_per_sqm = pricePerSqm
+      await updateLot(lot, project, updates)
       showToast('Lot updated.')
       onSaved()
     } catch (err) {
@@ -73,6 +96,22 @@ function EditLotModal({ lot, project, onClose, onSaved }) {
       setSaving(false)
     }
   }
+
+  const previewTotal = (() => {
+    const area = Number(form.area)
+    const perSqm = Number(form.price_per_sqm)
+    if (
+      form.area !== '' &&
+      form.price_per_sqm.trim() !== '' &&
+      Number.isFinite(area) &&
+      area > 0 &&
+      Number.isFinite(perSqm) &&
+      perSqm > 0
+    ) {
+      return lotPrice(area, perSqm)
+    }
+    return undefined
+  })()
 
   return (
     <Modal open onClose={onClose} label="Edit lot" size="md" busy={saving}>
@@ -95,12 +134,26 @@ function EditLotModal({ lot, project, onClose, onSaved }) {
         </p>
       )}
 
-      <form onSubmit={submit} noValidate className="grid gap-5 sm:grid-cols-3">
+      <form onSubmit={submit} noValidate className="grid gap-5 sm:grid-cols-2">
         <Input id="el-block" autoFocus label="Block" value={form.block_no} onChange={setField('block_no')} />
         <Input id="el-lot" label="Lot" value={form.lot_no} onChange={setField('lot_no')} />
         <Input id="el-area" type="number" min="0" step="any" label="Area (sqm)" value={form.area} onChange={setField('area')} />
+        <div>
+          <Input
+            id="el-price-per-sqm"
+            type="number"
+            min="0"
+            step="any"
+            label="Price per m² (PHP)"
+            value={form.price_per_sqm}
+            onChange={setField('price_per_sqm')}
+          />
+          {previewTotal !== undefined && (
+            <p className="mt-1.5 text-xs text-ink/50">Total price: {formatPrice(previewTotal)}</p>
+          )}
+        </div>
 
-        <div className="mt-2 flex flex-wrap justify-end gap-3 sm:col-span-3">
+        <div className="mt-2 flex flex-wrap justify-end gap-3 sm:col-span-2">
           <Button variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>

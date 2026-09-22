@@ -270,6 +270,7 @@ describe('projects', () => {
         lot_no: '3',
         lot_area_sqm: 100.001,
         price: 100000,
+        price_per_sqm: 999.99,
         status: 'available',
         is_pinned: false,
         map_pins: [],
@@ -283,6 +284,7 @@ describe('projects', () => {
         lot_no: '1',
         lot_area_sqm: 200,
         price: 199998,
+        price_per_sqm: 999.99,
         status: 'available',
         is_pinned: false,
         map_pins: [],
@@ -314,6 +316,23 @@ describe('projects', () => {
     expect(payload[1]).toMatchObject({ block_no: '2', lot_no: '1', price: 1300000, description: 'Inner' })
   })
 
+  it('createLots stores price_per_sqm from the excel or derives it from the resolved price', async () => {
+    const rows = [
+      { rowNumber: 2, block_no: '1', lot_no: '3', area: 100, price_per_sqm: 6500 },
+      { rowNumber: 3, block_no: '2', lot_no: '1', area: 100, price: 750000 },
+      { rowNumber: 4, block_no: '3', lot_no: '1', area: 100 },
+    ]
+    const c = chain({ data: [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }], error: null })
+    supabase.from.mockReturnValue(c)
+
+    await createLots('pr1', project, rows)
+
+    const payload = c.insert.mock.calls[0][0]
+    expect(payload[0]).toMatchObject({ price: 650000, price_per_sqm: 6500 })
+    expect(payload[1]).toMatchObject({ price: 750000, price_per_sqm: 7500 })
+    expect(payload[2]).toMatchObject({ price: 99999, price_per_sqm: 999.99 })
+  })
+
   it('createLots leaves the price unset when neither the excel nor the project has a price', async () => {
     const noRate = { ...project, price_per_sqm: null }
     const rows = [{ rowNumber: 2, block_no: '1', lot_no: '3', area: 100 }]
@@ -341,6 +360,7 @@ describe('projects', () => {
       lot_area_sqm: 120,
       name: 'Block 2 Lot 5',
       price: 119998.8,
+      price_per_sqm: 999.99,
     })
     expect(c.eq).toHaveBeenCalledWith('id', 'lot1')
     expect(c.select).toHaveBeenCalled()
@@ -360,6 +380,7 @@ describe('projects', () => {
       lot_area_sqm: 50,
       name: 'Block 1 Lot 3',
       price: 49999.5,
+      price_per_sqm: 999.99,
     })
   })
 
@@ -382,6 +403,42 @@ describe('projects', () => {
       block_no: '2',
       lot_no: '5',
       name: 'Block 2 Lot 5',
+    })
+  })
+
+  it('updateLot reprices from the stored per-m² rate when only the area changes', async () => {
+    const lot = { id: 'lot1', project_id: 'pr1', block_no: '1', lot_no: '3', lot_area_sqm: 100, price: 800000, price_per_sqm: 8000, status: 'available' }
+    const updated = { ...lot, lot_area_sqm: 120 }
+    const c = chain({ data: updated, error: null })
+    supabase.from.mockReturnValue(c)
+
+    await updateLot(lot, project, { area: 120 })
+
+    expect(c.update).toHaveBeenCalledWith({
+      block_no: '1',
+      lot_no: '3',
+      name: 'Block 1 Lot 3',
+      lot_area_sqm: 120,
+      price: 960000,
+      price_per_sqm: 8000,
+    })
+  })
+
+  it('updateLot uses an explicitly edited per-m² price and reprices the total', async () => {
+    const lot = { id: 'lot1', project_id: 'pr1', block_no: '1', lot_no: '3', lot_area_sqm: 100, price: 800000, price_per_sqm: 8000, status: 'available' }
+    const updated = { ...lot, lot_area_sqm: 120, price: 1200000, price_per_sqm: 10000 }
+    const c = chain({ data: updated, error: null })
+    supabase.from.mockReturnValue(c)
+
+    await updateLot(lot, project, { area: 120, price_per_sqm: 10000 })
+
+    expect(c.update).toHaveBeenCalledWith({
+      block_no: '1',
+      lot_no: '3',
+      name: 'Block 1 Lot 3',
+      lot_area_sqm: 120,
+      price: 1200000,
+      price_per_sqm: 10000,
     })
   })
 

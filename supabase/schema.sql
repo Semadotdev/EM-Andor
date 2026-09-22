@@ -483,3 +483,15 @@ on conflict (notification_type) do nothing;
 -- on conflict (email) do update set role = 'admin', user_id = excluded.user_id, is_active = true;
 -- verify (must return exactly 1 row: role = 'admin', is_active = true, user_id not null):
 -- select id, email, role, user_id, is_active from public.agents where email = 'admin@gmail.com';
+
+-- Lot-level per-m² price: lots are priced per unit from the excel upload or the
+-- Edit Lot modal; the total price stays in sync with area × price_per_sqm.
+alter table public.properties add column if not exists price_per_sqm numeric;
+
+-- Backfill existing lots from their current total price and area.
+update public.properties
+   set price_per_sqm = round((price / nullif(lot_area_sqm, 0))::numeric, 2)
+ where price_per_sqm is null
+   and price is not null
+   and lot_area_sqm is not null
+   and lot_area_sqm > 0;

@@ -128,7 +128,14 @@ export async function createLots(projectId, project, rows) {
       map_pins: [],
     }
     if (row.lot_location !== undefined) lot.description = row.lot_location
-    if (price !== undefined) lot.price = price
+    if (price !== undefined) {
+      lot.price = price
+      let perSqm = Number(row.price_per_sqm)
+      if (!(Number.isFinite(perSqm) && perSqm > 0) && Number.isFinite(row.area) && row.area > 0) {
+        perSqm = Math.round((price / row.area) * 100) / 100
+      }
+      if (Number.isFinite(perSqm) && perSqm > 0) lot.price_per_sqm = perSqm
+    }
     return lot
   })
 
@@ -153,9 +160,12 @@ export async function updateLot(lot, project, updates = {}) {
   if (isAvailable) {
     const area = updates.area ?? lot.lot_area_sqm
     payload.lot_area_sqm = area
-    const projectRate = Number(project?.price_per_sqm)
-    if (Number.isFinite(projectRate) && projectRate > 0) {
-      payload.price = lotPrice(area, projectRate)
+    let rate = Number(updates.price_per_sqm)
+    if (!(Number.isFinite(rate) && rate > 0)) rate = Number(lot.price_per_sqm)
+    if (!(Number.isFinite(rate) && rate > 0)) rate = Number(project?.price_per_sqm)
+    if (Number.isFinite(rate) && rate > 0) {
+      payload.price = lotPrice(area, rate)
+      payload.price_per_sqm = rate
     }
   }
 
