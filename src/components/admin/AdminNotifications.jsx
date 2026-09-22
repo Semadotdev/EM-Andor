@@ -206,6 +206,62 @@ export default function AdminNotifications() {
     },
   ]
 
+  const settingsCard = (setting) => (
+    <div className="rounded-lg border border-mist bg-white p-4 text-sm">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-md bg-brand/10 text-brand">
+            <Icon name="mail" className="size-5" />
+          </span>
+          <div>
+            <p className="font-semibold text-brand-deep">
+              {TYPE_LABELS[setting.notification_type] ?? setting.notification_type}
+            </p>
+            <p className="text-xs text-ink/50">{setting.notification_type}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => handleToggle(setting)}
+          aria-pressed={setting.enabled}
+          className="inline-flex shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          <Badge tone={setting.enabled ? 'green' : 'gray'}>
+            {setting.enabled ? 'Enabled' : 'Disabled'}
+          </Badge>
+        </button>
+      </div>
+      <p className="mb-3 text-xs text-ink/60">{TYPE_DESCRIPTIONS[setting.notification_type] ?? ''}</p>
+      <Button size="sm" variant="secondary" onClick={() => handleEdit(setting)}>
+        Edit Template
+      </Button>
+    </div>
+  )
+
+  const historyCard = (entry) => (
+    <div className="rounded-lg border border-mist bg-white p-4 text-sm">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <Badge tone="brand">{TYPE_LABELS[entry.notification_type] ?? entry.notification_type}</Badge>
+        <Badge tone={entry.status === 'sent' ? 'green' : 'red'}>
+          {entry.status === 'sent' ? 'Sent' : 'Failed'}
+        </Badge>
+      </div>
+      <dl className="space-y-1">
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Recipient</dt>
+          <dd className="text-ink/70">{entry.recipient}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Subject</dt>
+          <dd className="text-ink/60">{entry.subject || '—'}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-ink/50">Date</dt>
+          <dd className="text-ink/50">{new Date(entry.created_at).toLocaleString('en-PH')}</dd>
+        </div>
+      </dl>
+    </div>
+  )
+
   const historyColumns = [
     {
       key: 'type',
@@ -412,6 +468,7 @@ export default function AdminNotifications() {
           rows={settings}
           getRowKey={(setting) => setting.notification_type}
           emptyMessage="No notification settings found. Run the database migration to seed default settings."
+          mobileCard={settingsCard}
         />
       )}
 
@@ -421,6 +478,7 @@ export default function AdminNotifications() {
           rows={history}
           getRowKey={(entry) => entry.id}
           emptyMessage="No notifications sent yet. Send a test email from the Settings tab to see history here."
+          mobileCard={historyCard}
         />
       )}
     </div>

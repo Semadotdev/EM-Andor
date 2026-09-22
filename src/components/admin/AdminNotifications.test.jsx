@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { screen, waitFor, fireEvent } from '@testing-library/react'
+import { screen, waitFor, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdminNotifications from './AdminNotifications.jsx'
 import { renderWithToast as render } from '../../test/renderWithToast.jsx'
@@ -34,14 +34,30 @@ describe('AdminNotifications', () => {
     render(<AdminNotifications />)
 
     expect(await screen.findByText('Notifications')).toBeInTheDocument()
-    expect(screen.getByText('New Inquiry Received')).toBeInTheDocument()
-    expect(screen.getByText('Property Marked as Sold')).toBeInTheDocument()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('New Inquiry Received')).toBeInTheDocument()
+    expect(within(table).getByText('Property Marked as Sold')).toBeInTheDocument()
+  })
+
+  it('renders notification settings as mobile cards below the md breakpoint', async () => {
+    render(<AdminNotifications />)
+
+    const table = await screen.findByRole('table')
+    expect(table.closest('.md\\:block')).not.toBeNull()
+
+    const editButtons = screen.getAllByRole('button', { name: 'Edit Template' })
+    expect(editButtons.length).toBeGreaterThanOrEqual(2)
+    const card = editButtons[0].closest('.md\\:hidden')
+    expect(card).not.toBeNull()
+    expect(within(card).getByText('New Inquiry Received')).toBeInTheDocument()
+    expect(within(card).getByText('new_inquiry')).toBeInTheDocument()
+    expect(within(card).getByText('Get notified when a potential buyer submits an inquiry through the contact form.')).toBeInTheDocument()
   })
 
   it('shows enabled/disabled status for each notification type', async () => {
     render(<AdminNotifications />)
 
-    await screen.findByText('New Inquiry Received')
+    await screen.findByRole('table')
     expect(screen.getAllByText('Enabled').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Disabled').length).toBeGreaterThanOrEqual(1)
   })
@@ -52,7 +68,7 @@ describe('AdminNotifications', () => {
 
     render(<AdminNotifications />)
 
-    await screen.findByText('New Inquiry Received')
+    await screen.findByRole('table')
     const toggleButtons = screen.getAllByRole('button', { pressed: true })
     await user.click(toggleButtons[0])
 
@@ -146,8 +162,27 @@ describe('AdminNotifications', () => {
     await screen.findByText('Notifications')
     await user.click(screen.getByRole('button', { name: 'History' }))
 
-    expect(screen.getByText('admin@example.com')).toBeInTheDocument()
-    expect(screen.getByText('Sent')).toBeInTheDocument()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('admin@example.com')).toBeInTheDocument()
+    expect(within(table).getByText('Sent')).toBeInTheDocument()
+  })
+
+  it('renders notification history as mobile cards below the md breakpoint', async () => {
+    const user = userEvent.setup()
+
+    render(<AdminNotifications />)
+
+    await screen.findByText('Notifications')
+    await user.click(screen.getByRole('button', { name: 'History' }))
+
+    const table = await screen.findByRole('table')
+    expect(table.closest('.md\\:block')).not.toBeNull()
+
+    const card = screen.getAllByText('Test: new inquiry')[0].closest('.rounded-lg')
+    expect(card).not.toBeNull()
+    expect(card.closest('.md\\:hidden')).not.toBeNull()
+    expect(within(card).getByText('admin@example.com')).toBeInTheDocument()
+    expect(within(card).getByText('Sent')).toBeInTheDocument()
   })
 
   it('shows loading state', () => {
