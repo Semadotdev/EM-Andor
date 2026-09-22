@@ -291,7 +291,72 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
               </Button>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-mist">
+            <div className="md:hidden">
+              <div className="grid gap-3">
+                {ledger.rows.length === 0 && (
+                  <p className="rounded-lg border border-mist px-4 py-6 text-center text-ink/60">
+                    No payments yet.
+                  </p>
+                )}
+                {visibleRows.map((row) => (
+                  <div key={row.id} className="rounded-lg border border-mist bg-white p-4 text-sm">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <p className="font-semibold text-brand-deep">{row.entry_date ?? '—'}</p>
+                      <p className="text-xs text-ink/50">OR# {row.or_number ?? '—'}</p>
+                    </div>
+                    <dl className="space-y-1">
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-ink/50">Amount</dt>
+                        <dd className="text-ink"><Money value={row.amount} /></dd>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-ink/50">Surcharge</dt>
+                        <dd className="text-ink/70"><Money value={row.surcharge} /></dd>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-ink/50">Interest</dt>
+                        <dd className="text-ink/70"><Money value={row.interest} /></dd>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-ink/50">Principal</dt>
+                        <dd className="font-semibold text-ink"><Money value={row.principal} /></dd>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-ink/50">Balance</dt>
+                        <dd className="font-semibold text-ink"><Money value={row.balance} /></dd>
+                      </div>
+                    </dl>
+                    {row.remarks && <p className="mt-2 text-ink/70">{row.remarks}</p>}
+                    <div className="mt-3 flex justify-end gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => openEditPayment(row)}>
+                        Edit
+                      </Button>
+                      <Button size="sm" variant="danger" onClick={() => setConfirmDelete(row)}>
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {ledger.rows.length > 0 && (
+                  <div className="rounded-lg border border-mist bg-surface p-4 text-sm font-semibold text-brand-deep">
+                    <div className="flex justify-between gap-3">
+                      <span>Total paid</span>
+                      <span><Money value={ledger.totalAmount} /></span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span>Total principal</span>
+                      <span><Money value={ledger.totalPrincipal} /></span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span>Remaining balance</span>
+                      <span><Money value={ledger.remainingBalance} /></span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="hidden overflow-x-auto rounded-lg border border-mist md:block">
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-mist bg-surface text-xs font-bold uppercase tracking-wide text-ink/60">
                   <tr>

@@ -128,16 +128,32 @@ describe('BuyerLedgerModal', () => {
   it('shows derived principal and running balance for each payment', async () => {
     render(<BuyerLedgerModal lot={lot} project={project} onClose={vi.fn()} onChanged={vi.fn()} />)
 
-    expect(await screen.findByText('OR-1')).toBeInTheDocument()
-    expect(screen.getByText('₱ 4,700')).toBeInTheDocument()
-    expect(screen.getByText('₱ 15,300')).toBeInTheDocument()
-    expect(screen.getByText('₱ 2,850')).toBeInTheDocument()
-    expect(screen.getAllByText('₱ 12,450')).toHaveLength(2)
-    expect(screen.getByText('Total paid')).toBeInTheDocument()
-    expect(screen.getByText('₱ 8,000')).toBeInTheDocument()
-    expect(screen.getByText('Total principal')).toBeInTheDocument()
-    expect(screen.getByText('₱ 7,550')).toBeInTheDocument()
-    expect(within(screen.getByRole('table')).getByText(/Remaining balance/)).toBeInTheDocument()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('OR-1')).toBeInTheDocument()
+    expect(within(table).getByText('₱ 4,700')).toBeInTheDocument()
+    expect(within(table).getByText('₱ 15,300')).toBeInTheDocument()
+    expect(within(table).getByText('₱ 2,850')).toBeInTheDocument()
+    expect(within(table).getAllByText('₱ 12,450')).toHaveLength(2)
+    expect(within(table).getByText('Total paid')).toBeInTheDocument()
+    expect(within(table).getByText('₱ 8,000')).toBeInTheDocument()
+    expect(within(table).getByText('Total principal')).toBeInTheDocument()
+    expect(within(table).getByText('₱ 7,550')).toBeInTheDocument()
+    expect(within(table).getByText(/Remaining balance/)).toBeInTheDocument()
+  })
+
+  it('renders mobile payment cards below the md breakpoint', async () => {
+    render(<BuyerLedgerModal lot={lot} project={project} onClose={vi.fn()} onChanged={vi.fn()} />)
+
+    const table = await screen.findByRole('table')
+    expect(table.parentElement).toHaveClass('hidden', 'md:block')
+
+    const card = screen.getByText('OR# OR-1').closest('.rounded-lg')
+    expect(card).not.toBeNull()
+    expect(card.closest('.md\\:hidden')).not.toBeNull()
+    expect(within(card).getByText('₱ 4,700')).toBeInTheDocument()
+    expect(within(card).getByText('first payment')).toBeInTheDocument()
+    await within(card).findByRole('button', { name: 'Edit' })
+    expect(within(card).getByRole('button', { name: 'Delete' })).toBeInTheDocument()
   })
 
   it('adds a payment from the modal and reloads the ledger', async () => {
