@@ -42,6 +42,19 @@ describe('Pagination', () => {
     expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
   })
 
+  it('stacks the range summary below the prev/next controls on mobile', () => {
+    renderPagination()
+
+    const summary = screen.getByText('Showing 11–20 of 100').closest('div')
+    const nav = screen.getByRole('button', { name: 'Previous page' }).parentElement
+    const root = summary.parentElement
+
+    expect(root).toHaveClass('flex-col', 'sm:flex-row')
+    expect(nav).toHaveClass('order-1', 'sm:order-2')
+    expect(summary).toHaveClass('order-2', 'sm:order-1')
+    expect(summary.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('styles the buttons like the existing pagination control', () => {
     renderPagination()
 

@@ -15,8 +15,8 @@ export default function Pagination({
   pageSizeOptions = [10, 25, 50],
 }) {
   return (
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="order-2 flex flex-wrap items-center justify-center gap-3 sm:order-1">
         <p aria-live="polite" className="text-xs font-semibold text-ink/50">
           Showing {from}–{to} of {total}
         </p>
@@ -36,7 +36,7 @@ export default function Pagination({
         ) : null}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="order-1 flex items-center gap-3 sm:order-2">
         <button
           type="button"
           aria-label="Previous page"
@@ -44,7 +44,7 @@ export default function Pagination({
           disabled={page <= 1}
           className={controlClass}
         >
-          Previous
+          Prev
         </button>
         <span className="text-sm text-ink/60">
           Page {page} of {totalPages}
