@@ -113,7 +113,7 @@ export default function UploadLotsModal({ project, onClose, onImported }) {
             className={`${inputClass} file:mr-3 file:rounded-md file:border-0 file:bg-brand/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-brand`}
           />
           <p className="mt-1.5 text-xs text-ink/50">
-            Expected columns: Block No, Lot No, Area. Optional: Price, Price per m². Only .xlsx files are supported.{fileName ? ` Selected: ${fileName}` : ''}
+            Expected columns: Block No, Lot No, Area. Optional: Price, Price per m², Lot Location. Only .xlsx files are supported.{fileName ? ` Selected: ${fileName}` : ''}
           </p>
         </div>
 
@@ -135,6 +135,7 @@ export default function UploadLotsModal({ project, onClose, onImported }) {
                   <th scope="col" className="px-4 py-2">Row</th>
                   <th scope="col" className="px-4 py-2">Block</th>
                   <th scope="col" className="px-4 py-2">Lot</th>
+                  <th scope="col" className="px-4 py-2">Location</th>
                   <th scope="col" className="px-4 py-2">Area</th>
                   <th scope="col" className="px-4 py-2">Price/m²</th>
                   <th scope="col" className="px-4 py-2">Price</th>
@@ -149,6 +150,7 @@ export default function UploadLotsModal({ project, onClose, onImported }) {
                     <td className="px-4 py-2 text-ink/50">{row.rowNumber}</td>
                     <td className="px-4 py-2 font-semibold text-brand-deep">{row.block_no || '—'}</td>
                     <td className="px-4 py-2 text-ink/70">{row.lot_no || '—'}</td>
+                    <td className="px-4 py-2 text-ink/50">{row.lot_location || '—'}</td>
                     <td className="px-4 py-2 text-ink/70">{row.area}</td>
                     <td className="px-4 py-2 text-ink/70">{formatPrice(previewUnit(row)) ?? '—'}</td>
                     <td className="px-4 py-2 text-ink/70">{formatPrice(resolveLotPrice(row, project)) ?? '—'}</td>

@@ -67,7 +67,7 @@ describe('UploadLotsModal', () => {
   })
 
   it('previews the resolved total and unit prices for transparency', async () => {
-    const rows = [{ rowNumber: 2, block_no: '1', lot_no: '1', area: 100, price: 750000, price_per_sqm: 7500 }]
+    const rows = [{ rowNumber: 2, block_no: '1', lot_no: '1', area: 100, price: 750000, price_per_sqm: 7500, lot_location: 'Corner' }]
     mapLotRows.mockReturnValue({ rows, errors: [] })
     resolveLotPrice.mockReturnValue(750000)
     const user = userEvent.setup()
@@ -78,6 +78,8 @@ describe('UploadLotsModal', () => {
 
     expect(await screen.findByText('₱ 750,000')).toBeInTheDocument()
     expect(screen.getByText('₱ 7,500')).toBeInTheDocument()
+    expect(screen.getByText('Corner')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Location' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Price/m²' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Price' })).toBeInTheDocument()
   })

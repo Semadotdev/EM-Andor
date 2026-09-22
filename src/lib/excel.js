@@ -1,11 +1,12 @@
 import { readSheet } from 'read-excel-file/browser'
 
 const HEADER_ALIASES = {
-  block_no: ['block no', 'block', 'blk no', 'blk', 'block number'],
+  block_no: ['block no', 'block', 'blk no', 'blk no.', 'blk', 'block number'],
   lot_no: ['lot no', 'lot', 'lot number'],
-  area: ['area', 'area (sqm)', 'area sqm', 'sqm'],
+  area: ['area', 'area (sqm)', 'area sqm', 'sqm', 'lot area', 'lot size'],
   price: ['price', 'total price', 'total', 'lot price'],
   price_per_sqm: ['price per sqm', 'price per m2', 'price per m²', 'price per square meter', 'price/sqm', 'unit price'],
+  lot_location: ['lot location', 'location'],
 }
 
 const REQUIRED_FIELDS = ['block_no', 'lot_no', 'area']
@@ -50,6 +51,10 @@ export function mapLotRows(rawRows) {
     }
     if (index.price !== -1) row.price = parseCell(raw[index.price], { allowEmpty: true })
     if (index.price_per_sqm !== -1) row.price_per_sqm = parseCell(raw[index.price_per_sqm], { allowEmpty: true })
+    if (index.lot_location !== -1) {
+      const location = String(raw[index.lot_location] ?? '').trim()
+      if (location !== '') row.lot_location = location
+    }
     rows.push(row)
   }
   return { rows, errors: [] }

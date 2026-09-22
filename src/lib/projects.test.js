@@ -300,8 +300,8 @@ describe('projects', () => {
 
   it('createLots uses the excel total price and per-m² price when present', async () => {
     const rows = [
-      { rowNumber: 2, block_no: '1', lot_no: '3', area: 100, price: 750000 },
-      { rowNumber: 3, block_no: '2', lot_no: '1', area: 200, price_per_sqm: 6500 },
+      { rowNumber: 2, block_no: '1', lot_no: '3', area: 100, price: 750000, lot_location: 'Corner' },
+      { rowNumber: 3, block_no: '2', lot_no: '1', area: 200, price_per_sqm: 6500, lot_location: 'Inner' },
     ]
     const c = chain({ data: [{ id: 'p1' }, { id: 'p2' }], error: null })
     supabase.from.mockReturnValue(c)
@@ -310,8 +310,8 @@ describe('projects', () => {
 
     const payload = c.insert.mock.calls[0][0]
     expect(payload).toHaveLength(2)
-    expect(payload[0]).toMatchObject({ block_no: '1', lot_no: '3', price: 750000 })
-    expect(payload[1]).toMatchObject({ block_no: '2', lot_no: '1', price: 1300000 })
+    expect(payload[0]).toMatchObject({ block_no: '1', lot_no: '3', price: 750000, description: 'Corner' })
+    expect(payload[1]).toMatchObject({ block_no: '2', lot_no: '1', price: 1300000, description: 'Inner' })
   })
 
   it('createLots leaves the price unset when neither the excel nor the project has a price', async () => {

@@ -127,6 +127,7 @@ export async function createLots(projectId, project, rows) {
       is_pinned: false,
       map_pins: [],
     }
+    if (row.lot_location !== undefined) lot.description = row.lot_location
     if (price !== undefined) lot.price = price
     return lot
   })

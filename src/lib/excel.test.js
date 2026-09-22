@@ -82,6 +82,34 @@ describe('mapLotRows', () => {
     expect(rows).toEqual([{ rowNumber: 2, block_no: '1', lot_no: '7', area: 120.5 }])
   })
 
+  it('maps the Catanauan lot-list headers', () => {
+    const { rows, errors } = mapLotRows([
+      ['Blk No.', 'Lot No', 'Lot Location', 'Lot Area', 'Price/sqm'],
+      [1, 1, 'Corner', 162, 3000],
+      [2, 1, 'Inner', 150, 2800],
+    ])
+
+    expect(errors).toEqual([])
+    expect(rows).toEqual([
+      { rowNumber: 2, block_no: '1', lot_no: '1', lot_location: 'Corner', area: 162, price_per_sqm: 3000 },
+      { rowNumber: 3, block_no: '2', lot_no: '1', lot_location: 'Inner', area: 150, price_per_sqm: 2800 },
+    ])
+  })
+
+  it('omits lot_location when the column has a blank cell or is absent', () => {
+    const { rows, errors } = mapLotRows([
+      ['Blk No.', 'Lot No', 'Lot Location', 'Lot Area'],
+      [1, 2, '  ', 162],
+      [1, 3, '', 150],
+    ])
+
+    expect(errors).toEqual([])
+    expect(rows).toEqual([
+      { rowNumber: 2, block_no: '1', lot_no: '2', area: 162 },
+      { rowNumber: 3, block_no: '1', lot_no: '3', area: 150 },
+    ])
+  })
+
   it('keeps non-numeric prices so validation can flag them', () => {
     const { rows } = mapLotRows([['Block No', 'Lot No', 'Area', 'Price', 'Price per m²'], ['1', '7', '120.5', 'abc', 'xyz']])
 
