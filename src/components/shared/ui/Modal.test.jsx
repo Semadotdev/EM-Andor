@@ -59,6 +59,21 @@ describe('Modal', () => {
     expect(screen.getByRole('dialog')).toHaveClass('max-w-6xl')
   })
 
+  it('caps its height, scrolls internally, and pads responsively', () => {
+    render(
+      <Modal open onClose={vi.fn()} title="Tall">
+        Body
+      </Modal>,
+    )
+
+    expect(screen.getByRole('dialog')).toHaveClass(
+      'max-h-[calc(100dvh-2rem)]',
+      'overflow-y-auto',
+      'p-4',
+      'sm:p-6',
+    )
+  })
+
   it('renders the footer slot', () => {
     render(
       <Modal open onClose={vi.fn()} title="Footer" footer={<button>Save</button>}>

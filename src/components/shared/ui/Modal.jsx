@@ -98,7 +98,7 @@ export default function Modal({
         tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={handleKeyDown}
-        className={`w-full ${SIZES[size] ?? SIZES.md} rounded-lg bg-white p-6 shadow-lg outline-none`}
+        className={`w-full ${SIZES[size] ?? SIZES.md} max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg bg-white p-4 sm:p-6 shadow-lg outline-none`}
       >
         {title && (
           <div className="mb-4 flex items-start justify-between gap-4">
