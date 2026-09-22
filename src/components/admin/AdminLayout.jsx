@@ -5,6 +5,7 @@ import { fetchCurrentAgent, fetchMyDownline } from '../../lib/agents.js'
 import { ROLE_LABELS } from '../../lib/agentMeta.js'
 import Logo from '../shared/Logo.jsx'
 import BrandLoader from '../shared/ui/BrandLoader.jsx'
+import useInstallPrompt from '../../hooks/useInstallPrompt.js'
 import { ToastProvider } from '../shared/ui'
 
 const DASHBOARD_ITEM = { to: '/admin', label: 'Dashboard', end: true }
@@ -40,6 +41,17 @@ const navLinkCls = ({ isActive }) =>
   `block rounded-md px-3 py-2 font-display text-sm font-semibold transition-colors ${
     isActive ? 'bg-brand text-white' : 'text-ink/70 hover:bg-surface'
   }`
+
+function InstallAppButton({ onInstall }) {
+  return (
+    <button
+      onClick={onInstall}
+      className="w-full rounded-md border border-mist px-3 py-2 font-display text-sm font-semibold text-ink/70 transition-colors hover:border-brand hover:text-brand"
+    >
+      Install app
+    </button>
+  )
+}
 
 function SidebarNav({ isAdmin, showDownline, onNavigate }) {
   const link = (item) => (
@@ -78,6 +90,7 @@ export default function AdminLayout() {
   const [agentError, setAgentError] = useState(null)
   const [downline, setDownline] = useState([])
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const { canInstall, promptInstall } = useInstallPrompt()
 
   useEffect(() => {
     let mounted = true
@@ -184,6 +197,11 @@ export default function AdminLayout() {
         <div className="container-wide flex items-start gap-8 py-8">
           <aside className="sticky top-[4.75rem] hidden max-h-[calc(100vh-5.75rem)] w-56 shrink-0 overflow-y-auto lg:block">
             <SidebarNav isAdmin={isAdmin} showDownline={downline.length > 0} />
+            {canInstall && (
+              <div className="mt-6">
+                <InstallAppButton onInstall={promptInstall} />
+              </div>
+            )}
           </aside>
 
           <main className="min-w-0 flex-1">
@@ -217,6 +235,11 @@ export default function AdminLayout() {
               <div className="mt-auto border-t border-mist pt-4">
                 <p className="truncate text-sm font-semibold text-brand-deep">{agent.name}</p>
                 <p className="mb-3 text-xs text-ink/50">{ROLE_LABELS[agent.role] ?? agent.role}</p>
+                {canInstall && (
+                  <div className="mb-3">
+                    <InstallAppButton onInstall={promptInstall} />
+                  </div>
+                )}
                 <button
                   onClick={() => supabase.auth.signOut()}
                   className="w-full rounded-md border border-mist px-4 py-2 text-sm font-semibold text-ink/70 transition-colors hover:border-brand hover:text-brand"

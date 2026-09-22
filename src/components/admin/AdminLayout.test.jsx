@@ -40,6 +40,14 @@ function renderLayout() {
   )
 }
 
+function fireInstallPrompt() {
+  const event = new Event('beforeinstallprompt', { cancelable: true })
+  event.prompt = vi.fn()
+  event.userChoice = Promise.resolve({ outcome: 'accepted' })
+  window.dispatchEvent(event)
+  return event
+}
+
 describe('AdminLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -182,5 +190,33 @@ describe('AdminLayout', () => {
     await waitFor(() => {
       expect(screen.getByText('LoginPage')).toBeInTheDocument()
     })
+  })
+
+  it('shows Install app and prompts when the browser offers an install', async () => {
+    renderLayout()
+
+    await screen.findByText('IndexPage')
+    expect(screen.queryByRole('button', { name: 'Install app' })).not.toBeInTheDocument()
+
+    let event
+    await act(async () => {
+      event = fireInstallPrompt()
+    })
+
+    const button = await screen.findByRole('button', { name: 'Install app' })
+    const user = userEvent.setup()
+    await user.click(button)
+
+    await waitFor(() => expect(event.prompt).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Install app' })).not.toBeInTheDocument(),
+    )
+  })
+
+  it('never shows Install app when the browser offers nothing', async () => {
+    renderLayout()
+
+    await screen.findByText('IndexPage')
+    expect(screen.queryByRole('button', { name: 'Install app' })).not.toBeInTheDocument()
   })
 })
