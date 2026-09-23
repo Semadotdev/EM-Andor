@@ -139,7 +139,7 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
       children: (childrenMap.get(row.id) ?? []).map(build),
     })
     let current = build(agent)
-    for (const upline of [...uplineChain].reverse()) {
+    for (const upline of uplineChain) {
       current = { focusId: agent.id, node: upline, children: [current] }
     }
     return current

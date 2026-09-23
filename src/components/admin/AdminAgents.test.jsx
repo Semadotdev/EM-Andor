@@ -206,6 +206,12 @@ describe('AdminAgents', () => {
     expect(within(dialog).getByText('Selected')).toBeInTheDocument()
     expect(within(dialog).getByText('Ella Grand')).toBeInTheDocument()
 
+    const headText = within(dialog).getByText('Cara Head')
+    const ben = within(dialog).getByText('Ben Direct')
+    const dee = within(dialog).getByText('Dee Sub')
+    expect(headText.compareDocumentPosition(ben) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    expect(ben.compareDocumentPosition(dee) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+
     expect(within(dialog).getByRole('button', { name: 'Zoom out' })).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Zoom in' })).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Fit chart to width' })).toBeInTheDocument()
