@@ -238,12 +238,12 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
                           {lot.lot_area_sqm != null ? `${Number(lot.lot_area_sqm).toLocaleString('en-PH')} sqm` : '—'}
                         </dd>
                       </div>
-                      <div className="flex justify-between gap-4">
-                        <dt className="font-semibold text-brand-deep">Price/m²</dt>
-                        <dd className="text-right text-ink/70">
-                          {project?.price_per_sqm != null ? `${formatPrice(project.price_per_sqm)} / m²` : '—'}
-                        </dd>
-                      </div>
+<div className="flex justify-between gap-4">
+                         <dt className="font-semibold text-brand-deep">Price/m²</dt>
+                         <dd className="text-right text-ink/70">
+                           {lot.price_per_sqm != null ? `${formatPrice(lot.price_per_sqm)} / m²` : '—'}
+                         </dd>
+                       </div>
                       <div className="flex justify-between gap-4">
                         <dt className="font-semibold text-brand-deep">TCP</dt>
                         <dd className="text-right text-ink/70">{formatPrice(sale?.tcp) ?? '—'}</dd>

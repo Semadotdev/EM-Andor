@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { deleteLot, fetchProject, fetchProjectLots, lotPrice, updateLot } from '../../lib/projects.js'
+import { cancelReservation } from '../../lib/sales.js'
 import { fetchAllAgents } from '../../lib/agents.js'
 import { formatPrice } from '../../lib/format.js'
 import BuyerLedgerModal from './BuyerLedgerModal.jsx'
 import CreateProjectModal from './CreateProjectModal.jsx'
-import MarkSoldModal from './MarkSoldModal.jsx'
+import DownpaymentModal from './DownpaymentModal.jsx'
+import ReservationActionsModal from './ReservationActionsModal.jsx'
+import ReservationModal from './ReservationModal.jsx'
 import UploadLotsModal from './UploadLotsModal.jsx'
 import {
   Badge,
@@ -177,7 +180,10 @@ export default function ProjectDetail() {
   const [state, setState] = useState('loading')
   const [showUpload, setShowUpload] = useState(false)
   const [showEditProject, setShowEditProject] = useState(false)
-  const [markSoldLot, setMarkSoldLot] = useState(null)
+  const [reservationLot, setReservationLot] = useState(null)
+  const [actionsLot, setActionsLot] = useState(null)
+  const [downpaymentLot, setDownpaymentLot] = useState(null)
+  const [cancelTarget, setCancelTarget] = useState(null)
   const [ledgerLot, setLedgerLot] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -234,6 +240,18 @@ export default function ProjectDetail() {
     }
   }
 
+  const handleCancelReservation = async () => {
+    if (!cancelTarget) return
+    try {
+      await cancelReservation(cancelTarget.id)
+      setCancelTarget(null)
+      showToast('Reservation cancelled.')
+      load()
+    } catch (err) {
+      showToast(err?.message || 'Could not cancel the reservation. Please try again.', 'error')
+    }
+  }
+
   const handleProjectSaved = async () => {
     setShowEditProject(false)
     try {
@@ -258,14 +276,20 @@ export default function ProjectDetail() {
   const counts = {
     total: lots.length,
     available: lots.filter((lot) => lot.status === 'available').length,
+    reserved: lots.filter((lot) => lot.status === 'reserved').length,
     sold: lots.filter((lot) => lot.status === 'sold').length,
   }
 
   const lotActions = (lot) => (
     <div className="flex flex-wrap justify-end gap-2">
       {lot.status === 'available' && (
-        <Button size="sm" variant="secondary" onClick={() => setMarkSoldLot(lot)}>
-          Mark Sold
+        <Button size="sm" variant="secondary" onClick={() => setReservationLot(lot)}>
+          Reserve
+        </Button>
+      )}
+      {lot.status === 'reserved' && (
+        <Button size="sm" variant="secondary" onClick={() => setActionsLot(lot)}>
+          Reservation
         </Button>
       )}
       {lot.status === 'sold' && (
@@ -273,7 +297,7 @@ export default function ProjectDetail() {
           Ledger
         </Button>
       )}
-      {lot.status === 'available' && (
+      {lot.status !== 'sold' && (
         <Button size="sm" variant="secondary" onClick={() => setEditTarget(lot)}>
           Edit
         </Button>
@@ -405,6 +429,7 @@ export default function ProjectDetail() {
       <p className="mb-6 flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-wide text-ink/50">
         <span>{counts.total} lots</span>
         <span>{counts.available} available</span>
+        <span>{counts.reserved} reserved</span>
         <span>{counts.sold} sold</span>
       </p>
 
@@ -430,13 +455,40 @@ export default function ProjectDetail() {
         />
       )}
 
-      {markSoldLot && (
-        <MarkSoldModal
-          lot={markSoldLot}
+      {reservationLot && (
+        <ReservationModal
+          lot={reservationLot}
           project={currentProject}
-          onClose={() => setMarkSoldLot(null)}
+          onClose={() => setReservationLot(null)}
+          onReserved={() => {
+            setReservationLot(null)
+            load()
+          }}
+        />
+      )}
+
+      {actionsLot && (
+        <ReservationActionsModal
+          lot={actionsLot}
+          onClose={() => setActionsLot(null)}
+          onDownpayment={() => {
+            setActionsLot(null)
+            setDownpaymentLot(actionsLot)
+          }}
+          onCancelReservation={() => {
+            setActionsLot(null)
+            setCancelTarget(actionsLot)
+          }}
+        />
+      )}
+
+      {downpaymentLot && (
+        <DownpaymentModal
+          lot={downpaymentLot}
+          project={currentProject}
+          onClose={() => setDownpaymentLot(null)}
           onSold={() => {
-            setMarkSoldLot(null)
+            setDownpaymentLot(null)
             load()
           }}
         />
@@ -490,6 +542,20 @@ export default function ProjectDetail() {
           </p>
         )}
       </ConfirmModal>
+
+      <ConfirmModal
+        open={Boolean(cancelTarget)}
+        onClose={() => setCancelTarget(null)}
+        onConfirm={handleCancelReservation}
+        title="Cancel Reservation"
+        message={
+          cancelTarget
+            ? `Cancel the reservation for Block ${cancelTarget.block_no ?? '—'} Lot ${cancelTarget.lot_no ?? '—'}? The buyer details will be cleared and the lot will return to available.`
+            : ''
+        }
+        confirmLabel="Cancel Reservation"
+        destructive
+      />
     </div>
   )
 }

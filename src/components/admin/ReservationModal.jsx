@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { fetchAllAgents } from '../../lib/agents.js'
 import { ROLE_LABELS } from '../../lib/agentMeta.js'
-import { recordSale } from '../../lib/sales.js'
+import { lotFieldsForSale, reserveLot } from '../../lib/sales.js'
+import { PAYMENT_TERMS } from '../../lib/ledger.js'
 import { formatPrice } from '../../lib/format.js'
 import { Button, FieldError, Input, Modal, Select, useToast } from '../shared/ui'
 
-const detailFields = ['buyer_name', 'buyer_address', 'tcp', 'downpayment', 'monthly_amortization', 'terms_of_payment']
+const detailFields = ['buyer_name', 'buyer_address', 'tcp', 'terms_of_payment']
 
-export default function MarkSoldModal({ lot, project, onClose, onSold }) {
+export default function ReservationModal({ lot, project, onClose, onReserved }) {
   const { showToast } = useToast()
   const [agents, setAgents] = useState([])
   const [agentsState, setAgentsState] = useState('loading')
@@ -16,8 +17,6 @@ export default function MarkSoldModal({ lot, project, onClose, onSold }) {
     buyer_name: '',
     buyer_address: '',
     tcp: lot?.price != null ? String(lot.price) : '',
-    downpayment: '',
-    monthly_amortization: '',
     terms_of_payment: '',
   })
   const [fieldErrors, setFieldErrors] = useState({})
@@ -57,6 +56,7 @@ export default function MarkSoldModal({ lot, project, onClose, onSold }) {
     if (!form.buyer_name.trim()) errors.buyer_name = 'Buyer name is required.'
     const tcp = Number(form.tcp)
     if (form.tcp === '' || Number.isNaN(tcp) || tcp <= 0) errors.tcp = 'TCP must be greater than 0.'
+    if (!form.terms_of_payment) errors.terms_of_payment = 'Select the terms of payment.'
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors)
       return
@@ -66,34 +66,29 @@ export default function MarkSoldModal({ lot, project, onClose, onSold }) {
     setFieldErrors({})
     setError(null)
     try {
-      const lotFields = { ...lot }
-      delete lotFields.id
-      delete lotFields.created_at
-      delete lotFields.updated_at
-      delete lotFields.sales
-      await recordSale({
+      await reserveLot({
         propertyId: lot.id,
-        payload: { ...lotFields, status: 'sold', sold_by: sellerId },
+        payload: { ...lotFieldsForSale(lot), status: 'reserved', sold_by: sellerId },
         details: {
           buyer_name: form.buyer_name.trim(),
           buyer_address: form.buyer_address.trim(),
           tcp,
-          downpayment: Number(form.downpayment) || 0,
-          monthly_amortization: Number(form.monthly_amortization) || 0,
-          terms_of_payment: form.terms_of_payment.trim(),
+          downpayment: 0,
+          monthly_amortization: 0,
+          terms_of_payment: form.terms_of_payment,
         },
       })
-      showToast('Sale recorded.')
-      onSold()
+      showToast('Reservation recorded.')
+      onReserved()
     } catch (err) {
       if (err?.fieldErrors) {
         setFieldErrors(err.fieldErrors)
         const hasNonSellerError = Object.keys(err.fieldErrors).some((field) => field !== 'sold_by')
-        if (hasNonSellerError) setError('Could not record the sale. Please try again.')
+        if (hasNonSellerError) setError('Could not record the reservation. Please try again.')
       } else if (err?.message?.includes('Commission already paid') || err?.message?.includes('buyer details failed to save')) {
         setError(err.message)
       } else {
-        setError('Could not record the sale. Please try again.')
+        setError('Could not record the reservation. Please try again.')
       }
     } finally {
       setSaving(false)
@@ -105,9 +100,9 @@ export default function MarkSoldModal({ lot, project, onClose, onSold }) {
   )
 
   return (
-    <Modal open onClose={onClose} label="Mark lot sold" size="md" busy={saving}>
+    <Modal open onClose={onClose} label="Reserve lot" size="md" busy={saving}>
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="font-display text-xl font-extrabold text-brand-deep">Mark Sold</h2>
+        <h2 className="font-display text-xl font-extrabold text-brand-deep">Reserve Lot</h2>
         <button
           type="button"
           onClick={onClose}
@@ -142,7 +137,7 @@ export default function MarkSoldModal({ lot, project, onClose, onSold }) {
 
       <form onSubmit={submit} noValidate className="grid gap-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <Select id="ms-seller" label="Selling Agent" value={sellerId} onChange={setSeller} error={fieldErrors.sold_by}>
+          <Select id="rs-seller" label="Selling Agent" value={sellerId} onChange={setSeller} error={fieldErrors.sold_by}>
             <option value="">
               {agentsState === 'loading' ? 'Loading agents…' : agentsState === 'error' ? 'Could not load agents' : 'Select agent…'}
             </option>
@@ -159,7 +154,7 @@ export default function MarkSoldModal({ lot, project, onClose, onSold }) {
 
         <div className="sm:col-span-2">
           <Input
-            id="ms-buyer-name"
+            id="rs-buyer-name"
             label="Buyer Name"
             value={form.buyer_name}
             onChange={setField('buyer_name')}
@@ -170,7 +165,7 @@ export default function MarkSoldModal({ lot, project, onClose, onSold }) {
 
         <div className="sm:col-span-2">
           <Input
-            id="ms-buyer-address"
+            id="rs-buyer-address"
             label="Buyer Address"
             value={form.buyer_address}
             onChange={setField('buyer_address')}
@@ -179,27 +174,29 @@ export default function MarkSoldModal({ lot, project, onClose, onSold }) {
           />
         </div>
 
-        <Input id="ms-tcp" type="number" min="0" step="any" label="TCP" value={form.tcp} onChange={setField('tcp')} error={fieldErrors.tcp} />
+        <Input id="rs-tcp" type="number" min="0" step="any" label="TCP" value={form.tcp} onChange={setField('tcp')} error={fieldErrors.tcp} />
 
-        <Input id="ms-downpayment" type="number" min="0" step="any" label="Downpayment" value={form.downpayment} onChange={setField('downpayment')} error={fieldErrors.downpayment} />
-
-        <Input id="ms-ma" type="number" min="0" step="any" label="M.A." value={form.monthly_amortization} onChange={setField('monthly_amortization')} error={fieldErrors.monthly_amortization} />
-
-        <Input
-          id="ms-terms"
+        <Select
+          id="rs-terms"
           label="Terms of Payment"
           value={form.terms_of_payment}
           onChange={setField('terms_of_payment')}
-          placeholder="e.g. 12 months"
           error={fieldErrors.terms_of_payment}
-        />
+        >
+          <option value="">Select terms…</option>
+          {PAYMENT_TERMS.map((term) => (
+            <option key={term.value} value={term.value}>
+              {term.label}
+            </option>
+          ))}
+        </Select>
 
         <div className="flex flex-wrap justify-end gap-3 sm:col-span-2">
           <Button variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
           <Button type="submit" disabled={saving || agentsState !== 'ready'}>
-            {saving ? 'Recording…' : 'Mark Sold'}
+            {saving ? 'Saving…' : 'Reserve Lot'}
           </Button>
         </div>
       </form>

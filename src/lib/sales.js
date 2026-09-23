@@ -167,13 +167,58 @@ export async function deletePayment(id) {
   if (error) throw error
 }
 
-export async function recordSale({ propertyId, payload, details }) {
+export function lotFieldsForSale(lot) {
+  const fields = { ...lot }
+  delete fields.id
+  delete fields.created_at
+  delete fields.updated_at
+  delete fields.sales
+  return fields
+}
+
+export async function reserveLot({ propertyId, payload, details }) {
   const saved = await savePropertyWithCommission({ mode: 'edit', propertyId, payload })
   try {
     await upsertSale(propertyId, details)
   } catch (err) {
-    throw new Error('Sale recorded, but the buyer details failed to save. Reopen the lot and use Edit Sale to retry.', { cause: err })
+    throw new Error('Reservation recorded, but the buyer details failed to save. Cancel the reservation and try again.', { cause: err })
   }
+  logActivity('property', propertyId, 'reserve', { buyer: details.buyer_name }).catch(() => {})
+  return saved
+}
+
+export async function updateSale(propertyId, updates) {
+  const { data, error } = await supabase
+    .from('sales')
+    .update(updates)
+    .eq('property_id', propertyId)
+    .select()
+    .maybeSingle()
+  if (error) throw error
+  return data
+}
+
+export async function cancelReservation(propertyId) {
+  const { data, error } = await supabase
+    .from('properties')
+    .update({ status: 'available', sold_by: null, sold_at: null })
+    .eq('id', propertyId)
+    .eq('status', 'reserved')
+    .select('id')
+  if (error) throw error
+  if (!data || data.length === 0) {
+    throw new Error('Only reserved lots can have their reservation cancelled.')
+  }
+
+  const { error: saleError } = await supabase.from('sales').delete().eq('property_id', propertyId)
+  if (saleError) throw saleError
+  logActivity('property', propertyId, 'cancel_reservation').catch(() => {})
+}
+
+export async function completeDownpayment({ propertyId, payload, downpayment, terms, monthlyAmortization }) {
+  await updateSale(propertyId, { downpayment, terms_of_payment: terms, monthly_amortization: monthlyAmortization })
+  const saved = await savePropertyWithCommission({ mode: 'edit', propertyId, payload })
+  logActivity('property', propertyId, 'downpayment', { downpayment, terms }).catch(() => {})
   return saved
 }
 

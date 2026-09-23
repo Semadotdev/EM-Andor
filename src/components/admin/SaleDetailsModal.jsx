@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { fetchSale, upsertSale } from '../../lib/sales.js'
 import { formatPrice } from '../../lib/format.js'
-import { Button, Input, LoadingState, Modal, useToast } from '../shared/ui'
+import { monthlyAmortization, PAYMENT_TERMS } from '../../lib/ledger.js'
+import { Button, Input, LoadingState, Modal, Select, useToast } from '../shared/ui'
 
 const emptyForm = {
   buyer_name: '',
@@ -136,7 +137,20 @@ export default function SaleDetailsModal({ lot, onClose, onSaved }) {
 
           <Input id="sd-ma" type="number" min="0" step="any" label="M.A." value={form.monthly_amortization} onChange={setField('monthly_amortization')} error={fieldErrors.monthly_amortization} />
 
-          <Input id="sd-terms" label="Terms of Payment" value={form.terms_of_payment} onChange={setField('terms_of_payment')} error={fieldErrors.terms_of_payment} />
+          <Select
+            id="sd-terms"
+            label="Terms of Payment"
+            value={form.terms_of_payment}
+            onChange={setField('terms_of_payment')}
+            error={fieldErrors.terms_of_payment}
+          >
+            <option value="">Select terms…</option>
+            {PAYMENT_TERMS.map((term) => (
+              <option key={term.value} value={term.value}>
+                {term.label}
+              </option>
+            ))}
+          </Select>
 
           <div className="flex flex-wrap justify-end gap-3 sm:col-span-2">
             <Button variant="secondary" onClick={onClose} disabled={saving}>

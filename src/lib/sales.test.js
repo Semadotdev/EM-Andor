@@ -1,5 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import {
+  cancelReservation,
+  completeDownpayment,
   createPayment,
   deletePayment,
   fetchCommissions,
@@ -8,9 +10,10 @@ import {
   fetchSale,
   fetchTeamSales,
   markCommissionPaid,
-  recordSale,
+  reserveLot,
   savePropertyWithCommission,
   updatePayment,
+  updateSale,
   upsertSale,
 } from './sales.js'
 
@@ -366,39 +369,112 @@ describe('sales', () => {
     expect(c.eq).toHaveBeenCalledWith('id', 'pay1')
   })
 
-  it('recordSale saves the property first and then the buyer details', async () => {
-    const existing = { ...property }
+  it('reserveLot saves the reserved property and then the buyer details', async () => {
+    const existing = { ...property, status: 'reserved' }
     updateProperty.mockResolvedValue(existing)
     const salesChain = chain({ data: { id: 's1', property_id: 'p1', buyer_name: 'Juan' }, error: null })
     supabase.from
       .mockImplementationOnce(() => chain({ data: existing, error: null }))
-      .mockImplementationOnce(() => chain({ data: [{ id: 'c1' }], error: null }))
       .mockImplementationOnce(() => salesChain)
 
-    const saved = await recordSale({
+    const saved = await reserveLot({
       propertyId: 'p1',
-      payload: soldPayload,
-      details: { buyer_name: 'Juan' },
+      payload: { ...property, status: 'reserved', sold_by: 'a1' },
+      details: { buyer_name: 'Juan', tcp: 500000, downpayment: 0, monthly_amortization: 0, terms_of_payment: '24' },
     })
 
-    expect(updateProperty).toHaveBeenCalledWith('p1', expect.objectContaining({ status: 'sold' }))
-    expect(salesChain.upsert).toHaveBeenCalledWith({ property_id: 'p1', buyer_name: 'Juan' }, { onConflict: 'property_id' })
+    expect(updateProperty).toHaveBeenCalledWith('p1', expect.objectContaining({ status: 'reserved', sold_at: null }))
+    expect(salesChain.upsert).toHaveBeenCalledWith(
+      {
+        property_id: 'p1',
+        buyer_name: 'Juan',
+        tcp: 500000,
+        downpayment: 0,
+        monthly_amortization: 0,
+        terms_of_payment: '24',
+      },
+      { onConflict: 'property_id' },
+    )
     expect(updateProperty.mock.invocationCallOrder[0]).toBeLessThan(salesChain.upsert.mock.invocationCallOrder[0])
     expect(saved).toEqual(existing)
+    expect(logActivity).toHaveBeenCalledWith('property', 'p1', 'reserve', { buyer: 'Juan' })
   })
 
-  it('recordSale reports a buyer details failure after the property save succeeds', async () => {
-    const existing = { ...property }
-    updateProperty.mockResolvedValue(existing)
+  it('reserveLot reports a buyer details failure after the property save succeeds', async () => {
+    updateProperty.mockResolvedValue({ ...property })
     supabase.from
-      .mockImplementationOnce(() => chain({ data: existing, error: null }))
-      .mockImplementationOnce(() => chain({ data: [{ id: 'c1' }], error: null }))
+      .mockImplementationOnce(() => chain({ data: { ...property, status: 'reserved' }, error: null }))
       .mockImplementationOnce(() => chain({ data: null, error: new Error('upsert failed') }))
 
     await expect(
-      recordSale({ propertyId: 'p1', payload: soldPayload, details: { buyer_name: 'Juan' } }),
-    ).rejects.toThrow('Sale recorded, but the buyer details failed to save. Reopen the lot and use Edit Sale to retry.')
+      reserveLot({ propertyId: 'p1', payload: { ...property, status: 'reserved' }, details: { buyer_name: 'Juan' } }),
+    ).rejects.toThrow('Reservation recorded, but the buyer details failed to save. Cancel the reservation and try again.')
+  })
 
-    expect(updateProperty).toHaveBeenCalledWith('p1', expect.objectContaining({ status: 'sold' }))
+  it('updateSale patches the sale row by property without a full buyer payload', async () => {
+    const c = chain({ data: { id: 's1', downpayment: 50000 }, error: null })
+    supabase.from.mockReturnValue(c)
+
+    await updateSale('p1', { downpayment: 50000, terms_of_payment: '24', monthly_amortization: 18750 })
+
+    expect(supabase.from).toHaveBeenCalledWith('sales')
+    expect(c.update).toHaveBeenCalledWith({ downpayment: 50000, terms_of_payment: '24', monthly_amortization: 18750 })
+    expect(c.eq).toHaveBeenCalledWith('property_id', 'p1')
+    expect(c.maybeSingle).toHaveBeenCalled()
+  })
+
+  it('cancelReservation only frees a reserved lot and clears its sale row', async () => {
+    const propertiesChain = chain({ data: [{ id: 'p1' }], error: null })
+    const salesChain = chain({ data: null, error: null })
+    supabase.from.mockImplementationOnce(() => propertiesChain).mockImplementationOnce(() => salesChain)
+
+    await cancelReservation('p1')
+
+    expect(supabase.from).toHaveBeenNthCalledWith(1, 'properties')
+    expect(propertiesChain.update).toHaveBeenCalledWith({ status: 'available', sold_by: null, sold_at: null })
+    expect(propertiesChain.eq).toHaveBeenCalledWith('status', 'reserved')
+    expect(supabase.from).toHaveBeenNthCalledWith(2, 'sales')
+    expect(salesChain.delete).toHaveBeenCalled()
+    expect(salesChain.eq).toHaveBeenCalledWith('property_id', 'p1')
+    expect(logActivity).toHaveBeenCalledWith('property', 'p1', 'cancel_reservation')
+  })
+
+  it('cancelReservation refuses to touch a lot that is not reserved', async () => {
+    const propertiesChain = chain({ data: [], error: null })
+    supabase.from.mockReturnValue(propertiesChain)
+
+    await expect(cancelReservation('p1')).rejects.toThrow('Only reserved lots can have their reservation cancelled.')
+
+    expect(propertiesChain.update).toHaveBeenCalled()
+    expect(supabase.from).toHaveBeenCalledTimes(1)
+  })
+
+  it('completeDownpayment records the payment details, marks the lot sold, and earns commissions', async () => {
+    updateProperty.mockResolvedValue({ ...property, status: 'sold' })
+    fetchAllAgents.mockResolvedValue([sub, direct])
+    fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.05, direct_agent: 0.02 })
+    const saleChain = chain({ data: { id: 's1' }, error: null })
+    const propertyChain = chain({ data: { ...property, status: 'reserved' }, error: null })
+    const commissionChain = chain({ data: [{ id: 'c1' }, { id: 'c2' }], error: null })
+    supabase.from
+      .mockImplementationOnce(() => saleChain)
+      .mockImplementationOnce(() => propertyChain)
+      .mockImplementationOnce(() => commissionChain)
+
+    const saved = await completeDownpayment({
+      propertyId: 'p1',
+      payload: soldPayload,
+      downpayment: 100000,
+      terms: '48',
+      monthlyAmortization: 10533.53,
+    })
+
+    expect(saleChain.update).toHaveBeenCalledWith({ downpayment: 100000, terms_of_payment: '48', monthly_amortization: 10533.53 })
+    expect(updateProperty).toHaveBeenCalledWith('p1', expect.objectContaining({ status: 'sold', sold_by: 'a1' }))
+    expect(saleChain.update.mock.invocationCallOrder[0]).toBeLessThan(updateProperty.mock.invocationCallOrder[0])
+    expect(supabase.from).toHaveBeenNthCalledWith(3, 'commissions')
+    expect(commissionChain.insert).toHaveBeenCalled()
+    expect(saved).toEqual({ ...property, status: 'sold' })
+    expect(logActivity).toHaveBeenCalledWith('property', 'p1', 'downpayment', { downpayment: 100000, terms: '48' })
   })
 })

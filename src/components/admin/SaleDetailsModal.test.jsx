@@ -27,7 +27,7 @@ const sale = {
   tcp: 150000,
   downpayment: 20000,
   monthly_amortization: 5000,
-  terms_of_payment: '12 months',
+  terms_of_payment: '12',
 }
 
 describe('SaleDetailsModal', () => {
@@ -45,7 +45,8 @@ describe('SaleDetailsModal', () => {
     expect(screen.getByDisplayValue('150000')).toBeInTheDocument()
     expect(screen.getByDisplayValue('20000')).toBeInTheDocument()
     expect(screen.getByDisplayValue('5000')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('12 months')).toBeInTheDocument()
+    expect(screen.getByLabelText('Terms of Payment')).toHaveValue('12')
+    expect(screen.getByRole('option', { name: '12 months (no interest)' })).toBeInTheDocument()
     expect(fetchSale).toHaveBeenCalledWith('l1')
   })
 
@@ -75,7 +76,7 @@ describe('SaleDetailsModal', () => {
       tcp: 150000,
       downpayment: 20000,
       monthly_amortization: 6500,
-      terms_of_payment: '12 months',
+      terms_of_payment: '12',
     })
     expect(onSaved).toHaveBeenCalled()
     expect(await screen.findByText('Sale details saved.')).toBeInTheDocument()

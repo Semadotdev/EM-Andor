@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildLedger, ledgerCsvRows } from './ledger.js'
+import { buildLedger, ledgerCsvRows, monthlyAmortization } from './ledger.js'
 
 describe('ledger', () => {
   describe('buildLedger', () => {
@@ -111,6 +111,29 @@ describe('ledger', () => {
       expect(ledger.rows[0].principal).toBe(0)
       expect(ledger.rows[0].balance).toBe(100)
       expect(payments[0]).not.toHaveProperty('balance')
+    })
+  })
+
+  describe('monthlyAmortization', () => {
+    it('divides the balance evenly for 12-36 month terms without interest', () => {
+      expect(monthlyAmortization(500000, 100000, '12')).toBe(33333.33)
+      expect(monthlyAmortization(500000, 100000, '24')).toBe(16666.67)
+      expect(monthlyAmortization(500000, 100000, '36')).toBe(11111.11)
+    })
+
+    it('applies a 12% diminishing annuity to 48- and 60-month terms', () => {
+      expect(monthlyAmortization(500000, 100000, '48')).toBe(10533.53)
+      expect(monthlyAmortization(500000, 100000, '60')).toBe(8897.78)
+    })
+
+    it('returns zero when the downpayment covers the whole TCP', () => {
+      expect(monthlyAmortization(500000, 500000, '24')).toBe(0)
+      expect(monthlyAmortization(500000, 600000, '48')).toBe(0)
+    })
+
+    it('returns zero without terms or a balance', () => {
+      expect(monthlyAmortization(500000, 100000, '')).toBe(0)
+      expect(monthlyAmortization(500000, 100000, null)).toBe(0)
     })
   })
 

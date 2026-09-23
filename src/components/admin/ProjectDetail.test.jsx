@@ -13,6 +13,8 @@ vi.mock('../../lib/projects.js', () => ({
   lotPrice: (area, pricePerSqm) => Math.round(Number(area) * Number(pricePerSqm) * 100) / 100,
 }))
 
+vi.mock('../../lib/sales.js', () => ({ cancelReservation: vi.fn() }))
+
 vi.mock('../../lib/agents.js', () => ({ fetchAllAgents: vi.fn() }))
 
 vi.mock('./CreateProjectModal.jsx', () => ({
@@ -24,10 +26,30 @@ vi.mock('./CreateProjectModal.jsx', () => ({
   ),
 }))
 
-vi.mock('./MarkSoldModal.jsx', () => ({
-  default: ({ onSold }) => (
-    <div role="dialog" aria-label="Mark lot sold">
-      <button onClick={() => onSold()}>Confirm sale</button>
+vi.mock('./ReservationModal.jsx', () => ({
+  default: ({ onClose, onReserved }) => (
+    <div role="dialog" aria-label="Reserve lot">
+      <button onClick={onClose}>Close</button>
+      <button onClick={() => onReserved()}>Reserve Lot</button>
+    </div>
+  ),
+}))
+
+vi.mock('./ReservationActionsModal.jsx', () => ({
+  default: ({ onClose, onDownpayment, onCancelReservation }) => (
+    <div role="dialog" aria-label="Reservation actions">
+      <button onClick={onClose}>Close</button>
+      <button onClick={onDownpayment}>Make Downpayment</button>
+      <button onClick={onCancelReservation}>Cancel Reservation</button>
+    </div>
+  ),
+}))
+
+vi.mock('./DownpaymentModal.jsx', () => ({
+  default: ({ onClose, onSold }) => (
+    <div role="dialog" aria-label="Make downpayment">
+      <button onClick={onClose}>Close</button>
+      <button onClick={() => onSold()}>Record Downpayment</button>
     </div>
   ),
 }))
@@ -45,6 +67,7 @@ vi.mock('./BuyerLedgerModal.jsx', () => ({
 }))
 
 import { deleteLot, fetchProject, fetchProjectLots, updateLot } from '../../lib/projects.js'
+import { cancelReservation } from '../../lib/sales.js'
 import { fetchAllAgents } from '../../lib/agents.js'
 
 const project = {
@@ -77,6 +100,16 @@ const soldLot = {
   sales: { buyer_name: 'Juan Dela Cruz' },
 }
 
+const reservedLot = {
+  ...availableLot,
+  id: 'l3',
+  block_no: '1',
+  lot_no: '3',
+  status: 'reserved',
+  sold_by: 'a1',
+  sales: { buyer_name: 'Reserved Buyer' },
+}
+
 function renderDetail() {
   return render(
     <MemoryRouter initialEntries={['/admin/projects/pr1']}>
@@ -104,12 +137,13 @@ describe('ProjectDetail', () => {
     expect(within(table).getByText('Ana Agent')).toBeInTheDocument()
     expect(screen.getByText('2 lots')).toBeInTheDocument()
     expect(screen.getByText('1 available')).toBeInTheDocument()
+    expect(screen.getByText('0 reserved')).toBeInTheDocument()
     expect(screen.getByText('1 sold')).toBeInTheDocument()
     expect(within(table).getByText('Available')).toBeInTheDocument()
     expect(within(table).getByText('Sold')).toBeInTheDocument()
     expect(within(table).getAllByText('₱ 100,000')).toHaveLength(2)
     expect(within(table).getAllByText('100 sqm')).toHaveLength(2)
-    expect(within(table).getAllByRole('button', { name: 'Mark Sold' })).toHaveLength(1)
+    expect(within(table).getAllByRole('button', { name: 'Reserve' })).toHaveLength(1)
     expect(within(table).getAllByRole('button', { name: 'Delete' })).toHaveLength(1)
     expect(within(table).getAllByRole('button', { name: 'Edit' })).toHaveLength(1)
     expect(within(table).getByText('Buyer')).toBeInTheDocument()
@@ -153,22 +187,71 @@ describe('ProjectDetail', () => {
     expect(screen.queryByRole('dialog', { name: 'Buyer ledger' })).not.toBeInTheDocument()
   })
 
-  it('opens the mark sold modal and reloads the lots after a sale', async () => {
+  it('opens the reservation modal and reloads the lots after a reservation', async () => {
     fetchProjectLots
       .mockResolvedValueOnce([availableLot, soldLot])
-      .mockResolvedValueOnce([soldLot])
+      .mockResolvedValueOnce([{ ...availableLot, status: 'reserved' }])
     const user = userEvent.setup()
 
     renderDetail()
 
-    const markSoldButtons = await screen.findAllByRole('button', { name: 'Mark Sold' })
-    await user.click(markSoldButtons[0])
-    expect(screen.getByRole('dialog', { name: 'Mark lot sold' })).toBeInTheDocument()
+    const reserveButtons = await screen.findAllByRole('button', { name: 'Reserve' })
+    await user.click(reserveButtons[0])
+    expect(screen.getByRole('dialog', { name: 'Reserve lot' })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Confirm sale' }))
+    await user.click(screen.getByRole('button', { name: 'Reserve Lot' }))
 
     expect(fetchProjectLots).toHaveBeenCalledTimes(2)
-    expect(screen.queryByRole('dialog', { name: 'Mark lot sold' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Reserve lot' })).not.toBeInTheDocument()
+  })
+
+  it('opens the reservation chooser for a reserved lot', async () => {
+    fetchProjectLots.mockResolvedValue([reservedLot])
+    const user = userEvent.setup()
+
+    renderDetail()
+
+    const reservationButtons = await screen.findAllByRole('button', { name: 'Reservation' })
+    await user.click(reservationButtons[0])
+
+    expect(screen.getByRole('dialog', { name: 'Reservation actions' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Make Downpayment' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel Reservation' })).toBeInTheDocument()
+  })
+
+  it('flows from the chooser into the downpayment modal', async () => {
+    fetchProjectLots.mockResolvedValue([reservedLot])
+    const user = userEvent.setup()
+
+    renderDetail()
+
+    await user.click((await screen.findAllByRole('button', { name: 'Reservation' }))[0])
+    await user.click(screen.getByRole('button', { name: 'Make Downpayment' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Reservation actions' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Make downpayment' })).toBeInTheDocument()
+  })
+
+  it('cancels a reservation through the shared confirm modal and reloads', async () => {
+    cancelReservation.mockResolvedValue(undefined)
+    fetchProjectLots
+      .mockResolvedValueOnce([reservedLot])
+      .mockResolvedValueOnce([availableLot])
+    const user = userEvent.setup()
+
+    renderDetail()
+
+    await user.click((await screen.findAllByRole('button', { name: 'Reservation' }))[0])
+    await user.click(screen.getByRole('button', { name: 'Cancel Reservation' }))
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('button', { name: 'Cancel Reservation' })).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel Reservation' }))
+
+    expect(cancelReservation).toHaveBeenCalledWith('l3')
+    expect(await screen.findByText('Reservation cancelled.')).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
   it('edits a lot through updateLot and reloads', async () => {

@@ -34,6 +34,7 @@ const lot = {
   lot_no: '1',
   lot_area_sqm: 100,
   price: 100000,
+  price_per_sqm: 1000,
   status: 'sold',
   sold_by: 'a1',
 }
