@@ -133,6 +133,57 @@
   }
 }
 
+@layer components {
+  /* Org chart */
+  .org-chart {
+    @apply flex flex-col items-center;
+  }
+
+  .org-chart__node {
+    @apply flex flex-col items-center;
+  }
+
+  .org-chart__stem {
+    width: 2px;
+    height: 22px;
+    background: var(--color-mist);
+  }
+
+  .org-chart__children {
+    @apply relative flex justify-center;
+    padding-top: 26px;
+  }
+
+  .org-chart__children::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 18px;
+    right: 18px;
+    height: 2px;
+    background: var(--color-mist);
+  }
+
+  .org-chart__no-rail::before {
+    display: none;
+  }
+
+  .org-chart__child {
+    @apply relative flex flex-col items-center;
+    padding: 0 12px;
+  }
+
+  .org-chart__child::before {
+    content: '';
+    position: absolute;
+    top: -26px;
+    left: 50%;
+    width: 2px;
+    height: 26px;
+    background: var(--color-mist);
+  }
+}
+
 @layer utilities {
   .reveal {
     opacity: 0;

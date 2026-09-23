@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ROLE_LABELS, buildAgentTree } from '../../lib/agentMeta.js'
 import { fetchAllAgents, fetchSoldCounts, setAgentActive, updateAgent } from '../../lib/agents.js'
 import { fetchCommissions, fetchTeamSales } from '../../lib/sales.js'
@@ -32,15 +32,50 @@ const TABS = [
   { id: 'profile', label: 'Profile' },
 ]
 
+function OrgChart({ data }) {
+  return (
+    <div className="org-chart">
+      <div
+        className={`rounded-lg border bg-white px-3 py-2 text-center ${
+          data.node.id === data.focusId ? 'border-brand ring-2 ring-brand/30' : 'border-mist'
+        }`}
+      >
+        <p className="font-semibold text-brand-deep">{data.node.name}</p>
+        <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5">
+          <Badge tone={roleTone(data.node.role)}>{ROLE_LABELS[data.node.role] ?? data.node.role}</Badge>
+          {!data.node.is_active && <Badge tone="red">Inactive</Badge>}
+          {data.node.id === data.focusId && <Badge tone="green">Selected</Badge>}
+        </div>
+      </div>
+      {data.children.length > 0 && (
+        <>
+          <div className="org-chart__stem" aria-hidden="true" />
+          <div className={`org-chart__children ${data.children.length === 1 ? 'org-chart__no-rail' : ''}`}>
+            {data.children.map((child) => (
+              <div key={child.node.id} className="org-chart__child">
+                <OrgChart data={child} />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
   const [sales, setSales] = useState([])
   const [commissions, setCommissions] = useState([])
   const [allAgents, setAllAgents] = useState([])
   const [state, setState] = useState('loading')
   const [tab, setTab] = useState('commissions')
+  const [chartMode, setChartMode] = useState(false)
   const [form, setForm] = useState({ name: agent.name, phone: agent.phone ?? '' })
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const [zoom, setZoom] = useState(1)
+  const wrapRef = useRef(null)
+  const chartRef = useRef(null)
 
   useEffect(() => {
     let mounted = true
@@ -90,6 +125,55 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
     }
     return result
   }, [allAgents, agent.id])
+
+  const orgData = useMemo(() => {
+    const childrenMap = new Map()
+    for (const a of allAgents) {
+      if (!a.upline_id) continue
+      if (!childrenMap.has(a.upline_id)) childrenMap.set(a.upline_id, [])
+      childrenMap.get(a.upline_id).push(a)
+    }
+    const build = (row) => ({
+      focusId: agent.id,
+      node: row,
+      children: (childrenMap.get(row.id) ?? []).map(build),
+    })
+    let current = build(agent)
+    for (const upline of [...uplineChain].reverse()) {
+      current = { focusId: agent.id, node: upline, children: [current] }
+    }
+    return current
+  }, [allAgents, agent.id, uplineChain])
+
+  const fitChart = useCallback(() => {
+    const wrap = wrapRef.current
+    const chart = chartRef.current
+    if (!wrap || !chart) return
+    const prev = chart.style.zoom
+    chart.style.zoom = 1
+    const natural = chart.getBoundingClientRect().width
+    chart.style.zoom = prev
+    if (!natural || natural <= 0) return
+    const avail = wrap.clientWidth
+    const next = Math.round(((avail - 24) / natural) * 100) / 100
+    setZoom(Math.max(0.1, Math.min(1, next)))
+  }, [])
+
+  useLayoutEffect(() => {
+    if (!chartMode) {
+      setZoom(1)
+      return
+    }
+    fitChart()
+  }, [chartMode, orgData, fitChart])
+
+  const zoomStep = (delta) => () => {
+    setZoom((z) => Math.round(Math.max(0.1, Math.min(2, z + delta)) * 100) / 100)
+  }
+
+  const toggleChart = () => {
+    setChartMode((m) => !m)
+  }
 
   const setField = (field) => (e) => {
     setForm((f) => ({ ...f, [field]: e.target.value }))
@@ -191,35 +275,69 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
 
       {state === 'ready' && tab === 'agents' && (
         <div role="tabpanel" className="space-y-5">
-          <div>
-            <h3 className="mb-2 font-display text-sm font-bold text-brand-deep">Upline</h3>
-            {uplineChain.length === 0 ? (
-              <p className="text-sm text-ink/60">No upline.</p>
-            ) : (
-              <ul className="list-disc space-y-1 pl-5 text-sm">
-                {uplineChain.map((upline) => (
-                  <li key={upline.id} className="text-ink/80">
-                    {upline.name} <span className="text-xs font-semibold uppercase text-ink/50">{ROLE_LABELS[upline.role] ?? upline.role}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-sm font-bold text-brand-deep">Network</h3>
+            <Button size="sm" variant="secondary" onClick={toggleChart}>
+              {chartMode ? 'View list' : 'View org chart'}
+            </Button>
           </div>
 
-          <div>
-            <h3 className="mb-2 font-display text-sm font-bold text-brand-deep">Downline</h3>
-            {downline.length === 0 ? (
-              <p className="text-sm text-ink/60">No downline yet.</p>
-            ) : (
-              <ul className="list-disc space-y-1 pl-5 text-sm">
-                {downline.map((member) => (
-                  <li key={member.id} className="text-ink/80">
-                    {member.name} <span className="text-xs font-semibold uppercase text-ink/50">{ROLE_LABELS[member.role] ?? member.role}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          {chartMode && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="secondary" onClick={zoomStep(-0.1)} aria-label="Zoom out">
+                −
+              </Button>
+              <span className="w-12 text-center text-sm font-semibold text-ink/70" aria-live="polite">
+                {Math.round(zoom * 100)}%
+              </span>
+              <Button size="sm" variant="secondary" onClick={zoomStep(0.1)} aria-label="Zoom in">
+                +
+              </Button>
+              <Button size="sm" variant="secondary" onClick={fitChart}>
+                Fit chart to width
+              </Button>
+            </div>
+          )}
+
+          {chartMode ? (
+            <div ref={wrapRef} className="h-[min(28rem,60vh)] overflow-auto rounded-lg border border-mist bg-surface/50 py-4">
+              <div ref={chartRef} style={{ zoom }} className="min-w-max px-4 py-2">
+                <OrgChart data={orgData} />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <h3 className="mb-2 font-display text-sm font-bold text-brand-deep">Upline</h3>
+                {uplineChain.length === 0 ? (
+                  <p className="text-sm text-ink/60">No upline.</p>
+                ) : (
+                  <ul className="list-disc space-y-1 pl-5 text-sm">
+                    {uplineChain.map((upline) => (
+                      <li key={upline.id} className="text-ink/80">
+                        {upline.name} <span className="text-xs font-semibold uppercase text-ink/50">{ROLE_LABELS[upline.role] ?? upline.role}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div>
+                <h3 className="mb-2 font-display text-sm font-bold text-brand-deep">Downline</h3>
+                {downline.length === 0 ? (
+                  <p className="text-sm text-ink/60">No downline yet.</p>
+                ) : (
+                  <ul className="list-disc space-y-1 pl-5 text-sm">
+                    {downline.map((member) => (
+                      <li key={member.id} className="text-ink/80">
+                        {member.name} <span className="text-xs font-semibold uppercase text-ink/50">{ROLE_LABELS[member.role] ?? member.role}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 

@@ -177,6 +177,100 @@ describe('AdminAgents', () => {
     expect(within(downlineSection).getByText('No downline yet.')).toBeInTheDocument()
   })
 
+  it('toggles the agents tab into an org chart view', async () => {
+    const user = userEvent.setup()
+    const head = { id: 'h1', name: 'Cara Head', email: 'cara@x.com', role: 'agent_head', upline_id: null, is_active: true }
+    const direct = { id: 'd1', name: 'Ben Direct', email: 'ben@x.com', role: 'direct_agent', upline_id: 'h1', is_active: true }
+    const sub2 = { id: 'a4', name: 'Dee Sub', email: 'dee@x.com', role: 'sub_agent', upline_id: 'd1', is_active: true }
+    const grandSub = { id: 'a5', name: 'Ella Grand', email: 'ella@x.com', role: 'sub_agent', upline_id: 'a4', is_active: true }
+    fetchAllAgents.mockResolvedValue([admin, sub, recruit, head, direct, sub2, grandSub])
+    fetchSoldCounts.mockResolvedValue({})
+
+    render(<AdminAgents />)
+
+    await user.click(await screen.findByRole('button', { name: 'Toggle Cara Head downline' }))
+    await user.click(await screen.findByRole('button', { name: 'Toggle Ben Direct downline' }))
+
+    const deeRow = (await screen.findByText('Dee Sub')).closest('li')
+    await user.click(within(deeRow).getByRole('button', { name: 'View' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Dee Sub details' })
+    await user.click(within(dialog).getByRole('tab', { name: 'Agents' }))
+    await user.click(within(dialog).getByRole('button', { name: 'View org chart' }))
+
+    expect(within(dialog).getByText('Cara Head')).toBeInTheDocument()
+    expect(within(dialog).getByText('Ben Direct')).toBeInTheDocument()
+    expect(within(dialog).getByText('Agent Head')).toBeInTheDocument()
+    expect(within(dialog).getByText('Direct Agent')).toBeInTheDocument()
+    expect(within(dialog).getAllByText('Sub Agent').length).toBeGreaterThanOrEqual(2)
+    expect(within(dialog).getByText('Selected')).toBeInTheDocument()
+    expect(within(dialog).getByText('Ella Grand')).toBeInTheDocument()
+
+    expect(within(dialog).getByRole('button', { name: 'Zoom out' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Zoom in' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Fit chart to width' })).toBeInTheDocument()
+    expect(within(dialog).getByText('100%')).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Zoom in' }))
+    expect(within(dialog).getByText('110%')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Zoom in' }))
+    expect(within(dialog).getByText('120%')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Zoom out' }))
+    expect(within(dialog).getByText('110%')).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'View list' }))
+    expect(within(dialog).getByText('Upline')).toBeInTheDocument()
+    expect(within(dialog).getByText('Downline')).toBeInTheDocument()
+  })
+
+  it('keeps a manual zoom level after fitting a wide org chart', async () => {
+    const user = userEvent.setup()
+    const head = { id: 'h1', name: 'Cara Head', email: 'cara@x.com', role: 'agent_head', upline_id: null, is_active: true }
+    const direct = { id: 'd1', name: 'Ben Direct', email: 'ben@x.com', role: 'direct_agent', upline_id: 'h1', is_active: true }
+    const sub2 = { id: 'a4', name: 'Dee Sub', email: 'dee@x.com', role: 'sub_agent', upline_id: 'd1', is_active: true }
+    fetchAllAgents.mockResolvedValue([admin, sub, recruit, head, direct, sub2])
+    fetchSoldCounts.mockResolvedValue({})
+
+    render(<AdminAgents />)
+
+    await user.click(await screen.findByRole('button', { name: 'Toggle Cara Head downline' }))
+    await user.click(await screen.findByRole('button', { name: 'Toggle Ben Direct downline' }))
+
+    const deeRow = (await screen.findByText('Dee Sub')).closest('li')
+    await user.click(within(deeRow).getByRole('button', { name: 'View' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Dee Sub details' })
+    await user.click(within(dialog).getByRole('tab', { name: 'Agents' }))
+    await user.click(within(dialog).getByRole('button', { name: 'View org chart' }))
+
+    const chart = dialog.querySelector('.min-w-max')
+    const wrap = chart.parentElement
+    expect(wrap.className).toMatch(/h-\[/)
+    expect(wrap.className).not.toMatch(/max-h-\[/)
+    Object.defineProperty(wrap, 'clientWidth', { value: 624, configurable: true })
+    chart.getBoundingClientRect = () => ({
+      width: 5000 * (parseFloat(chart.style.zoom) || 1),
+      height: 100,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    })
+
+    await user.click(within(dialog).getByRole('button', { name: 'Fit chart to width' }))
+    expect(within(dialog).getByText('12%')).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Zoom in' }))
+    expect(within(dialog).getByText('22%')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Zoom in' }))
+    expect(within(dialog).getByText('32%')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Zoom out' }))
+    expect(within(dialog).getByText('22%')).toBeInTheDocument()
+  })
+
   it('edits the name and phone from the profile tab', async () => {
     const user = userEvent.setup()
     updateAgent.mockResolvedValue({ ...sub, name: 'Ana Updated', phone: '0917' })
