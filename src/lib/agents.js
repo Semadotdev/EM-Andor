@@ -37,6 +37,18 @@ export async function setAgentActive(id, isActive) {
   return data
 }
 
+export async function updateAgent(id, { name, phone }) {
+  const { data, error } = await supabase
+    .from('agents')
+    .update({ name: name.trim(), phone: phone?.trim() || null })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  logActivity('agent', id, 'update_profile').catch(() => {})
+  return data
+}
+
 export async function fetchSoldCounts() {
   const { data, error } = await supabase.from('properties').select('sold_by').eq('status', 'sold')
   if (error) throw error
