@@ -5,14 +5,24 @@ import { Button, Input, Modal, Select, useToast } from '../shared/ui'
 
 const assignableRoles = ['sub_agent', 'direct_agent', 'agent_head']
 
+const uplineRoleFor = (role) => (role === 'sub_agent' ? 'direct_agent' : role === 'direct_agent' ? 'agent_head' : null)
+
 export default function CreateAgentModal({ agents, onClose, onCreated }) {
   const { showToast } = useToast()
   const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'sub_agent', uplineId: '', password: '' })
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
 
+  const uplineRole = uplineRoleFor(form.role)
+  const uplineCandidates = uplineRole ? agents.filter((a) => a.role === uplineRole) : []
+
   const setField = (field) => (e) => {
-    setForm((f) => ({ ...f, [field]: e.target.value }))
+    const value = e.target.value
+    setForm((f) => ({
+      ...f,
+      [field]: value,
+      ...(field === 'role' ? { uplineId: '' } : {}),
+    }))
     setError(null)
   }
 
@@ -21,6 +31,10 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
     if (saving) return
     if (!form.name.trim() || !form.email.trim() || !form.password) {
       setError('Name, email, and password are required.')
+      return
+    }
+    if (form.role !== 'agent_head' && !form.uplineId) {
+      setError('Select an upline for this role.')
       return
     }
     setSaving(true)
@@ -77,9 +91,18 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
           ))}
         </Select>
 
-        <Select id="ca-upline" label="Upline (optional)" value={form.uplineId} onChange={setField('uplineId')}>
-          <option value="">No upline</option>
-          {agents.map((agent) => (
+        <Select
+          id="ca-upline"
+          label="Upline"
+          value={form.uplineId}
+          onChange={setField('uplineId')}
+          disabled={form.role === 'agent_head'}
+          required
+        >
+          <option value="" disabled>
+            {form.role === 'agent_head' ? 'No upline for an agent head' : 'Choose an upline'}
+          </option>
+          {uplineCandidates.map((agent) => (
             <option key={agent.id} value={agent.id}>{agent.name} ({ROLE_LABELS[agent.role] ?? agent.role})</option>
           ))}
         </Select>

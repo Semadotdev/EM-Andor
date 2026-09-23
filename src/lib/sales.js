@@ -1,6 +1,6 @@
 import { supabase } from './supabase.js'
 import { createProperty, updateProperty, logActivity } from './api.js'
-import { buildCommissionRows, validateSale, MAX_COMMISSION_LEVELS } from './commissions.js'
+import { buildCommissionRows, validateSale, MAX_CHAIN_LENGTH } from './commissions.js'
 import { applyEligiblePromotions, fetchAllAgents, fetchCommissionRatesMap } from './agents.js'
 import { fetchProjectRatesMap } from './projects.js'
 
@@ -25,7 +25,7 @@ export async function resolveChainForAgent(sellerId) {
   const seen = new Set()
   let current = byId.get(sellerId)
 
-  while (current && !seen.has(current.id) && current.role !== 'admin' && chain.length < MAX_COMMISSION_LEVELS) {
+  while (current && !seen.has(current.id) && current.role !== 'admin' && chain.length < MAX_CHAIN_LENGTH) {
     seen.add(current.id)
     chain.push(current)
     current = current.upline_id ? byId.get(current.upline_id) : null

@@ -67,7 +67,7 @@ describe('sales', () => {
   it('creates the property and one commission row per chain level', async () => {
     createProperty.mockResolvedValue(property)
     fetchAllAgents.mockResolvedValue([sub, direct])
-    fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.03, direct_agent: 0.015 })
+    fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.03, direct_agent: 0.02 })
     const insertChain = chain({ data: [{ id: 'c1' }, { id: 'c2' }], error: null })
     supabase.from.mockImplementation(() => insertChain)
 
@@ -77,7 +77,7 @@ describe('sales', () => {
     expect(supabase.from).toHaveBeenCalledWith('commissions')
     expect(insertChain.insert).toHaveBeenCalledWith([
       expect.objectContaining({ property_id: 'p1', agent_id: 'a1', role_at_sale: 'sub_agent', sale_price: 1000000, rate: 0.03, amount: 30000, status: 'earned' }),
-      expect.objectContaining({ property_id: 'p1', agent_id: 'a2', role_at_sale: 'direct_agent', rate: 0.015, amount: 15000, status: 'earned' }),
+      expect.objectContaining({ property_id: 'p1', agent_id: 'a2', role_at_sale: 'direct_agent', rate: 0.02, amount: 20000, status: 'earned' }),
     ])
     expect(applyEligiblePromotions).toHaveBeenCalled()
     expect(saved).toEqual(property)
@@ -86,7 +86,7 @@ describe('sales', () => {
   it('project rates override global rates and missing project roles fall back to global', async () => {
     createProperty.mockResolvedValue({ ...property, project_id: 'pr1' })
     fetchAllAgents.mockResolvedValue([sub, direct])
-    fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.03, direct_agent: 0.015 })
+    fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.03, direct_agent: 0.02 })
     fetchProjectRatesMap.mockResolvedValue({ sub_agent: 0.05 })
     const insertChain = chain({ data: [{ id: 'c1' }, { id: 'c2' }], error: null })
     supabase.from.mockImplementation(() => insertChain)
@@ -96,7 +96,7 @@ describe('sales', () => {
     expect(fetchProjectRatesMap).toHaveBeenCalledWith('pr1')
     expect(insertChain.insert).toHaveBeenCalledWith([
       expect.objectContaining({ agent_id: 'a1', role_at_sale: 'sub_agent', rate: 0.05, amount: 50000 }),
-      expect.objectContaining({ agent_id: 'a2', role_at_sale: 'direct_agent', rate: 0.015, amount: 15000 }),
+      expect.objectContaining({ agent_id: 'a2', role_at_sale: 'direct_agent', rate: 0.02, amount: 20000 }),
     ])
   })
 
@@ -166,7 +166,7 @@ describe('sales', () => {
     const existing = { ...property }
     updateProperty.mockResolvedValue(existing)
     fetchAllAgents.mockResolvedValue([sub, direct])
-    fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.03, direct_agent: 0.015 })
+    fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.03, direct_agent: 0.02 })
     const insertChain = chain({ data: [{ id: 'c9' }], error: null })
     supabase.from
       .mockImplementationOnce(() => chain({ data: existing, error: null }))
@@ -207,7 +207,7 @@ describe('sales', () => {
     const existing = { ...property, sold_by: 'a2' }
     updateProperty.mockResolvedValue({ ...property, sold_by: 'a1' })
     fetchAllAgents.mockResolvedValue([sub, direct])
-    fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.03, direct_agent: 0.015 })
+    fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.03, direct_agent: 0.02 })
     const insertChain = chain({ data: [{ id: 'c2' }, { id: 'c3' }], error: null })
     supabase.from
       .mockImplementationOnce(() => chain({ data: existing, error: null }))
@@ -219,7 +219,7 @@ describe('sales', () => {
 
     expect(insertChain.insert).toHaveBeenCalledWith([
       expect.objectContaining({ property_id: 'p1', agent_id: 'a1', role_at_sale: 'sub_agent', rate: 0.03, amount: 30000, status: 'earned' }),
-      expect.objectContaining({ property_id: 'p1', agent_id: 'a2', role_at_sale: 'direct_agent', rate: 0.015, amount: 15000, status: 'earned' }),
+      expect.objectContaining({ property_id: 'p1', agent_id: 'a2', role_at_sale: 'direct_agent', rate: 0.02, amount: 20000, status: 'earned' }),
     ])
     expect(updateProperty).toHaveBeenCalledWith('p1', expect.objectContaining({ status: 'sold' }))
   })

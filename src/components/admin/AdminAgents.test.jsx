@@ -35,12 +35,41 @@ describe('AdminAgents', () => {
     setAgentActive.mockResolvedValue({})
   })
 
-  it('lists agents with role labels and child indentation', async () => {
+  it('lists agents and expands nested levels through dropdown toggles', async () => {
+    const user = userEvent.setup()
+
     render(<AdminAgents />)
 
     expect(await screen.findByText('Ana Sub')).toBeInTheDocument()
+    expect(screen.queryByText('Rico Recruit')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Toggle Ana Sub downline' }))
+
     expect(screen.getByText('Rico Recruit')).toBeInTheDocument()
     expect(screen.getAllByText('Sub Agent').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('collapses and expands the dropdown and shows sub agents of sub agents via a nested toggle', async () => {
+    const user = userEvent.setup()
+    const deep = { id: 'a3', name: 'Danny Deep', email: 'danny@x.com', role: 'sub_agent', upline_id: 'a2', is_active: true }
+    fetchAllAgents.mockResolvedValue([admin, sub, recruit, deep])
+
+    render(<AdminAgents />)
+
+    const anaToggle = await screen.findByRole('button', { name: 'Toggle Ana Sub downline' })
+    expect(anaToggle).toHaveAttribute('aria-expanded', 'false')
+    await user.click(anaToggle)
+    expect(screen.getByRole('button', { name: 'Toggle Ana Sub downline' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Rico Recruit')).toBeInTheDocument()
+    expect(screen.queryByText('Danny Deep')).not.toBeInTheDocument()
+    expect(screen.getByText('Rico Recruit').closest('li').parentElement).toHaveStyle({ marginLeft: '20px' })
+
+    await user.click(screen.getByRole('button', { name: 'Toggle Rico Recruit downline' }))
+    expect(screen.getByText('Danny Deep')).toBeInTheDocument()
+    expect(screen.getByText('Danny Deep').closest('li').parentElement).toHaveStyle({ marginLeft: '40px' })
+
+    await user.click(screen.getByRole('button', { name: 'Toggle Ana Sub downline' }))
+    expect(screen.queryByText('Rico Recruit')).not.toBeInTheDocument()
   })
 
   it('shows an eligible badge when promotion thresholds are met', async () => {

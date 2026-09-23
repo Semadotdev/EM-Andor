@@ -141,37 +141,54 @@ function AgentDetail({ agent, onClose, onToggle, pending }) {
   )
 }
 
-function AgentNode({ node, depth, eligibility, onView }) {
+function AgentNode({ node, depth, openIds, onToggle, eligibility, onView }) {
   const eligible = eligibility?.get?.(node.id)
+  const hasChildren = node.children.length > 0
+  const open = openIds.has(node.id)
   return (
-    <>
-      <li>
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-mist bg-white p-3" style={{ marginLeft: depth * 20 }}>
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-brand-deep">{node.name}</p>
-            <p className="text-xs text-ink/50">
-              {node.email}
-              {node.phone ? ` · ${node.phone}` : ''}
-            </p>
-          </div>
-          <Badge tone={roleTone(node.role)}>{ROLE_LABELS[node.role] ?? node.role}</Badge>
-          {!node.is_active && <Badge tone="red">Inactive</Badge>}
-          {eligible && <Badge tone="green">Eligible: {ROLE_LABELS[eligible.eligibleFor]}</Badge>}
-          <Button size="sm" variant="secondary" onClick={() => onView(node)}>
-            View
-          </Button>
+    <li>
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-mist bg-white p-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-brand-deep">{node.name}</p>
+          <p className="text-xs text-ink/50">
+            {node.email}
+            {node.phone ? ` · ${node.phone}` : ''}
+          </p>
         </div>
-      </li>
-      {node.children.map((child) => (
-        <AgentNode
-          key={child.id}
-          node={child}
-          depth={depth + 1}
-          eligibility={eligibility}
-          onView={onView}
-        />
-      ))}
-    </>
+        <Badge tone={roleTone(node.role)}>{ROLE_LABELS[node.role] ?? node.role}</Badge>
+        {!node.is_active && <Badge tone="red">Inactive</Badge>}
+        {eligible && <Badge tone="green">Eligible: {ROLE_LABELS[eligible.eligibleFor]}</Badge>}
+        <Button size="sm" variant="secondary" onClick={() => onView(node)}>
+          View
+        </Button>
+        {hasChildren && (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-label={`Toggle ${node.name} downline`}
+            onClick={() => onToggle(node.id)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-mist text-ink/60 transition-transform hover:bg-surface"
+          >
+            <span aria-hidden="true" className={open ? '-rotate-180' : ''}>▼</span>
+          </button>
+        )}
+      </div>
+      {hasChildren && open && (
+        <ul className="mt-2 space-y-2" style={{ marginLeft: Math.min(depth + 1, 2) * 20 }}>
+          {node.children.map((child) => (
+            <AgentNode
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              openIds={openIds}
+              onToggle={onToggle}
+              eligibility={eligibility}
+              onView={onView}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
   )
 }
 
@@ -187,6 +204,7 @@ export default function AdminAgents() {
   const [confirmToggle, setConfirmToggle] = useState(null)
   const [toggling, setToggling] = useState(false)
   const [pending, setPending] = useState({})
+  const [openIds, setOpenIds] = useState(() => new Set())
 
   const load = useCallback(() => {
     setState('loading')
@@ -201,6 +219,15 @@ export default function AdminAgents() {
   }, [])
 
   useEffect(load, [load])
+
+  const toggleOpen = useCallback((id) => {
+    setOpenIds((ids) => {
+      const next = new Set(ids)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
 
   const eligibility = useMemo(() => eligibleAgents(agents, soldCounts), [agents, soldCounts])
   const filtered = search
@@ -272,6 +299,8 @@ export default function AdminAgents() {
               key={node.id}
               node={node}
               depth={0}
+              openIds={openIds}
+              onToggle={toggleOpen}
               eligibility={eligibility}
               onView={setDetail}
             />

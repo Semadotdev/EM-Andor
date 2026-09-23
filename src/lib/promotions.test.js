@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   computePromotion,
+  computeRewireUpline,
   countDirectRecruits,
   countDownlineDirectAgents,
   eligibleAgents,
@@ -57,5 +58,67 @@ describe('promotions', () => {
 
     expect(eligible.get('s1').eligibleFor).toBe('direct_agent')
     expect(eligible.get('s1').counts).toEqual({ ownSales: 5, directRecruits: 5 })
+  })
+})
+
+describe('computeRewireUpline', () => {
+  it('rewires a promoted sub to the agent head above its direct', () => {
+    const agents = [
+      agent('head1', 'agent_head'),
+      agent('d1', 'direct_agent', 'head1'),
+      agent('s1', 'sub_agent', 'd1'),
+    ]
+
+    expect(computeRewireUpline(agents, 's1')).toBe('head1')
+  })
+
+  it('climbs over stacked directs to the agent head', () => {
+    const agents = [
+      agent('head1', 'agent_head'),
+      agent('d2', 'direct_agent', 'head1'),
+      agent('d1', 'direct_agent', 'd2'),
+      agent('s1', 'sub_agent', 'd1'),
+    ]
+
+    expect(computeRewireUpline(agents, 's1')).toBe('head1')
+  })
+
+  it('leaves the upline unchanged when the chain has no direct agent', () => {
+    const agents = [
+      agent('head1', 'agent_head'),
+      agent('s2', 'sub_agent', 'head1'),
+      agent('s1', 'sub_agent', 's2'),
+    ]
+
+    expect(computeRewireUpline(agents, 's1')).toBeNull()
+  })
+
+  it('leaves the upline unchanged for a sub already under the head', () => {
+    const agents = [agent('head1', 'agent_head'), agent('s1', 'sub_agent', 'head1')]
+
+    expect(computeRewireUpline(agents, 's1')).toBeNull()
+  })
+
+  it('returns null when no agent head exists above the direct', () => {
+    const agents = [
+      agent('d1', 'direct_agent'),
+      agent('s1', 'sub_agent', 'd1'),
+    ]
+
+    expect(computeRewireUpline(agents, 's1')).toBeNull()
+  })
+
+  it('returns null when the chain above the direct only reaches an admin', () => {
+    const agents = [
+      agent('admin1', 'admin'),
+      agent('d1', 'direct_agent', 'admin1'),
+      agent('s1', 'sub_agent', 'd1'),
+    ]
+
+    expect(computeRewireUpline(agents, 's1')).toBeNull()
+  })
+
+  it('returns null for an unknown agent', () => {
+    expect(computeRewireUpline([agent('head1', 'agent_head')], 'missing')).toBeNull()
   })
 })

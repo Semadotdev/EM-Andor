@@ -208,7 +208,11 @@ export default function AdminCommissions() {
 
       <form onSubmit={saveRates} className="mb-8 rounded-lg border border-mist bg-white p-5">
         <h2 className="mb-1 font-display text-sm font-bold text-brand-deep">Rates</h2>
-        <p className="mb-4 text-xs text-ink/50">Percent of the lot price paid to each level. Existing commissions keep their original rate.</p>
+        <p className="mb-4 text-xs text-ink/50">
+          A Sub Agent seller keeps the Sub rate and their upline Direct earns the Direct rate. A Direct Agent seller who closes the
+          sale themselves earns a flat 5%. The Agent Head always earns the Head rate on every sale they did not make, up to a 7%
+          maximum payout. Existing commissions keep their original rate.
+        </p>
         {ratesState === 'loading' && <LoadingState label="Loading rates…" />}
         {ratesState === 'error' && <p className="text-sm text-ink/60">Could not load rates.</p>}
         {ratesState === 'ready' && (

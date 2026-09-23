@@ -1,6 +1,6 @@
 import { supabase } from './supabase.js'
 import { logActivity } from './api.js'
-import { eligibleAgents } from './promotions.js'
+import { eligibleAgents, computeRewireUpline } from './promotions.js'
 
 export async function fetchCurrentAgent() {
   const { data: { user } } = await supabase.auth.getUser()
@@ -56,7 +56,10 @@ export async function applyEligiblePromotions() {
     let changed = false
 
     for (const { agent, eligibleFor, counts } of eligible.values()) {
-      const { error } = await supabase.from('agents').update({ role: eligibleFor }).eq('id', agent.id)
+      const isSubToDirect = agent.role === 'sub_agent' && eligibleFor === 'direct_agent'
+      const rewiredUpline = isSubToDirect ? computeRewireUpline(agents, agent.id) : null
+      const patch = rewiredUpline ? { role: eligibleFor, upline_id: rewiredUpline } : { role: eligibleFor }
+      const { error } = await supabase.from('agents').update(patch).eq('id', agent.id)
       if (error) throw error
       logActivity('agent', agent.id, 'promote', { from: agent.role, to: eligibleFor, counts }).catch(() => {})
       promoted.push({ id: agent.id, name: agent.name, from: agent.role, to: eligibleFor })

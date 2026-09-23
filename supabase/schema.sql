@@ -83,8 +83,8 @@ create table if not exists public.commission_settings (
 
 insert into public.commission_settings (role, rate) values
   ('sub_agent', 0.0300),
-  ('direct_agent', 0.0150),
-  ('agent_head', 0.0050)
+  ('direct_agent', 0.0200),
+  ('agent_head', 0.0100)
 on conflict (role) do nothing;
 
 -- Commission ledger: one snapshot row per agent per sale

@@ -15,5 +15,10 @@ export function buildAgentTree(agents) {
       roots.push(node)
     }
   }
+  const sortByHasChildren = (node) => {
+    node.children.sort((a, b) => Number(b.children.length > 0) - Number(a.children.length > 0))
+    node.children.forEach(sortByHasChildren)
+  }
+  sortByHasChildren({ children: roots })
   return roots
 }
