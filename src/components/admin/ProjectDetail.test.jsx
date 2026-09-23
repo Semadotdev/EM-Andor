@@ -58,6 +58,14 @@ vi.mock('./UploadLotsModal.jsx', () => ({
   default: () => <div role="dialog" aria-label="Upload lots" />,
 }))
 
+vi.mock('./ComputationModal.jsx', () => ({
+  default: ({ onClose }) => (
+    <div role="dialog" aria-label="Quick computation">
+      <button onClick={onClose}>Close</button>
+    </div>
+  ),
+}))
+
 vi.mock('./BuyerLedgerModal.jsx', () => ({
   default: ({ onClose }) => (
     <div role="dialog" aria-label="Buyer ledger">
@@ -144,7 +152,7 @@ describe('ProjectDetail', () => {
     expect(within(table).getAllByText('₱ 100,000')).toHaveLength(2)
     expect(within(table).getAllByText('100 sqm')).toHaveLength(2)
     expect(within(table).getAllByRole('button', { name: 'Reserve' })).toHaveLength(1)
-    expect(within(table).getAllByRole('button', { name: 'Delete' })).toHaveLength(1)
+    expect(within(table).getAllByRole('button', { name: 'Compute' })).toHaveLength(2)
     expect(within(table).getAllByRole('button', { name: 'Edit' })).toHaveLength(1)
     expect(within(table).getByText('Buyer')).toBeInTheDocument()
     expect(within(table).getByText('Juan Dela Cruz')).toBeInTheDocument()
@@ -347,18 +355,20 @@ describe('ProjectDetail', () => {
     expect(await screen.findByText('Block/Lot already exists in this project.')).toBeInTheDocument()
   })
 
-  it('deletes an available lot after confirmation', async () => {
+  it('deletes an available lot from inside the edit modal after confirmation', async () => {
     const user = userEvent.setup()
 
     renderDetail()
 
-    const deleteButtons = await screen.findAllByRole('button', { name: 'Delete' })
-    await user.click(deleteButtons[0])
+    const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
+    await user.click(editButtons[0])
+    const editDialog = await screen.findByRole('dialog', { name: 'Edit lot' })
+    await user.click(within(editDialog).getByRole('button', { name: 'Delete Lot' }))
     const dialog = await screen.findByRole('alertdialog')
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
 
     expect(deleteLot).toHaveBeenCalledWith('l1')
-    expect(screen.queryAllByRole('button', { name: 'Delete' })).toHaveLength(0)
+    expect(screen.queryByRole('dialog', { name: 'Edit lot' })).not.toBeInTheDocument()
     expect(await screen.findByText('Lot deleted.')).toBeInTheDocument()
   })
 
@@ -368,12 +378,49 @@ describe('ProjectDetail', () => {
 
     renderDetail()
 
-    const deleteButtons = await screen.findAllByRole('button', { name: 'Delete' })
-    await user.click(deleteButtons[0])
+    const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
+    await user.click(editButtons[0])
+    const editDialog = await screen.findByRole('dialog', { name: 'Edit lot' })
+    await user.click(within(editDialog).getByRole('button', { name: 'Delete Lot' }))
     const dialog = await screen.findByRole('alertdialog')
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
 
     expect(await screen.findByText('Only available lots can be deleted. Un-sell the lot first.')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Edit lot' })).toBeInTheDocument()
+  })
+
+  it('shows the empty state and no compute buttons when there are no lots', async () => {
+    fetchProjectLots.mockResolvedValue([])
+
+    renderDetail()
+
+    expect(await screen.findByText(/No lots yet/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Compute' })).not.toBeInTheDocument()
+  })
+
+  it('opens the quick computation modal for every lot status', async () => {
+    fetchProjectLots.mockResolvedValue([availableLot, reservedLot, soldLot])
+    const user = userEvent.setup()
+
+    renderDetail()
+
+    const computeButtons = await screen.findAllByRole('button', { name: 'Compute' })
+    await user.click(computeButtons[0])
+
+    expect(screen.getByRole('dialog', { name: 'Quick computation' })).toBeInTheDocument()
+  })
+
+  it('does not offer delete when editing a reserved lot', async () => {
+    fetchProjectLots.mockResolvedValue([reservedLot])
+    const user = userEvent.setup()
+
+    renderDetail()
+
+    const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
+    await user.click(editButtons[0])
+    const editDialog = await screen.findByRole('dialog', { name: 'Edit lot' })
+
+    expect(within(editDialog).queryByRole('button', { name: 'Delete Lot' })).not.toBeInTheDocument()
   })
 
   it('opens the upload lots modal', async () => {

@@ -114,6 +114,12 @@ export default function Icon({ name, className = 'size-6' }) {
         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
       </svg>
     ),
+    eye: (
+      <svg {...common}>
+        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    ),
     close: (
       <svg {...common}>
         <line x1="18" y1="6" x2="6" y2="18" />

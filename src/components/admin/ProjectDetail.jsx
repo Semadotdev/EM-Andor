@@ -5,6 +5,7 @@ import { cancelReservation } from '../../lib/sales.js'
 import { fetchAllAgents } from '../../lib/agents.js'
 import { formatPrice } from '../../lib/format.js'
 import BuyerLedgerModal from './BuyerLedgerModal.jsx'
+import ComputationModal from './ComputationModal.jsx'
 import CreateProjectModal from './CreateProjectModal.jsx'
 import DownpaymentModal from './DownpaymentModal.jsx'
 import ReservationActionsModal from './ReservationActionsModal.jsx'
@@ -23,6 +24,7 @@ import {
   statusTone,
   useToast,
 } from '../shared/ui'
+import Icon from '../shared/Icon.jsx'
 
 const TYPE_LABELS = {
   farm_lot: 'Farm Lot',
@@ -47,7 +49,7 @@ const initialPerSqm = (lot) => {
   return ''
 }
 
-function EditLotModal({ lot, project, onClose, onSaved }) {
+function EditLotModal({ lot, project, onClose, onSaved, onDelete }) {
   const { showToast } = useToast()
   const [form, setForm] = useState({
     block_no: lot.block_no ?? '',
@@ -156,13 +158,20 @@ function EditLotModal({ lot, project, onClose, onSaved }) {
           )}
         </div>
 
-        <div className="mt-2 flex flex-wrap justify-end gap-3 sm:col-span-2">
-          <Button variant="secondary" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Saving…' : 'Save Changes'}
-          </Button>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3 sm:col-span-2">
+          {lot.status === 'available' && (
+            <Button variant="danger" onClick={onDelete} disabled={saving}>
+              Delete Lot
+            </Button>
+          )}
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button variant="secondary" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Saving…' : 'Save Changes'}
+            </Button>
+          </div>
         </div>
       </form>
     </Modal>
@@ -186,6 +195,7 @@ export default function ProjectDetail() {
   const [cancelTarget, setCancelTarget] = useState(null)
   const [ledgerLot, setLedgerLot] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
+  const [computeLot, setComputeLot] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
@@ -232,6 +242,7 @@ export default function ProjectDetail() {
       await deleteLot(confirmDelete.id)
       setLots((list) => list.filter((x) => x.id !== confirmDelete.id))
       setConfirmDelete(null)
+      setEditTarget(null)
       showToast('Lot deleted.')
     } catch (err) {
       setDeleteError(err?.message || 'Could not delete the lot. Please try again.')
@@ -302,18 +313,9 @@ export default function ProjectDetail() {
           Edit
         </Button>
       )}
-      {lot.status === 'available' && (
-        <Button
-          size="sm"
-          variant="danger"
-          onClick={() => {
-            setDeleteError(null)
-            setConfirmDelete(lot)
-          }}
-        >
-          Delete
-        </Button>
-      )}
+      <Button size="sm" variant="secondary" aria-label="Compute" onClick={() => setComputeLot(lot)}>
+        <Icon name="eye" className="size-4" />
+      </Button>
     </div>
   )
 
@@ -519,12 +521,18 @@ export default function ProjectDetail() {
           lot={editTarget}
           project={currentProject}
           onClose={() => setEditTarget(null)}
+          onDelete={() => {
+            setDeleteError(null)
+            setConfirmDelete(editTarget)
+          }}
           onSaved={() => {
             setEditTarget(null)
             load()
           }}
         />
       )}
+
+      {computeLot && <ComputationModal lot={computeLot} onClose={() => setComputeLot(null)} />}
 
       <ConfirmModal
         open={Boolean(confirmDelete)}
