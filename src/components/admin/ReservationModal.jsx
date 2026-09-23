@@ -212,8 +212,7 @@ export default function ReservationModal({ lot, project, onClose, onReserved }) 
           />
           {Number.isFinite(tcp) && tcp > 0 && (
             <p className="mt-1.5 text-xs text-ink/50">
-              20% of TCP: {formatPrice(minimumEquity(tcp))} — a reservation fee of at least this amount is recorded as the
-              downpayment and completes the sale.
+              20% of TCP: {formatPrice(minimumEquity(tcp))}
             </p>
           )}
         </div>
