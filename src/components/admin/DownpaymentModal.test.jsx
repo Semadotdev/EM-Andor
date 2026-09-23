@@ -6,6 +6,7 @@ import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/sales.js', () => ({
   completeDownpayment: vi.fn(),
+  fetchPayments: vi.fn(),
   fetchSale: vi.fn(),
   lotFieldsForSale: (lot) => {
     const fields = { ...lot }
@@ -19,7 +20,7 @@ vi.mock('../../lib/sales.js', () => ({
 
 vi.mock('../../lib/agents.js', () => ({ fetchAllAgents: vi.fn() }))
 
-import { completeDownpayment, fetchSale, lotFieldsForSale } from '../../lib/sales.js'
+import { completeDownpayment, fetchPayments, fetchSale, lotFieldsForSale } from '../../lib/sales.js'
 
 const lot = {
   id: 'l1',
@@ -56,6 +57,7 @@ describe('DownpaymentModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     fetchSale.mockResolvedValue(sale)
+    fetchPayments.mockResolvedValue([])
     completeDownpayment.mockResolvedValue({})
   })
 
@@ -102,6 +104,65 @@ describe('DownpaymentModal', () => {
 
     expect(completeDownpayment).not.toHaveBeenCalled()
     expect(screen.getByText('Downpayment must be greater than 0.')).toBeInTheDocument()
+  })
+
+  it('shows the reservation fee paid, the 20% minimum, and the remaining amount', async () => {
+    fetchPayments.mockResolvedValue([
+      { id: 'pay1', remarks: 'Reservation', amount: 50000 },
+      { id: 'pay2', remarks: 'Installment', amount: 1000 },
+    ])
+
+    render(<DownpaymentModal lot={lot} project={project} onClose={vi.fn()} onSold={vi.fn()} />)
+
+    expect(await openForm()).toBeInTheDocument()
+    expect(screen.getByText('Reservation fee paid')).toBeInTheDocument()
+    expect(screen.getAllByText('₱ 50,000')).toHaveLength(2)
+    expect(screen.getByText('20% of TCP (minimum)')).toBeInTheDocument()
+    expect(screen.getByText('₱ 100,000')).toBeInTheDocument()
+    expect(screen.getByText('Still needed to reach 20%')).toBeInTheDocument()
+    expect(screen.getAllByText('₱ 50,000')).toHaveLength(2)
+  })
+
+  it('blocks a downpayment that keeps the total below 20% of the TCP', async () => {
+    fetchPayments.mockResolvedValue([{ remarks: 'Reservation', amount: 50000 }])
+    const user = userEvent.setup()
+
+    render(<DownpaymentModal lot={lot} project={project} onClose={vi.fn()} onSold={vi.fn()} />)
+
+    await openForm()
+    await user.type(screen.getByLabelText('Downpayment'), '49999')
+    await user.selectOptions(screen.getByLabelText('Terms of Payment'), '24')
+    await user.click(screen.getByRole('button', { name: 'Record Downpayment' }))
+
+    expect(completeDownpayment).not.toHaveBeenCalled()
+    expect(
+      screen.getByText('Downpayment must be at least ₱ 50,000 to reach 20% of the TCP with the reservation fee.'),
+    ).toBeInTheDocument()
+  })
+
+  it('allows a downpayment that brings the total to 20% of the TCP', async () => {
+    fetchPayments.mockResolvedValue([{ remarks: 'Reservation', amount: 50000 }])
+    const user = userEvent.setup()
+
+    render(<DownpaymentModal lot={lot} project={project} onClose={vi.fn()} onSold={vi.fn()} />)
+
+    await openForm()
+    await user.type(screen.getByLabelText('Downpayment'), '50000')
+    await user.selectOptions(screen.getByLabelText('Terms of Payment'), '24')
+    await user.click(screen.getByRole('button', { name: 'Record Downpayment' }))
+
+    expect(completeDownpayment).toHaveBeenCalled()
+    expect(screen.queryByText(/must be at least/)).not.toBeInTheDocument()
+  })
+
+  it('shows that the 20% minimum is already met when the reservation fee covers it', async () => {
+    fetchPayments.mockResolvedValue([{ remarks: 'Reservation', amount: 100000 }])
+
+    render(<DownpaymentModal lot={lot} project={project} onClose={vi.fn()} onSold={vi.fn()} />)
+
+    await openForm()
+    expect(screen.getByText('Met by the reservation fee')).toBeInTheDocument()
+    expect(screen.queryByText('Still needed to reach 20%')).not.toBeInTheDocument()
   })
 
   it('rejects a downpayment greater than the TCP', async () => {

@@ -5,7 +5,7 @@ import ReservationModal from './ReservationModal.jsx'
 import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/agents.js', () => ({ fetchAllAgents: vi.fn() }))
-vi.mock('../../lib/sales.js', () => ({ lotFieldsForSale: (lot) => {
+vi.mock('../../lib/sales.js', () => ({ completeReservationWithDownpayment: vi.fn(), lotFieldsForSale: (lot) => {
   const fields = { ...lot }
   delete fields.id
   delete fields.created_at
@@ -15,7 +15,7 @@ vi.mock('../../lib/sales.js', () => ({ lotFieldsForSale: (lot) => {
 }, reserveLot: vi.fn() }))
 
 import { fetchAllAgents } from '../../lib/agents.js'
-import { reserveLot } from '../../lib/sales.js'
+import { completeReservationWithDownpayment, reserveLot } from '../../lib/sales.js'
 
 const lot = {
   id: 'l1',
@@ -42,6 +42,7 @@ describe('ReservationModal', () => {
       { id: 'a2', name: 'Inactive Agent', role: 'sub_agent', is_active: false },
     ])
     reserveLot.mockResolvedValue({ id: 'l1', status: 'reserved' })
+    completeReservationWithDownpayment.mockResolvedValue({ id: 'l1', status: 'sold' })
   })
 
   it('offers only active non-admin agents as sellers', async () => {
@@ -117,6 +118,53 @@ describe('ReservationModal', () => {
 
     expect(reserveLot).toHaveBeenCalledWith(expect.objectContaining({ reservationFee: 0 }))
     expect(screen.queryByText('Reservation fee cannot be negative.')).not.toBeInTheDocument()
+  })
+
+  it('shows the 20% of TCP reference next to the reservation fee', async () => {
+    render(<ReservationModal lot={lot} project={project} onClose={vi.fn()} onReserved={vi.fn()} />)
+
+    expect(await screen.findByText(/20% of TCP: ₱ 20,000/)).toBeInTheDocument()
+  })
+
+  it('records a full downpayment when the reservation fee reaches 20% of the TCP', async () => {
+    const onReserved = vi.fn()
+    const user = userEvent.setup()
+
+    render(<ReservationModal lot={lot} project={project} onClose={vi.fn()} onReserved={onReserved} />)
+
+    await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
+    await user.type(screen.getByLabelText('Buyer Name'), 'Juan Dela Cruz')
+    await user.type(screen.getByLabelText('Reservation Fee'), '20000')
+    await user.selectOptions(screen.getByLabelText('Terms of Payment'), '24')
+    await user.click(screen.getByRole('button', { name: 'Reserve Lot' }))
+
+    expect(completeReservationWithDownpayment).toHaveBeenCalledWith({
+      propertyId: 'l1',
+      payload: {
+        project_id: 'pr1',
+        name: 'Block 1 Lot 1',
+        block_no: '1',
+        lot_no: '1',
+        lot_area_sqm: 100,
+        price: 100000,
+        status: 'sold',
+        sold_by: 'a1',
+      },
+      details: {
+        buyer_name: 'Juan Dela Cruz',
+        buyer_address: '',
+        tcp: 100000,
+        downpayment: 20000,
+        monthly_amortization: 3333.33,
+        terms_of_payment: '24',
+      },
+      downpayment: 20000,
+      terms: '24',
+      monthlyAmortization: 3333.33,
+    })
+    expect(reserveLot).not.toHaveBeenCalled()
+    expect(onReserved).toHaveBeenCalled()
+    expect(await screen.findByText('Reservation recorded as a downpayment.')).toBeInTheDocument()
   })
 
   it('rejects a negative reservation fee', async () => {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { completeDownpayment, fetchSale, lotFieldsForSale } from '../../lib/sales.js'
-import { monthlyAmortization, PAYMENT_TERMS } from '../../lib/ledger.js'
+import { completeDownpayment, fetchPayments, fetchSale, lotFieldsForSale } from '../../lib/sales.js'
+import { minimumEquity, monthlyAmortization, PAYMENT_TERMS } from '../../lib/ledger.js'
 import { formatPrice } from '../../lib/format.js'
 import { Button, ErrorState, Input, LoadingState, Modal, Select, useToast } from '../shared/ui'
 
@@ -8,6 +8,7 @@ export default function DownpaymentModal({ lot, project, onClose, onSold }) {
   const { showToast } = useToast()
   const [sale, setSale] = useState(null)
   const [state, setState] = useState('loading')
+  const [reservationFee, setReservationFee] = useState(0)
   const [downpayment, setDownpayment] = useState('')
   const [terms, setTerms] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
@@ -16,10 +17,14 @@ export default function DownpaymentModal({ lot, project, onClose, onSold }) {
 
   const load = () => {
     setState('loading')
-    fetchSale(lot.id)
-      .then((row) => {
+    Promise.all([fetchSale(lot.id), fetchPayments(lot.id)])
+      .then(([row, payments]) => {
         setSale(row)
         if (row?.terms_of_payment) setTerms(String(row.terms_of_payment))
+        const fee = (payments ?? [])
+          .filter((p) => p?.remarks === 'Reservation')
+          .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+        setReservationFee(fee)
         setState('ready')
       })
       .catch(() => setState('error'))
@@ -29,6 +34,8 @@ export default function DownpaymentModal({ lot, project, onClose, onSold }) {
 
   const tcp = Number(sale?.tcp ?? lot?.price)
   const dpNumber = Number(downpayment)
+  const minEquity = minimumEquity(tcp)
+  const remainingToMin = Math.max(0, minEquity - reservationFee)
   const previewMa = monthlyAmortization(tcp, dpNumber, terms)
   const canPreview =
     state === 'ready' &&
@@ -47,6 +54,8 @@ export default function DownpaymentModal({ lot, project, onClose, onSold }) {
       errors.downpayment = 'Downpayment must be greater than 0.'
     } else if (dpNumber > tcp) {
       errors.downpayment = 'Downpayment cannot exceed the TCP.'
+    } else if (dpNumber + reservationFee < minEquity) {
+      errors.downpayment = `Downpayment must be at least ${formatPrice(remainingToMin)} to reach 20% of the TCP with the reservation fee.`
     }
     if (!terms) errors.terms_of_payment = 'Select the terms of payment.'
     if (Object.keys(errors).length > 0) {
@@ -121,6 +130,25 @@ export default function DownpaymentModal({ lot, project, onClose, onSold }) {
               <dt className="font-semibold text-brand-deep">TCP</dt>
               <dd className="text-right text-ink/70">{formatPrice(sale?.tcp) ?? '—'}</dd>
             </div>
+            <div className="flex justify-between gap-4">
+              <dt className="font-semibold text-brand-deep">Reservation fee paid</dt>
+              <dd className="text-right text-ink/70">{formatPrice(reservationFee)}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="font-semibold text-brand-deep">20% of TCP (minimum)</dt>
+              <dd className="text-right text-ink/70">{formatPrice(minEquity)}</dd>
+            </div>
+            {remainingToMin > 0 ? (
+              <div className="flex justify-between gap-4">
+                <dt className="font-semibold text-brand-deep">Still needed to reach 20%</dt>
+                <dd className="text-right font-semibold text-brand-deep">{formatPrice(remainingToMin)}</dd>
+              </div>
+            ) : (
+              <div className="flex justify-between gap-4">
+                <dt className="font-semibold text-brand-deep">20% minimum</dt>
+                <dd className="text-right font-semibold text-emerald-700">Met by the reservation fee</dd>
+              </div>
+            )}
           </dl>
 
           <form onSubmit={submit} noValidate className="grid gap-5 sm:grid-cols-2">

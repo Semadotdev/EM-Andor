@@ -18,6 +18,7 @@ describe('ComputationModal', () => {
 
     expect(screen.getByLabelText('TCP')).toHaveValue(500000)
     expect(screen.getByLabelText('Downpayment')).toHaveValue(null)
+    expect(screen.getByText('20% of TCP (minimum reservation fee + downpayment):')).toHaveTextContent('₱ 100,000')
     expect(screen.queryByText('Monthly Amortization')).not.toBeInTheDocument()
   })
 

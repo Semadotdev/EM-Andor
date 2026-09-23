@@ -1,5 +1,9 @@
 const round2 = (n) => Math.round(n * 100) / 100
 
+export const MIN_EQUITY_RATIO = 0.2
+
+export const minimumEquity = (tcp = 0) => round2(Number(tcp) * MIN_EQUITY_RATIO)
+
 export const PAYMENT_TERMS = [
   { value: '12', label: '12 months (no interest)' },
   { value: '24', label: '24 months (no interest)' },

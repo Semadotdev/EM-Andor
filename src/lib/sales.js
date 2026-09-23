@@ -198,6 +198,25 @@ export async function reserveLot({ propertyId, payload, details, reservationFee 
   return saved
 }
 
+export async function completeReservationWithDownpayment({ propertyId, payload, details, downpayment, terms, monthlyAmortization }) {
+  const saved = await savePropertyWithCommission({ mode: 'edit', propertyId, payload })
+  try {
+    await upsertSale(propertyId, details)
+  } catch (err) {
+    throw new Error('Reservation recorded, but the buyer details failed to save. Cancel the reservation and try again.', { cause: err })
+  }
+  await createPayment(propertyId, {
+    entry_date: new Date().toISOString().slice(0, 10),
+    amount: downpayment,
+    or_number: null,
+    surcharge: 0,
+    interest: 0,
+    remarks: 'Downpayment',
+  })
+  logActivity('property', propertyId, 'downpayment', { downpayment, terms }).catch(() => {})
+  return saved
+}
+
 export async function updateSale(propertyId, updates) {
   const { data, error } = await supabase
     .from('sales')

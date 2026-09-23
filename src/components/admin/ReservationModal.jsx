@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { fetchAllAgents } from '../../lib/agents.js'
 import { ROLE_LABELS } from '../../lib/agentMeta.js'
-import { lotFieldsForSale, reserveLot } from '../../lib/sales.js'
-import { PAYMENT_TERMS } from '../../lib/ledger.js'
+import { lotFieldsForSale, completeReservationWithDownpayment, reserveLot } from '../../lib/sales.js'
+import { minimumEquity, monthlyAmortization, PAYMENT_TERMS } from '../../lib/ledger.js'
 import { formatPrice } from '../../lib/format.js'
 import { Button, FieldError, Input, Modal, Select, useToast } from '../shared/ui'
 
@@ -69,21 +69,37 @@ export default function ReservationModal({ lot, project, onClose, onReserved }) 
     setSaving(true)
     setFieldErrors({})
     setError(null)
+    const details = {
+      buyer_name: form.buyer_name.trim(),
+      buyer_address: form.buyer_address.trim(),
+      tcp,
+      terms_of_payment: form.terms_of_payment,
+    }
+    const fee = Number(form.reservation_fee) || 0
     try {
-      await reserveLot({
-        propertyId: lot.id,
-        payload: { ...lotFieldsForSale(lot), status: 'reserved', sold_by: sellerId },
-        details: {
-          buyer_name: form.buyer_name.trim(),
-          buyer_address: form.buyer_address.trim(),
-          tcp,
-          downpayment: 0,
-          monthly_amortization: 0,
-          terms_of_payment: form.terms_of_payment,
-        },
-        reservationFee: Number(form.reservation_fee) || 0,
-      })
-      showToast('Reservation recorded.')
+      if (fee >= minimumEquity(tcp)) {
+        await completeReservationWithDownpayment({
+          propertyId: lot.id,
+          payload: { ...lotFieldsForSale(lot), status: 'sold', sold_by: sellerId },
+          details: {
+            ...details,
+            downpayment: fee,
+            monthly_amortization: monthlyAmortization(tcp, fee, form.terms_of_payment),
+          },
+          downpayment: fee,
+          terms: form.terms_of_payment,
+          monthlyAmortization: monthlyAmortization(tcp, fee, form.terms_of_payment),
+        })
+        showToast('Reservation recorded as a downpayment.')
+      } else {
+        await reserveLot({
+          propertyId: lot.id,
+          payload: { ...lotFieldsForSale(lot), status: 'reserved', sold_by: sellerId },
+          details: { ...details, downpayment: 0, monthly_amortization: 0 },
+          reservationFee: fee,
+        })
+        showToast('Reservation recorded.')
+      }
       onReserved()
     } catch (err) {
       if (err?.fieldErrors) {
@@ -103,6 +119,8 @@ export default function ReservationModal({ lot, project, onClose, onReserved }) 
   const otherErrors = Object.entries(fieldErrors).filter(
     ([field]) => field !== 'sold_by' && !detailFields.includes(field),
   )
+
+  const tcp = Number(form.tcp)
 
   return (
     <Modal open onClose={onClose} label="Reserve lot" size="md" busy={saving}>
@@ -181,16 +199,24 @@ export default function ReservationModal({ lot, project, onClose, onReserved }) 
 
         <Input id="rs-tcp" type="number" min="0" step="any" label="TCP" value={form.tcp} onChange={setField('tcp')} error={fieldErrors.tcp} readOnly className="cursor-not-allowed bg-mist/30" />
 
-        <Input
-          id="rs-fee"
-          type="number"
-          min="0"
-          step="any"
-          label="Reservation Fee"
-          value={form.reservation_fee}
-          onChange={setField('reservation_fee')}
-          error={fieldErrors.reservation_fee}
-        />
+        <div>
+          <Input
+            id="rs-fee"
+            type="number"
+            min="0"
+            step="any"
+            label="Reservation Fee"
+            value={form.reservation_fee}
+            onChange={setField('reservation_fee')}
+            error={fieldErrors.reservation_fee}
+          />
+          {Number.isFinite(tcp) && tcp > 0 && (
+            <p className="mt-1.5 text-xs text-ink/50">
+              20% of TCP: {formatPrice(minimumEquity(tcp))} — a reservation fee of at least this amount is recorded as the
+              downpayment and completes the sale.
+            </p>
+          )}
+        </div>
 
         <div className="sm:col-span-2">
           <Select

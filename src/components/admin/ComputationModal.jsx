@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { monthlyAmortization, PAYMENT_TERMS } from '../../lib/ledger.js'
+import { minimumEquity, monthlyAmortization, PAYMENT_TERMS } from '../../lib/ledger.js'
 import { formatPrice } from '../../lib/format.js'
 import { Button, Input, Modal } from '../shared/ui'
 
@@ -58,6 +58,13 @@ export default function ComputationModal({ lot, onClose }) {
           value={downpayment}
           onChange={(e) => setDownpayment(e.target.value)}
         />
+
+        {Number.isFinite(tcpNumber) && tcpNumber > 0 && (
+          <p className="text-xs text-ink/50 sm:col-span-2">
+            20% of TCP (minimum reservation fee + downpayment):{' '}
+            <span className="font-semibold text-brand-deep">{formatPrice(minimumEquity(tcpNumber))}</span>
+          </p>
+        )}
 
         {canPreview && (
           <div className="sm:col-span-2 overflow-hidden rounded-lg border border-mist bg-surface">
