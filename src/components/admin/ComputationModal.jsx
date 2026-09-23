@@ -1,19 +1,16 @@
 import { useState } from 'react'
 import { monthlyAmortization, PAYMENT_TERMS } from '../../lib/ledger.js'
 import { formatPrice } from '../../lib/format.js'
-import { Button, Input, Modal, Select } from '../shared/ui'
+import { Button, Input, Modal } from '../shared/ui'
 
 export default function ComputationModal({ lot, onClose }) {
   const [tcp, setTcp] = useState(lot?.price != null ? String(lot.price) : '')
   const [downpayment, setDownpayment] = useState('')
-  const [terms, setTerms] = useState('')
 
   const tcpNumber = Number(tcp)
   const dpNumber = Number(downpayment)
-  const previewMa = monthlyAmortization(tcpNumber, dpNumber, terms)
   const canPreview =
     tcp !== '' &&
-    terms !== '' &&
     downpayment !== '' &&
     Number.isFinite(tcpNumber) &&
     tcpNumber > 0 &&
@@ -38,7 +35,7 @@ export default function ComputationModal({ lot, onClose }) {
       </div>
 
       <p className="mb-5 text-sm text-ink/70">
-        {lotLabel} — estimate the monthly amortization for a given downpayment and payment terms.
+        {lotLabel} — estimate the monthly amortization for a given downpayment across all payment terms.
       </p>
 
       <form onSubmit={(e) => e.preventDefault()} noValidate className="grid gap-5 sm:grid-cols-2">
@@ -62,28 +59,31 @@ export default function ComputationModal({ lot, onClose }) {
           onChange={(e) => setDownpayment(e.target.value)}
         />
 
-        <div className="sm:col-span-2">
-          <Select id="qc-terms" label="Terms of Payment" value={terms} onChange={(e) => setTerms(e.target.value)}>
-            <option value="">Select terms…</option>
-            {PAYMENT_TERMS.map((term) => (
-              <option key={term.value} value={term.value}>
-                {term.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-
         {canPreview && (
-          <dl className="space-y-2 rounded-lg border border-mist bg-surface p-4 text-sm sm:col-span-2">
-            <div className="flex justify-between gap-4">
-              <dt className="text-ink/50">Balance after downpayment</dt>
-              <dd className="text-ink/70">{formatPrice(tcpNumber - dpNumber)}</dd>
+          <div className="sm:col-span-2 overflow-hidden rounded-lg border border-mist bg-surface">
+            <div className="flex items-center justify-between gap-4 border-b border-mist px-4 py-3 text-sm">
+              <span className="text-ink/50">Balance after downpayment</span>
+              <span className="font-semibold text-ink/70">{formatPrice(tcpNumber - dpNumber)}</span>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="font-semibold text-brand-deep">Monthly Amortization</dt>
-              <dd className="font-semibold text-brand-deep">{formatPrice(previewMa)}</dd>
-            </div>
-          </dl>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[13px] text-ink/50">
+                  <th className="px-4 pt-3 pb-1 font-medium">Terms of Payment</th>
+                  <th className="px-4 pt-3 pb-1 text-right font-medium">Monthly Amortization</th>
+                </tr>
+              </thead>
+              <tbody>
+                {PAYMENT_TERMS.map((term) => (
+                  <tr key={term.value} className="border-t border-mist/60">
+                    <td className="px-4 py-2 text-ink/70">{term.label}</td>
+                    <td className="px-4 py-2 text-right font-semibold text-brand-deep">
+                      {formatPrice(monthlyAmortization(tcpNumber, dpNumber, term.value))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         <div className="flex flex-wrap justify-end gap-3 sm:col-span-2">

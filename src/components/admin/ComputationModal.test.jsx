@@ -13,53 +13,56 @@ const lot = {
 }
 
 describe('ComputationModal', () => {
-  it('prefixes the TCP with the lot price but leaves the other fields empty', () => {
+  it('prefixes the TCP with the lot price and shows no results before a downpayment is entered', () => {
     render(<ComputationModal lot={lot} onClose={vi.fn()} />)
 
     expect(screen.getByLabelText('TCP')).toHaveValue(500000)
     expect(screen.getByLabelText('Downpayment')).toHaveValue(null)
-    expect(screen.getByLabelText('Terms of Payment')).toHaveValue('')
     expect(screen.queryByText('Monthly Amortization')).not.toBeInTheDocument()
   })
 
-  it('shows no preview until a downpayment and terms are entered', async () => {
+  it('shows the monthly amortization for every payment term once a downpayment is entered', async () => {
     const user = userEvent.setup()
 
     render(<ComputationModal lot={lot} onClose={vi.fn()} />)
 
     await user.type(screen.getByLabelText('Downpayment'), '100000')
-
-    expect(screen.queryByText('Monthly Amortization')).not.toBeInTheDocument()
-
-    await user.selectOptions(screen.getByLabelText('Terms of Payment'), '48')
 
     expect(await screen.findByText('Monthly Amortization')).toBeInTheDocument()
-    expect(screen.getByText('₱ 10,533.53')).toBeInTheDocument()
     expect(screen.getByText('₱ 400,000')).toBeInTheDocument()
+    expect(screen.getByText('₱ 33,333.33')).toBeInTheDocument()
+    expect(screen.getByText('₱ 16,666.67')).toBeInTheDocument()
+    expect(screen.getByText('₱ 11,111.11')).toBeInTheDocument()
+    expect(screen.getByText('₱ 10,533.53')).toBeInTheDocument()
+    expect(screen.getByText('₱ 8,897.78')).toBeInTheDocument()
+    expect(screen.getByText('48 months (12% diminishing)')).toBeInTheDocument()
+    expect(screen.getByText('60 months (12% diminishing)')).toBeInTheDocument()
   })
 
-  it('recomputes the monthly amortization as the downpayment and terms change', async () => {
+  it('recomputes every amortization as the downpayment changes', async () => {
     const user = userEvent.setup()
 
     render(<ComputationModal lot={lot} onClose={vi.fn()} />)
 
-    await user.type(screen.getByLabelText('Downpayment'), '100000')
-    await user.selectOptions(screen.getByLabelText('Terms of Payment'), '48')
+    const downpayment = screen.getByLabelText('Downpayment')
+    await user.type(downpayment, '100000')
 
-    expect(await screen.findByText('₱ 10,533.53')).toBeInTheDocument()
+    expect(await screen.findByText('₱ 400,000')).toBeInTheDocument()
+    expect(screen.getByText('₱ 10,533.53')).toBeInTheDocument()
 
-    await user.selectOptions(screen.getByLabelText('Terms of Payment'), '24')
+    await user.clear(downpayment)
+    await user.type(downpayment, '200000')
 
-    expect(await screen.findByText('₱ 16,666.67')).toBeInTheDocument()
+    expect(await screen.findByText('₱ 300,000')).toBeInTheDocument()
+    expect(await screen.findByText('₱ 7,900.15')).toBeInTheDocument()
   })
 
-  it('hides the preview when the downpayment exceeds the TCP', async () => {
+  it('hides the results when the downpayment exceeds the TCP', async () => {
     const user = userEvent.setup()
 
     render(<ComputationModal lot={lot} onClose={vi.fn()} />)
 
     await user.type(screen.getByLabelText('Downpayment'), '600000')
-    await user.selectOptions(screen.getByLabelText('Terms of Payment'), '24')
 
     expect(screen.queryByText('Monthly Amortization')).not.toBeInTheDocument()
   })
