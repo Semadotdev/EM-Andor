@@ -179,7 +179,7 @@ export default function ReservationModal({ lot, project, onClose, onReserved }) 
           />
         </div>
 
-        <Input id="rs-tcp" type="number" min="0" step="any" label="TCP" value={form.tcp} onChange={setField('tcp')} error={fieldErrors.tcp} />
+        <Input id="rs-tcp" type="number" min="0" step="any" label="TCP" value={form.tcp} onChange={setField('tcp')} error={fieldErrors.tcp} readOnly className="cursor-not-allowed bg-mist/30" />
 
         <Input
           id="rs-fee"
@@ -192,20 +192,22 @@ export default function ReservationModal({ lot, project, onClose, onReserved }) 
           error={fieldErrors.reservation_fee}
         />
 
-        <Select
-          id="rs-terms"
-          label="Terms of Payment"
-          value={form.terms_of_payment}
-          onChange={setField('terms_of_payment')}
-          error={fieldErrors.terms_of_payment}
-        >
-          <option value="">Select terms…</option>
-          {PAYMENT_TERMS.map((term) => (
-            <option key={term.value} value={term.value}>
-              {term.label}
-            </option>
-          ))}
-        </Select>
+        <div className="sm:col-span-2">
+          <Select
+            id="rs-terms"
+            label="Terms of Payment"
+            value={form.terms_of_payment}
+            onChange={setField('terms_of_payment')}
+            error={fieldErrors.terms_of_payment}
+          >
+            <option value="">Select terms…</option>
+            {PAYMENT_TERMS.map((term) => (
+              <option key={term.value} value={term.value}>
+                {term.label}
+              </option>
+            ))}
+          </Select>
+        </div>
 
         <div className="flex flex-wrap justify-end gap-3 sm:col-span-2">
           <Button variant="secondary" onClick={onClose} disabled={saving}>

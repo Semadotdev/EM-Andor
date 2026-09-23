@@ -58,6 +58,7 @@ describe('ReservationModal', () => {
     expect(await screen.findByLabelText('Buyer Name')).toBeInTheDocument()
     expect(screen.getByLabelText('Buyer Address')).toBeInTheDocument()
     expect(screen.getByLabelText('TCP')).toHaveValue(100000)
+    expect(screen.getByLabelText('TCP')).toHaveAttribute('readOnly')
     expect(screen.getByLabelText('Reservation Fee')).toHaveValue(null)
     expect(screen.getByLabelText('Terms of Payment')).toBeInTheDocument()
     expect(screen.getByRole('option', { name: '48 months (12% diminishing)' })).toBeInTheDocument()
@@ -74,8 +75,6 @@ describe('ReservationModal', () => {
     await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
     await user.type(screen.getByLabelText('Buyer Name'), 'Juan Dela Cruz')
     await user.type(screen.getByLabelText('Buyer Address'), 'Cebu City')
-    await user.clear(screen.getByLabelText('TCP'))
-    await user.type(screen.getByLabelText('TCP'), '150000')
     await user.type(screen.getByLabelText('Reservation Fee'), '5000')
     await user.selectOptions(screen.getByLabelText('Terms of Payment'), '24')
     await user.click(screen.getByRole('button', { name: 'Reserve Lot' }))
@@ -95,7 +94,7 @@ describe('ReservationModal', () => {
       details: {
         buyer_name: 'Juan Dela Cruz',
         buyer_address: 'Cebu City',
-        tcp: 150000,
+        tcp: 100000,
         downpayment: 0,
         monthly_amortization: 0,
         terms_of_payment: '24',
@@ -165,13 +164,11 @@ describe('ReservationModal', () => {
   it('requires a TCP greater than zero', async () => {
     const user = userEvent.setup()
 
-    render(<ReservationModal lot={lot} project={project} onClose={vi.fn()} onReserved={vi.fn()} />)
+    render(<ReservationModal lot={{ ...lot, price: 0 }} project={project} onClose={vi.fn()} onReserved={vi.fn()} />)
 
     await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
     await user.type(screen.getByLabelText('Buyer Name'), 'Juan Dela Cruz')
     await user.selectOptions(screen.getByLabelText('Terms of Payment'), '12')
-    await user.clear(screen.getByLabelText('TCP'))
-    await user.type(screen.getByLabelText('TCP'), '0')
     await user.click(screen.getByRole('button', { name: 'Reserve Lot' }))
 
     expect(reserveLot).not.toHaveBeenCalled()
