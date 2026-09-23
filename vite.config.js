@@ -9,6 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'auto',
+      injectRegister: false,
       manifest: {
         name: 'EM Andor Admin',
         short_name: 'EM Admin',
@@ -28,6 +29,8 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: 'index.html',
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,woff2}', 'icons/*.png', 'favicon.svg'],
       },
     }),
