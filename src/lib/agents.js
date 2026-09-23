@@ -49,6 +49,29 @@ export async function updateAgent(id, { name, phone }) {
   return data
 }
 
+export async function updateAgentAccount(id, { email, password }) {
+  const { data, error } = await supabase.functions.invoke('update-agent-account', {
+    body: { agent_id: id, email: email?.trim() || '', password: password || '' },
+  })
+
+  if (error) {
+    let message = error.message
+    try {
+      const body = await error.context.json()
+      if (body?.error) message = body.error
+    } catch {
+      // keep the SDK message when the body cannot be read
+    }
+    throw new Error(message || 'Could not update the account.')
+  }
+  if (data?.error) throw new Error(data.error)
+
+  const agent = data?.agent
+  if (!agent) throw new Error('Could not update the account.')
+  logActivity('agent', id, 'update_account').catch(() => {})
+  return agent
+}
+
 export async function fetchSoldCounts() {
   const { data, error } = await supabase.from('properties').select('sold_by').eq('status', 'sold')
   if (error) throw error

@@ -495,3 +495,14 @@ update public.properties
    and price is not null
    and lot_area_sqm is not null
    and lot_area_sqm > 0;
+
+-- Delete a project and every transaction it owns in one transaction.
+-- properties.project_id -> properties (sales, payments, commissions) cascade;
+-- projects                  -> project_commission_rates cascade.
+create or replace function public.delete_project(p_id uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.properties where project_id = p_id;
+  delete from public.projects where id = p_id;
+end $$;

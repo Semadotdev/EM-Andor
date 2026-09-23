@@ -194,3 +194,23 @@ export async function deleteLot(id) {
 
   logActivity('property', id, 'delete').catch(() => {})
 }
+
+export async function deleteProject(projectId, password) {
+  const { data, error } = await supabase.functions.invoke('delete-project', {
+    body: { project_id: projectId, password },
+  })
+
+  if (error) {
+    let message = error.message
+    try {
+      const body = await error.context.json()
+      if (body?.error) message = body.error
+    } catch {
+      // keep the SDK message when the body cannot be read
+    }
+    throw new Error(message || 'Could not delete the project.')
+  }
+  if (data?.error) throw new Error(data.error)
+
+  logActivity('project', projectId, 'delete').catch(() => {})
+}

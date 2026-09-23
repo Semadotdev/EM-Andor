@@ -10,6 +10,7 @@ import AdminInquiries from './AdminInquiries.jsx'
 import AdminNotifications from './AdminNotifications.jsx'
 import AdminCMS from './AdminCMS.jsx'
 import AdminActivityLog from './AdminActivityLog.jsx'
+import AdminAccount from './AdminAccount.jsx'
 import AgentLots from './AgentLots.jsx'
 import AgentSales from './AgentSales.jsx'
 import AgentCommissions from './AgentCommissions.jsx'
@@ -41,6 +42,7 @@ export default function AdminApp() {
         <Route path="notifications" element={<AdminOnly><AdminNotifications /></AdminOnly>} />
         <Route path="cms" element={<AdminOnly><AdminCMS /></AdminOnly>} />
         <Route path="activity" element={<AdminOnly><AdminActivityLog /></AdminOnly>} />
+        <Route path="account" element={<AdminOnly><AdminAccount /></AdminOnly>} />
         <Route path="lots" element={<AgentOnly><AgentLots /></AgentOnly>} />
         <Route path="sales" element={<AgentOnly><AgentSales /></AgentOnly>} />
         <Route path="my-commissions" element={<AgentOnly><AgentCommissions /></AgentOnly>} />

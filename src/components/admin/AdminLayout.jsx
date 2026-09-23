@@ -27,7 +27,7 @@ const ADMIN_GROUPS = [
     ],
   },
   { label: 'Content', items: [{ to: '/admin/cms', label: 'CMS' }] },
-  { label: 'System', items: [{ to: '/admin/activity', label: 'Activity Log' }] },
+  { label: 'System', items: [{ to: '/admin/activity', label: 'Activity Log' }, { to: '/admin/account', label: 'Account' }] },
 ]
 
 const AGENT_ITEMS = [

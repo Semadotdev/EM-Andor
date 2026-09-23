@@ -1,12 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import AdminProjects from './AdminProjects.jsx'
+import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/projects.js', () => ({
   fetchProjects: vi.fn(),
   fetchProjectLots: vi.fn(),
+  deleteProject: vi.fn(),
 }))
 
 vi.mock('./CreateProjectModal.jsx', () => ({
@@ -17,7 +19,7 @@ vi.mock('./CreateProjectModal.jsx', () => ({
   ),
 }))
 
-import { fetchProjectLots, fetchProjects } from '../../lib/projects.js'
+import { fetchProjectLots, fetchProjects, deleteProject } from '../../lib/projects.js'
 
 const farm = { id: 'pr1', name: 'Andor Farm', type: 'farm_lot', address: 'Brgy. Andor', price_per_sqm: 1000 }
 const housing = { id: 'pr2', name: 'Andor Homes', type: 'housing', address: 'Lipa', price_per_sqm: 5000 }
@@ -134,5 +136,59 @@ describe('AdminProjects', () => {
     renderProjects()
 
     expect(await screen.findByText(/No projects yet/)).toBeInTheDocument()
+  })
+
+  it('deletes a project only after the admin password is entered', async () => {
+    const user = userEvent.setup()
+    deleteProject.mockResolvedValue({})
+
+    renderProjects()
+
+    await screen.findByRole('table')
+    const deleteButtons = screen.getAllByRole('button', { name: 'Delete Andor Farm' })
+    expect(deleteButtons.length).toBeGreaterThanOrEqual(1)
+    await user.click(deleteButtons[0])
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete project' })
+    expect(within(dialog).getByText(/permanently removes all its lots/)).toBeInTheDocument()
+
+    await user.type(within(dialog).getByLabelText('Admin password'), 'secret')
+    await user.click(within(dialog).getByRole('button', { name: 'Delete Project' }))
+
+    expect(deleteProject).toHaveBeenCalledWith('pr1', 'secret')
+    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog', { name: 'Delete project' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the modal open and shows an error when the password is wrong', async () => {
+    const user = userEvent.setup()
+    deleteProject.mockRejectedValue(new Error('Incorrect password.'))
+
+    renderProjects()
+
+    await screen.findByRole('table')
+    await user.click(screen.getAllByRole('button', { name: 'Delete Andor Farm' })[0])
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete project' })
+    await user.type(within(dialog).getByLabelText('Admin password'), 'wrong')
+    await user.click(within(dialog).getByRole('button', { name: 'Delete Project' }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Incorrect password.')
+    expect(within(dialog).getByLabelText('Admin password')).toBeInTheDocument()
+  })
+
+  it('does not delete when the password is blank', async () => {
+    const user = userEvent.setup()
+
+    renderProjects()
+
+    await screen.findByRole('table')
+    await user.click(screen.getAllByRole('button', { name: 'Delete Andor Farm' })[0])
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete project' })
+    await user.click(within(dialog).getByRole('button', { name: 'Delete Project' }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Enter your password to confirm.')
+    expect(deleteProject).not.toHaveBeenCalled()
   })
 })

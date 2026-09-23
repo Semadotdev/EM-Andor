@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ROLE_LABELS, buildAgentTree } from '../../lib/agentMeta.js'
-import { fetchAllAgents, fetchSoldCounts, setAgentActive, updateAgent } from '../../lib/agents.js'
+import { fetchAllAgents, fetchSoldCounts, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
 import { fetchCommissions, fetchTeamSales } from '../../lib/sales.js'
 import { eligibleAgents } from '../../lib/promotions.js'
 import { formatPrice } from '../../lib/format.js'
@@ -70,7 +70,7 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
   const [state, setState] = useState('loading')
   const [tab, setTab] = useState('commissions')
   const [chartMode, setChartMode] = useState(false)
-  const [form, setForm] = useState({ name: agent.name, phone: agent.phone ?? '' })
+  const [form, setForm] = useState({ name: agent.name, phone: agent.phone ?? '', email: agent.email, password: '' })
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [zoom, setZoom] = useState(1)
@@ -186,10 +186,17 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
       setSaveError('Name is required.')
       return
     }
+    if (!form.email.trim()) {
+      setSaveError('Email is required.')
+      return
+    }
     setSaving(true)
     setSaveError(null)
     try {
-      const updated = await updateAgent(agent.id, { name: form.name, phone: form.phone })
+      let updated = await updateAgent(agent.id, { name: form.name, phone: form.phone })
+      if (form.email.trim() !== agent.email || form.password) {
+        updated = await updateAgentAccount(agent.id, { email: form.email, password: form.password })
+      }
       onSaved(updated)
     } catch {
       setSaveError('Could not save the profile. Please try again.')
@@ -348,11 +355,19 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
             <Input id="ap-phone" label="Phone" value={form.phone} onChange={setField('phone')} />
           </div>
 
-          <div>
-            <span className="mb-1.5 block text-sm font-semibold text-brand-deep">Email</span>
-            <p className="text-sm text-ink/80">{agent.email}</p>
-            <p className="mt-1 text-xs text-ink/50">Email is the agent's login and cannot be changed.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input id="ap-email" label="Email" type="email" value={form.email} onChange={setField('email')} required />
+            <Input
+              id="ap-password"
+              label="New password"
+              type="password"
+              autoComplete="new-password"
+              value={form.password}
+              onChange={setField('password')}
+              placeholder="Leave blank to keep current"
+            />
           </div>
+          <p className="text-xs text-ink/50">Email is the agent's login. The password is never shown — leave it blank to keep the current one.</p>
 
           {saveError && (
             <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">

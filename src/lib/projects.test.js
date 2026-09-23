@@ -3,6 +3,7 @@ import {
   createLots,
   createProject,
   deleteLot,
+  deleteProject,
   fetchProject,
   fetchProjectLots,
   fetchProjects,
@@ -15,7 +16,7 @@ import {
   upsertProjectRates,
 } from './projects.js'
 
-vi.mock('./supabase.js', () => ({ supabase: { from: vi.fn() } }))
+vi.mock('./supabase.js', () => ({ supabase: { from: vi.fn(), functions: { invoke: vi.fn() } } }))
 vi.mock('./api.js', () => ({ logActivity: vi.fn(() => Promise.resolve()) }))
 
 import { supabase } from './supabase.js'
@@ -504,5 +505,39 @@ describe('projects', () => {
     supabase.from.mockReturnValue(chain({ data: null, error: new Error('rates down') }))
 
     await expect(upsertProjectRates('pr1', { sub_agent: 0.03 })).rejects.toThrow('rates down')
+  })
+
+  it('deleteProject invokes the delete-project edge function and logs the activity', async () => {
+    supabase.functions.invoke.mockResolvedValue({ data: { ok: true }, error: null })
+
+    await deleteProject('pr1', 'secret')
+
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('delete-project', {
+      body: { project_id: 'pr1', password: 'secret' },
+    })
+    expect(logActivity).toHaveBeenCalledWith('project', 'pr1', 'delete')
+  })
+
+  it('deleteProject surfaces the edge function error body', async () => {
+    supabase.functions.invoke.mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Edge Function returned a non-2xx status code',
+        context: { json: async () => ({ error: 'Incorrect password.' }) },
+      },
+    })
+
+    await expect(deleteProject('pr1', 'wrong')).rejects.toThrow('Incorrect password.')
+    expect(logActivity).not.toHaveBeenCalled()
+  })
+
+  it('deleteProject rejects when the response has a data error', async () => {
+    supabase.functions.invoke.mockResolvedValue({
+      data: { error: 'The delete_project helper is not installed. Run the database migration first.' },
+      error: null,
+    })
+
+    await expect(deleteProject('pr1', 'secret')).rejects.toThrow('The delete_project helper is not installed')
+    expect(logActivity).not.toHaveBeenCalled()
   })
 })

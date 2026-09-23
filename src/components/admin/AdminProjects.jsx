@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { fetchProjectLots, fetchProjects } from '../../lib/projects.js'
+import { deleteProject, fetchProjectLots, fetchProjects } from '../../lib/projects.js'
 import CreateProjectModal from './CreateProjectModal.jsx'
-import { Badge, Button, DataTable, ErrorState, LoadingState, PageHeader } from '../shared/ui'
+import { Badge, Button, ConfirmModal, DataTable, ErrorState, Input, LoadingState, PageHeader, useToast } from '../shared/ui'
+import Icon from '../shared/Icon.jsx'
 
 const TYPE_LABELS = {
   farm_lot: 'Farm Lot',
@@ -17,6 +18,11 @@ export default function AdminProjects() {
   const [state, setState] = useState('loading')
   const [error, setError] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
+  const { showToast } = useToast()
 
   const load = useCallback(() => {
     setState('loading')
@@ -42,6 +48,38 @@ export default function AdminProjects() {
   }, [])
 
   useEffect(load, [load])
+
+  const openDelete = (project) => {
+    setDeleteTarget(project)
+    setDeletePassword('')
+    setDeleteError(null)
+  }
+
+  const closeDelete = () => {
+    setDeleteTarget(null)
+    setDeletePassword('')
+    setDeleteError(null)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleting) return
+    if (!deletePassword) {
+      setDeleteError('Enter your password to confirm.')
+      return
+    }
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteProject(deleteTarget.id, deletePassword)
+      closeDelete()
+      showToast(`${deleteTarget.name} deleted.`)
+      load()
+    } catch (err) {
+      setDeleteError(err?.message || 'Could not delete the project.')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const columns = [
     { key: 'name', header: 'Project', className: 'font-semibold text-brand-deep', render: (project) => project.name },
@@ -75,13 +113,23 @@ export default function AdminProjects() {
       align: 'right',
       noWrap: true,
       render: (project) => (
-        <Link
-          to={`/admin/projects/${project.id}`}
-          aria-label={`Open ${project.name}`}
-          className="inline-flex rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
-        >
-          Open
-        </Link>
+        <div className="flex items-center justify-end gap-2">
+          <Link
+            to={`/admin/projects/${project.id}`}
+            aria-label={`Open ${project.name}`}
+            className="inline-flex rounded-md border border-mist px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-brand/40 hover:text-brand"
+          >
+            Open
+          </Link>
+          <button
+            type="button"
+            onClick={() => openDelete(project)}
+            aria-label={`Delete ${project.name}`}
+            className="rounded-md border border-mist p-1.5 text-ink/50 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+          >
+            <Icon name="trash" className="size-4" />
+          </button>
+        </div>
       ),
     },
   ]
@@ -111,6 +159,14 @@ export default function AdminProjects() {
           >
             Open
           </Link>
+          <button
+            type="button"
+            onClick={() => openDelete(project)}
+            aria-label={`Delete ${project.name}`}
+            className="ml-2 inline-flex rounded-md border border-mist p-1.5 text-xs text-ink/50 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+          >
+            <Icon name="trash" className="size-4" />
+          </button>
         </div>
       </div>
     )
@@ -152,6 +208,40 @@ export default function AdminProjects() {
             load()
           }}
         />
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          open
+          onClose={closeDelete}
+          onConfirm={confirmDelete}
+          title="Delete project"
+          message={`Deleting ${deleteTarget.name} permanently removes all its lots and every transaction inside it — sales, payments, and commissions. This cannot be undone.`}
+          confirmLabel="Delete Project"
+          destructive
+          loading={deleting}
+        >
+          <div>
+            <Input
+              id="project-delete-password"
+              label="Admin password"
+              type="password"
+              autoComplete="current-password"
+              value={deletePassword}
+              onChange={(e) => {
+                setDeletePassword(e.target.value)
+                setDeleteError(null)
+              }}
+              placeholder="Enter your admin password"
+              required
+            />
+            {deleteError && (
+              <p role="alert" className="mt-2 rounded-md border border-red-200 bg-red-50 p-2 text-sm font-medium text-red-700">
+                {deleteError}
+              </p>
+            )}
+          </div>
+        </ConfirmModal>
       )}
     </div>
   )

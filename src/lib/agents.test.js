@@ -9,6 +9,7 @@ import {
   fetchMyDownline,
   fetchSoldCounts,
   setAgentActive,
+  updateAgentAccount,
   updateCommissionRates,
 } from './agents.js'
 
@@ -199,5 +200,38 @@ describe('agents', () => {
     await expect(
       createAgent({ name: 'New', email: 'new@x.com', role: 'sub_agent', password: 'secret123' }),
     ).rejects.toThrow('Failed to send a request to the Edge Function')
+  })
+
+  it('updateAgentAccount invokes the edge function with credentials', async () => {
+    const updated = { id: 'a1', email: 'new@x.com', name: 'Sub', role: 'sub_agent' }
+    supabase.functions.invoke.mockResolvedValue({ data: { agent: updated }, error: null })
+
+    const result = await updateAgentAccount('a1', { email: 'new@x.com', password: 'newpass1' })
+
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('update-agent-account', {
+      body: { agent_id: 'a1', email: 'new@x.com', password: 'newpass1' },
+    })
+    expect(result).toEqual(updated)
+    expect(logActivity).toHaveBeenCalledWith('agent', 'a1', 'update_account')
+  })
+
+  it('updateAgentAccount surfaces the edge function error body', async () => {
+    supabase.functions.invoke.mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Edge Function returned a non-2xx status code',
+        context: { json: async () => ({ error: 'Email already registered.' }) },
+      },
+    })
+
+    await expect(updateAgentAccount('a1', { email: 'taken@x.com', password: 'newpass1' })).rejects.toThrow(
+      'Email already registered.',
+    )
+  })
+
+  it('updateAgentAccount rejects when the response has a data error', async () => {
+    supabase.functions.invoke.mockResolvedValue({ data: { error: 'This agent has no login account yet.' }, error: null })
+
+    await expect(updateAgentAccount('a1', { email: 'new@x.com' })).rejects.toThrow('This agent has no login account yet.')
   })
 })

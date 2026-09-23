@@ -9,6 +9,7 @@ vi.mock('../../lib/agents.js', () => ({
   fetchSoldCounts: vi.fn(),
   setAgentActive: vi.fn(),
   updateAgent: vi.fn(),
+  updateAgentAccount: vi.fn(),
 }))
 vi.mock('../../lib/sales.js', () => ({
   fetchCommissions: vi.fn().mockResolvedValue([]),
@@ -22,7 +23,7 @@ vi.mock('./CreateAgentModal.jsx', () => ({
   ),
 }))
 
-import { fetchAllAgents, fetchSoldCounts, setAgentActive, updateAgent } from '../../lib/agents.js'
+import { fetchAllAgents, fetchSoldCounts, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
 import { fetchCommissions, fetchTeamSales } from '../../lib/sales.js'
 
 const admin = { id: 'admin1', name: 'Admin', email: 'a@x.com', role: 'admin', upline_id: null, is_active: true }
@@ -297,6 +298,52 @@ describe('AdminAgents', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Save Profile' }))
 
     expect(updateAgent).toHaveBeenCalledWith('a1', { name: 'Ana Updated', phone: '0917' })
+    expect(await screen.findByText('Profile saved.')).toBeInTheDocument()
+  })
+
+  it('edits the agent email from the profile tab', async () => {
+    const user = userEvent.setup()
+    updateAgent.mockResolvedValue({ ...sub, email: 'new@x.com' })
+    updateAgentAccount.mockResolvedValue({ ...sub, email: 'new@x.com' })
+
+    render(<AdminAgents />)
+
+    const row = (await screen.findByText('Ana Sub')).closest('li')
+    await user.click(within(row).getByRole('button', { name: 'View' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Ana Sub details' })
+    await user.click(within(dialog).getByRole('tab', { name: 'Profile' }))
+
+    const emailInput = within(dialog).getByLabelText('Email')
+    expect(emailInput).toHaveValue('ana@x.com')
+    await user.clear(emailInput)
+    await user.type(emailInput, 'new@x.com')
+
+    const passwordInput = within(dialog).getByLabelText('New password')
+    expect(passwordInput).toHaveValue('')
+    await user.click(within(dialog).getByRole('button', { name: 'Save Profile' }))
+
+    expect(updateAgentAccount).toHaveBeenCalledWith('a1', { email: 'new@x.com', password: '' })
+    expect(await screen.findByText('Profile saved.')).toBeInTheDocument()
+  })
+
+  it('uses the password-only flow when the email is unchanged', async () => {
+    const user = userEvent.setup()
+    updateAgent.mockResolvedValue({ ...sub })
+    updateAgentAccount.mockResolvedValue({ ...sub })
+
+    render(<AdminAgents />)
+
+    const row = (await screen.findByText('Ana Sub')).closest('li')
+    await user.click(within(row).getByRole('button', { name: 'View' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Ana Sub details' })
+    await user.click(within(dialog).getByRole('tab', { name: 'Profile' }))
+
+    await user.type(within(dialog).getByLabelText('New password'), 'newsecret')
+    await user.click(within(dialog).getByRole('button', { name: 'Save Profile' }))
+
+    expect(updateAgentAccount).toHaveBeenCalledWith('a1', { email: 'ana@x.com', password: 'newsecret' })
     expect(await screen.findByText('Profile saved.')).toBeInTheDocument()
   })
 
