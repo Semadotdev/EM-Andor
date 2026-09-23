@@ -369,18 +369,22 @@ describe('sales', () => {
     expect(c.eq).toHaveBeenCalledWith('id', 'pay1')
   })
 
-  it('reserveLot saves the reserved property and then the buyer details', async () => {
+  it('reserveLot saves the reserved property, the buyer details, and the reservation fee payment', async () => {
     const existing = { ...property, status: 'reserved' }
+    const today = new Date().toISOString().slice(0, 10)
     updateProperty.mockResolvedValue(existing)
     const salesChain = chain({ data: { id: 's1', property_id: 'p1', buyer_name: 'Juan' }, error: null })
+    const paymentChain = chain({ data: { id: 'pay1' }, error: null })
     supabase.from
       .mockImplementationOnce(() => chain({ data: existing, error: null }))
       .mockImplementationOnce(() => salesChain)
+      .mockImplementationOnce(() => paymentChain)
 
     const saved = await reserveLot({
       propertyId: 'p1',
       payload: { ...property, status: 'reserved', sold_by: 'a1' },
       details: { buyer_name: 'Juan', tcp: 500000, downpayment: 0, monthly_amortization: 0, terms_of_payment: '24' },
+      reservationFee: 5000,
     })
 
     expect(updateProperty).toHaveBeenCalledWith('p1', expect.objectContaining({ status: 'reserved', sold_at: null }))
@@ -396,8 +400,36 @@ describe('sales', () => {
       { onConflict: 'property_id' },
     )
     expect(updateProperty.mock.invocationCallOrder[0]).toBeLessThan(salesChain.upsert.mock.invocationCallOrder[0])
+    expect(supabase.from).toHaveBeenNthCalledWith(3, 'payments')
+    expect(paymentChain.insert).toHaveBeenCalledWith({
+      property_id: 'p1',
+      entry_date: today,
+      amount: 5000,
+      or_number: null,
+      surcharge: 0,
+      interest: 0,
+      remarks: 'Reservation',
+    })
     expect(saved).toEqual(existing)
     expect(logActivity).toHaveBeenCalledWith('property', 'p1', 'reserve', { buyer: 'Juan' })
+  })
+
+  it('reserveLot skips the reservation fee payment when no fee is provided', async () => {
+    const existing = { ...property, status: 'reserved' }
+    updateProperty.mockResolvedValue(existing)
+    const salesChain = chain({ data: { id: 's1', property_id: 'p1', buyer_name: 'Juan' }, error: null })
+    supabase.from
+      .mockImplementationOnce(() => chain({ data: existing, error: null }))
+      .mockImplementationOnce(() => salesChain)
+
+    await reserveLot({
+      propertyId: 'p1',
+      payload: { ...property, status: 'reserved', sold_by: 'a1' },
+      details: { buyer_name: 'Juan' },
+    })
+
+    expect(supabase.from).toHaveBeenCalledTimes(2)
+    expect(salesChain.upsert).toHaveBeenCalled()
   })
 
   it('reserveLot reports a buyer details failure after the property save succeeds', async () => {
@@ -423,10 +455,14 @@ describe('sales', () => {
     expect(c.maybeSingle).toHaveBeenCalled()
   })
 
-  it('cancelReservation only frees a reserved lot and clears its sale row', async () => {
+  it('cancelReservation only frees a reserved lot, clears its sale row, and deletes its payments', async () => {
     const propertiesChain = chain({ data: [{ id: 'p1' }], error: null })
     const salesChain = chain({ data: null, error: null })
-    supabase.from.mockImplementationOnce(() => propertiesChain).mockImplementationOnce(() => salesChain)
+    const paymentsChain = chain({ data: null, error: null })
+    supabase.from
+      .mockImplementationOnce(() => propertiesChain)
+      .mockImplementationOnce(() => salesChain)
+      .mockImplementationOnce(() => paymentsChain)
 
     await cancelReservation('p1')
 
@@ -436,6 +472,9 @@ describe('sales', () => {
     expect(supabase.from).toHaveBeenNthCalledWith(2, 'sales')
     expect(salesChain.delete).toHaveBeenCalled()
     expect(salesChain.eq).toHaveBeenCalledWith('property_id', 'p1')
+    expect(supabase.from).toHaveBeenNthCalledWith(3, 'payments')
+    expect(paymentsChain.delete).toHaveBeenCalled()
+    expect(paymentsChain.eq).toHaveBeenCalledWith('property_id', 'p1')
     expect(logActivity).toHaveBeenCalledWith('property', 'p1', 'cancel_reservation')
   })
 
@@ -449,15 +488,18 @@ describe('sales', () => {
     expect(supabase.from).toHaveBeenCalledTimes(1)
   })
 
-  it('completeDownpayment records the payment details, marks the lot sold, and earns commissions', async () => {
+  it('completeDownpayment records the downpayment payment, marks the lot sold, and earns commissions', async () => {
+    const today = new Date().toISOString().slice(0, 10)
     updateProperty.mockResolvedValue({ ...property, status: 'sold' })
     fetchAllAgents.mockResolvedValue([sub, direct])
     fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.05, direct_agent: 0.02 })
     const saleChain = chain({ data: { id: 's1' }, error: null })
+    const paymentChain = chain({ data: { id: 'pay1' }, error: null })
     const propertyChain = chain({ data: { ...property, status: 'reserved' }, error: null })
     const commissionChain = chain({ data: [{ id: 'c1' }, { id: 'c2' }], error: null })
     supabase.from
       .mockImplementationOnce(() => saleChain)
+      .mockImplementationOnce(() => paymentChain)
       .mockImplementationOnce(() => propertyChain)
       .mockImplementationOnce(() => commissionChain)
 
@@ -470,9 +512,19 @@ describe('sales', () => {
     })
 
     expect(saleChain.update).toHaveBeenCalledWith({ downpayment: 100000, terms_of_payment: '48', monthly_amortization: 10533.53 })
+    expect(supabase.from).toHaveBeenNthCalledWith(2, 'payments')
+    expect(paymentChain.insert).toHaveBeenCalledWith({
+      property_id: 'p1',
+      entry_date: today,
+      amount: 100000,
+      or_number: null,
+      surcharge: 0,
+      interest: 0,
+      remarks: 'Downpayment',
+    })
     expect(updateProperty).toHaveBeenCalledWith('p1', expect.objectContaining({ status: 'sold', sold_by: 'a1' }))
     expect(saleChain.update.mock.invocationCallOrder[0]).toBeLessThan(updateProperty.mock.invocationCallOrder[0])
-    expect(supabase.from).toHaveBeenNthCalledWith(3, 'commissions')
+    expect(supabase.from).toHaveBeenNthCalledWith(4, 'commissions')
     expect(commissionChain.insert).toHaveBeenCalled()
     expect(saved).toEqual({ ...property, status: 'sold' })
     expect(logActivity).toHaveBeenCalledWith('property', 'p1', 'downpayment', { downpayment: 100000, terms: '48' })

@@ -6,7 +6,7 @@ import { PAYMENT_TERMS } from '../../lib/ledger.js'
 import { formatPrice } from '../../lib/format.js'
 import { Button, FieldError, Input, Modal, Select, useToast } from '../shared/ui'
 
-const detailFields = ['buyer_name', 'buyer_address', 'tcp', 'terms_of_payment']
+const detailFields = ['buyer_name', 'buyer_address', 'tcp', 'reservation_fee', 'terms_of_payment']
 
 export default function ReservationModal({ lot, project, onClose, onReserved }) {
   const { showToast } = useToast()
@@ -17,6 +17,7 @@ export default function ReservationModal({ lot, project, onClose, onReserved }) 
     buyer_name: '',
     buyer_address: '',
     tcp: lot?.price != null ? String(lot.price) : '',
+    reservation_fee: '',
     terms_of_payment: '',
   })
   const [fieldErrors, setFieldErrors] = useState({})
@@ -56,6 +57,9 @@ export default function ReservationModal({ lot, project, onClose, onReserved }) 
     if (!form.buyer_name.trim()) errors.buyer_name = 'Buyer name is required.'
     const tcp = Number(form.tcp)
     if (form.tcp === '' || Number.isNaN(tcp) || tcp <= 0) errors.tcp = 'TCP must be greater than 0.'
+    if (form.reservation_fee !== '' && (Number.isNaN(Number(form.reservation_fee)) || Number(form.reservation_fee) < 0)) {
+      errors.reservation_fee = 'Reservation fee cannot be negative.'
+    }
     if (!form.terms_of_payment) errors.terms_of_payment = 'Select the terms of payment.'
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors)
@@ -77,6 +81,7 @@ export default function ReservationModal({ lot, project, onClose, onReserved }) 
           monthly_amortization: 0,
           terms_of_payment: form.terms_of_payment,
         },
+        reservationFee: Number(form.reservation_fee) || 0,
       })
       showToast('Reservation recorded.')
       onReserved()
@@ -175,6 +180,17 @@ export default function ReservationModal({ lot, project, onClose, onReserved }) 
         </div>
 
         <Input id="rs-tcp" type="number" min="0" step="any" label="TCP" value={form.tcp} onChange={setField('tcp')} error={fieldErrors.tcp} />
+
+        <Input
+          id="rs-fee"
+          type="number"
+          min="0"
+          step="any"
+          label="Reservation Fee"
+          value={form.reservation_fee}
+          onChange={setField('reservation_fee')}
+          error={fieldErrors.reservation_fee}
+        />
 
         <Select
           id="rs-terms"

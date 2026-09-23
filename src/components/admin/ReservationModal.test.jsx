@@ -58,13 +58,14 @@ describe('ReservationModal', () => {
     expect(await screen.findByLabelText('Buyer Name')).toBeInTheDocument()
     expect(screen.getByLabelText('Buyer Address')).toBeInTheDocument()
     expect(screen.getByLabelText('TCP')).toHaveValue(100000)
+    expect(screen.getByLabelText('Reservation Fee')).toHaveValue(null)
     expect(screen.getByLabelText('Terms of Payment')).toBeInTheDocument()
     expect(screen.getByRole('option', { name: '48 months (12% diminishing)' })).toBeInTheDocument()
     expect(screen.queryByLabelText('Downpayment')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('M.A.')).not.toBeInTheDocument()
   })
 
-  it('reserves the lot with the seller, buyer details, and chosen terms', async () => {
+  it('reserves the lot with the seller, buyer details, reservation fee, and chosen terms', async () => {
     const onReserved = vi.fn()
     const user = userEvent.setup()
 
@@ -75,6 +76,7 @@ describe('ReservationModal', () => {
     await user.type(screen.getByLabelText('Buyer Address'), 'Cebu City')
     await user.clear(screen.getByLabelText('TCP'))
     await user.type(screen.getByLabelText('TCP'), '150000')
+    await user.type(screen.getByLabelText('Reservation Fee'), '5000')
     await user.selectOptions(screen.getByLabelText('Terms of Payment'), '24')
     await user.click(screen.getByRole('button', { name: 'Reserve Lot' }))
 
@@ -98,9 +100,39 @@ describe('ReservationModal', () => {
         monthly_amortization: 0,
         terms_of_payment: '24',
       },
+      reservationFee: 5000,
     })
     expect(onReserved).toHaveBeenCalled()
     expect(await screen.findByText('Reservation recorded.')).toBeInTheDocument()
+  })
+
+  it('reserves the lot with a zero reservation fee when the field is left blank', async () => {
+    const user = userEvent.setup()
+
+    render(<ReservationModal lot={lot} project={project} onClose={vi.fn()} onReserved={vi.fn()} />)
+
+    await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
+    await user.type(screen.getByLabelText('Buyer Name'), 'Juan Dela Cruz')
+    await user.selectOptions(screen.getByLabelText('Terms of Payment'), '12')
+    await user.click(screen.getByRole('button', { name: 'Reserve Lot' }))
+
+    expect(reserveLot).toHaveBeenCalledWith(expect.objectContaining({ reservationFee: 0 }))
+    expect(screen.queryByText('Reservation fee cannot be negative.')).not.toBeInTheDocument()
+  })
+
+  it('rejects a negative reservation fee', async () => {
+    const user = userEvent.setup()
+
+    render(<ReservationModal lot={lot} project={project} onClose={vi.fn()} onReserved={vi.fn()} />)
+
+    await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
+    await user.type(screen.getByLabelText('Buyer Name'), 'Juan Dela Cruz')
+    await user.selectOptions(screen.getByLabelText('Terms of Payment'), '12')
+    await user.type(screen.getByLabelText('Reservation Fee'), '-100')
+    await user.click(screen.getByRole('button', { name: 'Reserve Lot' }))
+
+    expect(reserveLot).not.toHaveBeenCalled()
+    expect(screen.getByText('Reservation fee cannot be negative.')).toBeInTheDocument()
   })
 
   it('requires a seller before saving', async () => {

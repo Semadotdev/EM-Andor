@@ -176,12 +176,23 @@ export function lotFieldsForSale(lot) {
   return fields
 }
 
-export async function reserveLot({ propertyId, payload, details }) {
+export async function reserveLot({ propertyId, payload, details, reservationFee }) {
   const saved = await savePropertyWithCommission({ mode: 'edit', propertyId, payload })
   try {
     await upsertSale(propertyId, details)
   } catch (err) {
     throw new Error('Reservation recorded, but the buyer details failed to save. Cancel the reservation and try again.', { cause: err })
+  }
+  const fee = Number(reservationFee)
+  if (Number.isFinite(fee) && fee > 0) {
+    await createPayment(propertyId, {
+      entry_date: new Date().toISOString().slice(0, 10),
+      amount: fee,
+      or_number: null,
+      surcharge: 0,
+      interest: 0,
+      remarks: 'Reservation',
+    })
   }
   logActivity('property', propertyId, 'reserve', { buyer: details.buyer_name }).catch(() => {})
   return saved
@@ -212,11 +223,22 @@ export async function cancelReservation(propertyId) {
 
   const { error: saleError } = await supabase.from('sales').delete().eq('property_id', propertyId)
   if (saleError) throw saleError
+
+  const { error: paymentError } = await supabase.from('payments').delete().eq('property_id', propertyId)
+  if (paymentError) throw paymentError
   logActivity('property', propertyId, 'cancel_reservation').catch(() => {})
 }
 
 export async function completeDownpayment({ propertyId, payload, downpayment, terms, monthlyAmortization }) {
   await updateSale(propertyId, { downpayment, terms_of_payment: terms, monthly_amortization: monthlyAmortization })
+  await createPayment(propertyId, {
+    entry_date: new Date().toISOString().slice(0, 10),
+    amount: downpayment,
+    or_number: null,
+    surcharge: 0,
+    interest: 0,
+    remarks: 'Downpayment',
+  })
   const saved = await savePropertyWithCommission({ mode: 'edit', propertyId, payload })
   logActivity('property', propertyId, 'downpayment', { downpayment, terms }).catch(() => {})
   return saved
