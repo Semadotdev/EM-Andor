@@ -22,6 +22,7 @@ function renderLogin(initialPath = '/admin/login') {
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin/set-password" element={<p>SetupTarget</p>} />
         <Route path="/admin" element={<p>DashboardTarget</p>} />
       </Routes>
     </MemoryRouter>,
@@ -116,5 +117,21 @@ describe('AdminLogin', () => {
       'href',
       '/admin/forgot-password',
     )
+  })
+
+  it('routes a first-time agent to set up their password', async () => {
+    supabase.auth.signInWithPassword.mockResolvedValue({
+      data: { user: { id: 'a1', user_metadata: { password_setup_pending: true } } },
+      error: null,
+    })
+    const user = userEvent.setup()
+
+    renderLogin()
+
+    await user.type(screen.getByLabelText('Email'), 'ana@emandor.com')
+    await user.type(screen.getByLabelText('Password'), 'temp1234')
+    await user.click(screen.getByRole('button', { name: 'Sign In' }))
+
+    expect(await screen.findByText('SetupTarget')).toBeInTheDocument()
   })
 })

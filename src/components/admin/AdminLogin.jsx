@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
+import { needsPasswordSetup } from '../../lib/auth.js'
 import { contact } from '../../data/site.js'
 import Logo from '../shared/Logo.jsx'
 import { Input } from '../shared/ui'
@@ -19,12 +20,12 @@ export default function AdminLogin() {
     setSubmitting(true)
     setError(null)
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
         setError(error.message)
         return
       }
-      navigate('/admin', { replace: true })
+      navigate(needsPasswordSetup(data.user) ? '/admin/set-password' : '/admin', { replace: true })
     } catch {
       setError('Something went wrong while signing in. Please try again.')
     } finally {
