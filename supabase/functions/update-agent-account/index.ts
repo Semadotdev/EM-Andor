@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
   const agentId = typeof body?.agent_id === 'string' ? body.agent_id : ''
   const email = typeof body?.email === 'string' ? body.email.trim() : ''
   const password = typeof body?.password === 'string' ? body.password : ''
+  const resetPassword = body?.reset_password === true
 
   if (!agentId) {
     return json({ error: 'agent_id is required' }, 400)
@@ -63,6 +64,9 @@ Deno.serve(async (req) => {
   }
   if (password && password.length < 6) {
     return json({ error: 'Password must be at least 6 characters.' }, 400)
+  }
+  if (!email && !password && !resetPassword) {
+    return json({ error: 'Nothing to update.' }, 400)
   }
 
   const { data: agent, error: agentError } = await admin
@@ -79,11 +83,12 @@ Deno.serve(async (req) => {
     return json({ error: 'This agent has no login account yet.' }, 400)
   }
 
-  const patch: Record<string, string> = {}
+  const patch: { email?: string; password?: string; data?: { password_setup_pending: boolean } } = {}
   if (email && email !== agent.email) patch.email = email
   if (password) patch.password = password
+  if (resetPassword) patch.data = { password_setup_pending: true }
   if (Object.keys(patch).length === 0) {
-    return json({ error: 'Enter a new email or password to update.' }, 400)
+    return json({ error: 'Nothing to update.' }, 400)
   }
 
   const { error: updateError } = await admin.auth.admin.updateUserById(agent.user_id, patch)
