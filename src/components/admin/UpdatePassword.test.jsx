@@ -121,4 +121,40 @@ describe('UpdatePassword', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Password should be more complex')
     expect(screen.getByRole('button', { name: 'Update Password' })).toBeInTheDocument()
   })
+
+  it('toggles the new password field between text and password', async () => {
+    const user = userEvent.setup()
+
+    renderPage()
+    await screen.findByRole('heading', { name: 'Choose a new password' })
+    const field = screen.getByLabelText('New password')
+    expect(field).toHaveAttribute('type', 'password')
+
+    const toggle = screen.getByRole('button', { name: 'Show new password' })
+    await user.click(toggle)
+
+    expect(field).toHaveAttribute('type', 'text')
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Hide new password' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Hide new password' }))
+
+    expect(field).toHaveAttribute('type', 'password')
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('toggles the confirm field independently of the new password field', async () => {
+    const user = userEvent.setup()
+
+    renderPage()
+    await screen.findByRole('heading', { name: 'Choose a new password' })
+    const confirmField = screen.getByLabelText('Confirm new password')
+
+    await user.click(screen.getByRole('button', { name: 'Show new password' }))
+    expect(screen.getByLabelText('New password')).toHaveAttribute('type', 'text')
+    expect(confirmField).toHaveAttribute('type', 'password')
+
+    await user.click(screen.getByRole('button', { name: 'Show confirm password' }))
+    expect(confirmField).toHaveAttribute('type', 'text')
+  })
 })

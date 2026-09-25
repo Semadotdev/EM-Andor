@@ -83,10 +83,10 @@ Deno.serve(async (req) => {
     return json({ error: 'This agent has no login account yet.' }, 400)
   }
 
-  const patch: { email?: string; password?: string; data?: { password_setup_pending: boolean } } = {}
+  const patch: { email?: string; password?: string; user_metadata?: { password_setup_pending: boolean } } = {}
   if (email && email !== agent.email) patch.email = email
   if (password) patch.password = password
-  if (resetPassword) patch.data = { password_setup_pending: true }
+  if (resetPassword) patch.user_metadata = { password_setup_pending: true }
   if (Object.keys(patch).length === 0) {
     return json({ error: 'Nothing to update.' }, 400)
   }

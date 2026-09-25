@@ -9,6 +9,8 @@ export default function UpdatePassword() {
   const [stage, setStage] = useState('loading') // loading | form | invalid
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [showNew, setShowNew] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
@@ -93,20 +95,42 @@ export default function UpdatePassword() {
                 <div className="mt-6 space-y-4">
                   <Input
                     id="update-password"
-                    type="password"
+                    type={showNew ? 'text' : 'password'}
                     autoComplete="new-password"
                     autoFocus
                     label="New password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    suffix={
+                      <button
+                        type="button"
+                        aria-label={showNew ? 'Hide new password' : 'Show new password'}
+                        aria-pressed={showNew}
+                        onClick={() => setShowNew((shown) => !shown)}
+                        className="text-xs font-semibold text-ink/50 transition-colors hover:text-brand"
+                      >
+                        {showNew ? 'Hide' : 'Show'}
+                      </button>
+                    }
                   />
                   <Input
                     id="update-confirm"
-                    type="password"
+                    type={showConfirm ? 'text' : 'password'}
                     autoComplete="new-password"
                     label="Confirm new password"
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
+                    suffix={
+                      <button
+                        type="button"
+                        aria-label={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
+                        aria-pressed={showConfirm}
+                        onClick={() => setShowConfirm((shown) => !shown)}
+                        className="text-xs font-semibold text-ink/50 transition-colors hover:text-brand"
+                      >
+                        {showConfirm ? 'Hide' : 'Show'}
+                      </button>
+                    }
                   />
                 </div>
 

@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     email,
     password,
     email_confirm: true,
-    data: { password_setup_pending: true },
+    user_metadata: { password_setup_pending: true },
   })
   if (createError) {
     console.error('create-agent: createUser failed', createError)
