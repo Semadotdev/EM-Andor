@@ -1,8 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import AdminAgents from './AdminAgents.jsx'
-import { renderWithToast as render } from '../../test/renderWithToast.jsx'
+import { renderWithToast } from '../../test/renderWithToast.jsx'
 
 vi.mock('../../lib/agents.js', () => ({
   fetchAllAgents: vi.fn(),
@@ -16,6 +17,9 @@ vi.mock('../../lib/sales.js', () => ({
   fetchCommissions: vi.fn().mockResolvedValue([]),
   fetchTeamSales: vi.fn().mockResolvedValue([]),
 }))
+vi.mock('../../lib/auth.js', () => ({
+  verifyCurrentUserPassword: vi.fn(),
+}))
 vi.mock('./CreateAgentModal.jsx', () => ({
   default: ({ onClose }) => (
     <div role="dialog" aria-label="Create agent">
@@ -26,10 +30,24 @@ vi.mock('./CreateAgentModal.jsx', () => ({
 
 import { fetchAllAgents, fetchSoldCounts, resetAgentAccountPassword, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
 import { fetchCommissions, fetchTeamSales } from '../../lib/sales.js'
+import { verifyCurrentUserPassword } from '../../lib/auth.js'
 
-const admin = { id: 'admin1', name: 'Admin', email: 'a@x.com', role: 'admin', upline_id: null, is_active: true }
+const admin = { id: 'admin1', name: 'Self Admin', email: 'a@x.com', role: 'admin', upline_id: null, is_active: true }
+const otherAdmin = { id: 'admin2', name: 'Boss Admin', email: 'boss@x.com', role: 'admin', upline_id: null, is_active: true }
 const sub = { id: 'a1', name: 'Ana Sub', email: 'ana@x.com', role: 'sub_agent', upline_id: null, is_active: true }
 const recruit = { id: 'a2', name: 'Rico Recruit', email: 'rico@x.com', role: 'sub_agent', upline_id: 'a1', is_active: true }
+
+function renderAdminAgents({ currentAgent = admin } = {}) {
+  return renderWithToast(
+    <MemoryRouter>
+      <Routes>
+        <Route element={<Outlet context={{ agent: currentAgent, downline: [] }} />}>
+          <Route path="/" element={<AdminAgents />} />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  )
+}
 
 describe('AdminAgents', () => {
   beforeEach(() => {
@@ -37,12 +55,13 @@ describe('AdminAgents', () => {
     fetchAllAgents.mockResolvedValue([admin, sub, recruit])
     fetchSoldCounts.mockResolvedValue({})
     setAgentActive.mockResolvedValue({})
+    verifyCurrentUserPassword.mockResolvedValue(undefined)
   })
 
   it('lists agents and expands nested levels through dropdown toggles', async () => {
     const user = userEvent.setup()
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
     expect(await screen.findByText('Ana Sub')).toBeInTheDocument()
     expect(screen.queryByText('Rico Recruit')).not.toBeInTheDocument()
@@ -50,7 +69,7 @@ describe('AdminAgents', () => {
     await user.click(screen.getByRole('button', { name: 'Toggle Ana Sub downline' }))
 
     expect(screen.getByText('Rico Recruit')).toBeInTheDocument()
-    expect(screen.getAllByText('Sub Agent').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('Sub').length).toBeGreaterThanOrEqual(2)
   })
 
   it('collapses and expands the dropdown and shows sub agents of sub agents via a nested toggle', async () => {
@@ -58,7 +77,7 @@ describe('AdminAgents', () => {
     const deep = { id: 'a3', name: 'Danny Deep', email: 'danny@x.com', role: 'sub_agent', upline_id: 'a2', is_active: true }
     fetchAllAgents.mockResolvedValue([admin, sub, recruit, deep])
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
     const anaToggle = await screen.findByRole('button', { name: 'Toggle Ana Sub downline' })
     expect(anaToggle).toHaveAttribute('aria-expanded', 'false')
@@ -81,15 +100,15 @@ describe('AdminAgents', () => {
     fetchAllAgents.mockResolvedValue([admin, sub, ...recruits])
     fetchSoldCounts.mockResolvedValue({ a1: 5 })
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
-    expect(await screen.findByText('Eligible: Direct Agent')).toBeInTheDocument()
+    expect(await screen.findByText('Eligible: Direct')).toBeInTheDocument()
   })
 
   it('opens the create agent modal', async () => {
     const user = userEvent.setup()
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
     await user.click(await screen.findByRole('button', { name: 'Create Agent' }))
     expect(screen.getByRole('dialog', { name: 'Create agent' })).toBeInTheDocument()
@@ -98,7 +117,7 @@ describe('AdminAgents', () => {
   it('deactivates an agent from the profile tab after confirmation', async () => {
     const user = userEvent.setup()
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
     const row = (await screen.findByText('Ana Sub')).closest('li')
     await user.click(within(row).getByRole('button', { name: 'View' }))
@@ -116,16 +135,17 @@ describe('AdminAgents', () => {
 
   it('keeps activation actions inside the profile tab and hides them for admins', async () => {
     const user = userEvent.setup()
+    fetchAllAgents.mockResolvedValue([admin, otherAdmin, sub, recruit])
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
     await screen.findByText('Ana Sub')
     expect(screen.queryByRole('button', { name: 'Deactivate Account' })).not.toBeInTheDocument()
 
-    const adminRow = screen.getAllByText('Admin')[0].closest('li')
+    const adminRow = screen.getByText('Boss Admin').closest('li')
     await user.click(within(adminRow).getByRole('button', { name: 'View' }))
 
-    const dialog = await screen.findByRole('dialog', { name: 'Admin details' })
+    const dialog = await screen.findByRole('dialog', { name: 'Boss Admin details' })
     expect(within(dialog).getByRole('tab', { name: 'Commissions' })).toHaveAttribute('aria-selected', 'true')
     await user.click(within(dialog).getByRole('tab', { name: 'Profile' }))
     expect(within(dialog).queryByRole('button', { name: 'Deactivate Account' })).not.toBeInTheDocument()
@@ -139,7 +159,7 @@ describe('AdminAgents', () => {
       { id: 'c1', properties: { name: 'Lot A' }, rate: 0.03, amount: 3600, status: 'paid' },
     ])
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
     const row = (await screen.findByText('Ana Sub')).closest('li')
     await user.click(within(row).getByRole('button', { name: 'View' }))
@@ -156,9 +176,9 @@ describe('AdminAgents', () => {
     const head = { id: 'h1', name: 'Cara Head', email: 'cara@x.com', role: 'agent_head', upline_id: null, is_active: true }
     const direct = { id: 'd1', name: 'Ben Direct', email: 'ben@x.com', role: 'direct_agent', upline_id: 'h1', is_active: true }
     const sub2 = { id: 'a4', name: 'Dee Sub', email: 'dee@x.com', role: 'sub_agent', upline_id: 'd1', is_active: true }
-    fetchAllAgents.mockResolvedValue([admin, sub, recruit, head, direct, sub2])
+    fetchAllAgents.mockResolvedValue([admin, otherAdmin, sub, recruit, head, direct, sub2])
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
     await user.click(await screen.findByRole('button', { name: 'Toggle Cara Head downline' }))
     await user.click(await screen.findByRole('button', { name: 'Toggle Ben Direct downline' }))
@@ -172,8 +192,8 @@ describe('AdminAgents', () => {
     const upline = within(dialog).getByText('Upline').closest('div')
     expect(within(upline).getByText('Ben Direct')).toBeInTheDocument()
     expect(within(upline).getByText('Cara Head')).toBeInTheDocument()
-    expect(within(upline).getByText('Direct Agent')).toBeInTheDocument()
-    expect(within(upline).getByText('Agent Head')).toBeInTheDocument()
+    expect(within(upline).getByText('Direct')).toBeInTheDocument()
+    expect(within(upline).getByText('Head')).toBeInTheDocument()
 
     const downlineSection = within(dialog).getByText('Downline').closest('div')
     expect(within(downlineSection).getByText('No downline yet.')).toBeInTheDocument()
@@ -185,10 +205,10 @@ describe('AdminAgents', () => {
     const direct = { id: 'd1', name: 'Ben Direct', email: 'ben@x.com', role: 'direct_agent', upline_id: 'h1', is_active: true }
     const sub2 = { id: 'a4', name: 'Dee Sub', email: 'dee@x.com', role: 'sub_agent', upline_id: 'd1', is_active: true }
     const grandSub = { id: 'a5', name: 'Ella Grand', email: 'ella@x.com', role: 'sub_agent', upline_id: 'a4', is_active: true }
-    fetchAllAgents.mockResolvedValue([admin, sub, recruit, head, direct, sub2, grandSub])
+    fetchAllAgents.mockResolvedValue([admin, otherAdmin, sub, recruit, head, direct, sub2, grandSub])
     fetchSoldCounts.mockResolvedValue({})
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
     await user.click(await screen.findByRole('button', { name: 'Toggle Cara Head downline' }))
     await user.click(await screen.findByRole('button', { name: 'Toggle Ben Direct downline' }))
@@ -202,9 +222,9 @@ describe('AdminAgents', () => {
 
     expect(within(dialog).getByText('Cara Head')).toBeInTheDocument()
     expect(within(dialog).getByText('Ben Direct')).toBeInTheDocument()
-    expect(within(dialog).getByText('Agent Head')).toBeInTheDocument()
-    expect(within(dialog).getByText('Direct Agent')).toBeInTheDocument()
-    expect(within(dialog).getAllByText('Sub Agent').length).toBeGreaterThanOrEqual(2)
+    expect(within(dialog).getByText('Head')).toBeInTheDocument()
+    expect(within(dialog).getByText('Direct')).toBeInTheDocument()
+    expect(within(dialog).getAllByText('Sub').length).toBeGreaterThanOrEqual(2)
     expect(within(dialog).getByText('Selected')).toBeInTheDocument()
     expect(within(dialog).getByText('Ella Grand')).toBeInTheDocument()
 
@@ -236,10 +256,10 @@ describe('AdminAgents', () => {
     const head = { id: 'h1', name: 'Cara Head', email: 'cara@x.com', role: 'agent_head', upline_id: null, is_active: true }
     const direct = { id: 'd1', name: 'Ben Direct', email: 'ben@x.com', role: 'direct_agent', upline_id: 'h1', is_active: true }
     const sub2 = { id: 'a4', name: 'Dee Sub', email: 'dee@x.com', role: 'sub_agent', upline_id: 'd1', is_active: true }
-    fetchAllAgents.mockResolvedValue([admin, sub, recruit, head, direct, sub2])
+    fetchAllAgents.mockResolvedValue([admin, otherAdmin, sub, recruit, head, direct, sub2])
     fetchSoldCounts.mockResolvedValue({})
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
     await user.click(await screen.findByRole('button', { name: 'Toggle Cara Head downline' }))
     await user.click(await screen.findByRole('button', { name: 'Toggle Ben Direct downline' }))
@@ -283,7 +303,7 @@ describe('AdminAgents', () => {
     const user = userEvent.setup()
     updateAgent.mockResolvedValue({ ...sub, name: 'Ana Updated', phone: '0917' })
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
     const row = (await screen.findByText('Ana Sub')).closest('li')
     await user.click(within(row).getByRole('button', { name: 'View' }))
@@ -307,7 +327,7 @@ describe('AdminAgents', () => {
     updateAgent.mockResolvedValue({ ...sub, email: 'new@x.com' })
     updateAgentAccount.mockResolvedValue({ ...sub, email: 'new@x.com' })
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
     const row = (await screen.findByText('Ana Sub')).closest('li')
     await user.click(within(row).getByRole('button', { name: 'View' }))
@@ -331,7 +351,7 @@ describe('AdminAgents', () => {
     const user = userEvent.setup()
     resetAgentAccountPassword.mockResolvedValue({ ...sub })
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
     const row = (await screen.findByText('Ana Sub')).closest('li')
     await user.click(within(row).getByRole('button', { name: 'View' }))
@@ -348,7 +368,7 @@ describe('AdminAgents', () => {
   it('searches agents by name', async () => {
     const user = userEvent.setup()
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
     await screen.findByText('Ana Sub')
     await user.type(screen.getByLabelText('Search agents'), 'Rico')
@@ -360,7 +380,7 @@ describe('AdminAgents', () => {
   it('opens and closes the agent detail modal', async () => {
     const user = userEvent.setup()
 
-    render(<AdminAgents />)
+    renderAdminAgents()
 
     const row = (await screen.findByText('Ana Sub')).closest('li')
     await user.click(within(row).getByRole('button', { name: 'View' }))
@@ -369,5 +389,92 @@ describe('AdminAgents', () => {
 
     await userEvent.keyboard('{Escape}')
     expect(screen.queryByRole('dialog', { name: 'Ana Sub details' })).not.toBeInTheDocument()
+  })
+
+  it('hides the current admin from the list', async () => {
+    fetchAllAgents.mockResolvedValue([admin, otherAdmin, sub, recruit])
+
+    renderAdminAgents()
+
+    await screen.findByText('Ana Sub')
+    expect(screen.queryByText('Self Admin')).not.toBeInTheDocument()
+    expect(screen.getByText('Boss Admin')).toBeInTheDocument()
+  })
+
+  it('requires the current admin password before saving an admin profile', async () => {
+    const user = userEvent.setup()
+    fetchAllAgents.mockResolvedValue([admin, otherAdmin, sub, recruit])
+
+    renderAdminAgents()
+
+    const row = (await screen.findByText('Boss Admin')).closest('li')
+    await user.click(within(row).getByRole('button', { name: 'View' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Boss Admin details' })
+    await user.click(within(dialog).getByRole('tab', { name: 'Profile' }))
+    expect(within(dialog).getByLabelText('Admin password')).toBeInTheDocument()
+
+    const nameInput = within(dialog).getByLabelText('Name')
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Boss Updated')
+
+    await user.click(within(dialog).getByRole('button', { name: 'Save Profile' }))
+    expect(await within(dialog).findByText('Enter your admin password to continue.')).toBeInTheDocument()
+    expect(updateAgent).not.toHaveBeenCalled()
+    expect(verifyCurrentUserPassword).not.toHaveBeenCalled()
+
+    verifyCurrentUserPassword.mockRejectedValue(new Error('Incorrect password. Please try again.'))
+    await user.type(within(dialog).getByLabelText('Admin password'), 'wrong')
+    await user.click(within(dialog).getByRole('button', { name: 'Save Profile' }))
+    expect(await within(dialog).findByText('Incorrect password. Please try again.')).toBeInTheDocument()
+    expect(updateAgent).not.toHaveBeenCalled()
+  })
+
+  it('saves an admin profile once the admin password is verified', async () => {
+    const user = userEvent.setup()
+    fetchAllAgents.mockResolvedValue([admin, otherAdmin, sub, recruit])
+    updateAgent.mockResolvedValue({ ...otherAdmin, name: 'Boss Updated' })
+
+    renderAdminAgents()
+
+    const row = (await screen.findByText('Boss Admin')).closest('li')
+    await user.click(within(row).getByRole('button', { name: 'View' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Boss Admin details' })
+    await user.click(within(dialog).getByRole('tab', { name: 'Profile' }))
+
+    const nameInput = within(dialog).getByLabelText('Name')
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Boss Updated')
+    await user.type(within(dialog).getByLabelText('Admin password'), 'secret')
+    await user.click(within(dialog).getByRole('button', { name: 'Save Profile' }))
+
+    expect(verifyCurrentUserPassword).toHaveBeenCalledWith('secret')
+    expect(updateAgent).toHaveBeenCalledWith('admin2', { name: 'Boss Updated', phone: '' })
+    expect(await screen.findByText('Profile saved.')).toBeInTheDocument()
+  })
+
+  it('requires the current admin password to reset another admin password', async () => {
+    const user = userEvent.setup()
+    fetchAllAgents.mockResolvedValue([admin, otherAdmin, sub, recruit])
+    resetAgentAccountPassword.mockResolvedValue({ ...otherAdmin })
+
+    renderAdminAgents()
+
+    const row = (await screen.findByText('Boss Admin')).closest('li')
+    await user.click(within(row).getByRole('button', { name: 'View' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Boss Admin details' })
+    await user.click(within(dialog).getByRole('tab', { name: 'Profile' }))
+
+    await user.click(within(dialog).getByRole('button', { name: 'Require new password' }))
+    expect(await within(dialog).findByText('Enter your admin password to continue.')).toBeInTheDocument()
+    expect(resetAgentAccountPassword).not.toHaveBeenCalled()
+
+    await user.type(within(dialog).getByLabelText('Admin password'), 'secret')
+    await user.click(within(dialog).getByRole('button', { name: 'Require new password' }))
+    expect(verifyCurrentUserPassword).toHaveBeenCalledWith('secret')
+    expect(resetAgentAccountPassword).toHaveBeenCalledWith('admin2')
+    expect(await screen.findByText('Password reset required.')).toBeInTheDocument()
   })
 })

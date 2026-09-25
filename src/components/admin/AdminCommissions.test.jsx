@@ -66,7 +66,7 @@ describe('AdminCommissions', () => {
 
     render(<AdminCommissions />)
 
-    const input = await screen.findByLabelText('Sub Agent rate (%)')
+    const input = await screen.findByLabelText('Sub rate (%)')
     await user.clear(input)
     await user.type(input, '4')
     await user.click(screen.getByRole('button', { name: 'Save Rates' }))
@@ -115,7 +115,7 @@ describe('AdminCommissions', () => {
 
     render(<AdminCommissions />)
 
-    const input = await screen.findByLabelText('Sub Agent rate (%)')
+    const input = await screen.findByLabelText('Sub rate (%)')
     await user.clear(input)
     await user.click(screen.getByRole('button', { name: 'Save Rates' }))
 

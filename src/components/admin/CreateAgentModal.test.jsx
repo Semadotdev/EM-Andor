@@ -44,19 +44,22 @@ describe('CreateAgentModal', () => {
     expect(await screen.findByText('Agent created.')).toBeInTheDocument()
   })
 
-  it('lists only direct agents as uplines for a sub agent', async () => {
+  it('lists same-or-higher rank agents as uplines for a sub agent', async () => {
     const user = userEvent.setup()
 
     render(<CreateAgentModal agents={agents} onClose={vi.fn()} onCreated={vi.fn()} />)
 
     const upline = screen.getByLabelText('Upline')
-    expect(upline.querySelectorAll('option')).toHaveLength(2)
-    expect(screen.getByRole('option', { name: 'Ben Direct (Direct Agent)' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: 'Cara Head (Agent Head)' })).not.toBeInTheDocument()
+    expect(upline.querySelectorAll('option')).toHaveLength(4)
+    expect(screen.getByRole('option', { name: 'Ana Sub (Sub)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Ben Direct (Direct)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Cara Head (Head)' })).toBeInTheDocument()
 
     await user.selectOptions(screen.getByLabelText('Role'), 'direct_agent')
-    expect(screen.getByRole('option', { name: 'Cara Head (Agent Head)' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: 'Ben Direct (Direct Agent)' })).not.toBeInTheDocument()
+    expect(upline.querySelectorAll('option')).toHaveLength(3)
+    expect(screen.queryByRole('option', { name: 'Ana Sub (Sub)' })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Ben Direct (Direct)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Cara Head (Head)' })).toBeInTheDocument()
   })
 
   it('clears the upline when the role changes', async () => {
@@ -68,11 +71,11 @@ describe('CreateAgentModal', () => {
     expect(screen.getByLabelText('Upline').value).toBe('a2')
 
     await user.selectOptions(screen.getByLabelText('Role'), 'agent_head')
-    expect(screen.getByLabelText('Upline')).toBeDisabled()
     expect(screen.getByLabelText('Upline').value).toBe('')
+    expect(screen.getByRole('option', { name: 'Cara Head (Head)' })).toBeInTheDocument()
   })
 
-  it('disables the upline for an agent head and creates without one', async () => {
+  it('creates an agent head without requiring an upline', async () => {
     createAgent.mockResolvedValue({ id: 'a9' })
     const onCreated = vi.fn()
     const user = userEvent.setup()
@@ -101,6 +104,51 @@ describe('CreateAgentModal', () => {
 
     expect(await screen.findByText('Select an upline for this role.')).toBeInTheDocument()
     expect(createAgent).not.toHaveBeenCalled()
+  })
+
+  it('disables the upline and requires the admin password to create an admin', async () => {
+    const user = userEvent.setup()
+
+    render(<CreateAgentModal agents={agents} onClose={vi.fn()} onCreated={vi.fn()} />)
+
+    await user.selectOptions(screen.getByLabelText('Role'), 'admin')
+    expect(screen.getByLabelText('Upline')).toBeDisabled()
+    expect(screen.getByLabelText('Admin password')).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('Name'), 'New Boss')
+    await user.type(screen.getByLabelText('Email'), 'boss@example.com')
+    await user.type(screen.getByLabelText('Temporary Password'), 'secret123')
+    await user.click(screen.getByRole('button', { name: 'Create Agent' }))
+
+    expect(await screen.findByText('Enter your admin password to continue.')).toBeInTheDocument()
+    expect(createAgent).not.toHaveBeenCalled()
+  })
+
+  it('creates an admin after the admin password is provided', async () => {
+    createAgent.mockResolvedValue({ id: 'a9' })
+    const onCreated = vi.fn()
+    const user = userEvent.setup()
+
+    render(<CreateAgentModal agents={agents} onClose={vi.fn()} onCreated={onCreated} />)
+
+    await user.type(screen.getByLabelText('Name'), 'New Boss')
+    await user.type(screen.getByLabelText('Email'), 'boss@example.com')
+    await user.selectOptions(screen.getByLabelText('Role'), 'admin')
+    await user.type(screen.getByLabelText('Temporary Password'), 'secret123')
+    await user.type(screen.getByLabelText('Admin password'), 'bosssecret')
+    await user.click(screen.getByRole('button', { name: 'Create Agent' }))
+
+    expect(createAgent).toHaveBeenCalledWith({
+      name: 'New Boss',
+      email: 'boss@example.com',
+      phone: '',
+      role: 'admin',
+      uplineId: '',
+      password: 'secret123',
+      adminPassword: 'bosssecret',
+    })
+    expect(onCreated).toHaveBeenCalled()
+    expect(await screen.findByText('Agent created.')).toBeInTheDocument()
   })
 
   it('shows the error returned by the edge function', async () => {

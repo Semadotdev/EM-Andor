@@ -8,9 +8,9 @@ describe('agentMeta', () => {
   it('labels every role', () => {
     expect(ROLE_LABELS).toEqual({
       admin: 'Admin',
-      agent_head: 'Agent Head',
-      direct_agent: 'Direct Agent',
-      sub_agent: 'Sub Agent',
+      agent_head: 'Head',
+      direct_agent: 'Direct',
+      sub_agent: 'Sub',
     })
   })
 

@@ -171,7 +171,7 @@ describe('agents', () => {
     })
 
     expect(supabase.functions.invoke).toHaveBeenCalledWith('create-agent', {
-      body: { name: 'New', email: 'new@x.com', phone: '0917', role: 'sub_agent', upline_id: 'a1', password: 'secret123' },
+      body: { name: 'New', email: 'new@x.com', phone: '0917', role: 'sub_agent', upline_id: 'a1', password: 'secret123', admin_password: '' },
     })
     expect(supabase.from).toHaveBeenCalledWith('agents')
     expect(supabase.from).toHaveBeenCalledWith('properties')

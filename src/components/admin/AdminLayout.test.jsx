@@ -123,7 +123,7 @@ describe('AdminLayout', () => {
     renderLayout()
 
     expect(await screen.findByText('Ana Cruz')).toBeInTheDocument()
-    expect(screen.getByText('Sub Agent')).toBeInTheDocument()
+    expect(screen.getByText('Sub')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
 
     expect(supabase.auth.signOut).toHaveBeenCalled()
@@ -157,7 +157,7 @@ describe('AdminLayout', () => {
     const drawer = screen.getByRole('dialog', { name: 'Navigation' })
     expect(within(drawer).getByLabelText('E.M. Andor — home')).toBeInTheDocument()
     expect(within(drawer).getByText('Ana Cruz')).toBeInTheDocument()
-    expect(within(drawer).getByText('Sub Agent')).toBeInTheDocument()
+    expect(within(drawer).getByText('Sub')).toBeInTheDocument()
 
     await user.click(within(drawer).getByRole('button', { name: 'Sign out' }))
     expect(supabase.auth.signOut).toHaveBeenCalledTimes(1)

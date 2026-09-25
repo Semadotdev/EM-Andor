@@ -48,7 +48,7 @@ describe('ReservationModal', () => {
   it('offers only active non-admin agents as sellers', async () => {
     render(<ReservationModal lot={lot} project={project} onClose={vi.fn()} onReserved={vi.fn()} />)
 
-    expect(await screen.findByRole('option', { name: 'Ana Sub (Sub Agent)' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'Ana Sub (Sub)' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /Admin/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: /Inactive Agent/ })).not.toBeInTheDocument()
   })
@@ -187,7 +187,7 @@ describe('ReservationModal', () => {
 
     render(<ReservationModal lot={lot} project={project} onClose={vi.fn()} onReserved={vi.fn()} />)
 
-    await screen.findByRole('option', { name: 'Ana Sub (Sub Agent)' })
+    await screen.findByRole('option', { name: 'Ana Sub (Sub)' })
     await user.type(screen.getByLabelText('Buyer Name'), 'Juan Dela Cruz')
     await user.selectOptions(screen.getByLabelText('Terms of Payment'), '12')
     await user.click(screen.getByRole('button', { name: 'Reserve Lot' }))

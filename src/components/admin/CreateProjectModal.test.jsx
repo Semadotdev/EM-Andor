@@ -38,9 +38,9 @@ describe('CreateProjectModal', () => {
   it('prefills the commission rates as percents', async () => {
     render(<CreateProjectModal onClose={vi.fn()} onCreated={vi.fn()} />)
 
-    expect(await screen.findByLabelText('Sub Agent rate (%)')).toHaveValue(3)
-    expect(screen.getByLabelText('Direct Agent rate (%)')).toHaveValue(1.5)
-    expect(screen.getByLabelText('Agent Head rate (%)')).toHaveValue(5)
+    expect(await screen.findByLabelText('Sub rate (%)')).toHaveValue(3)
+    expect(screen.getByLabelText('Direct rate (%)')).toHaveValue(1.5)
+    expect(screen.getByLabelText('Head rate (%)')).toHaveValue(5)
   })
 
   it('disables the coming-soon project types', async () => {
@@ -62,7 +62,7 @@ describe('CreateProjectModal', () => {
 
     await user.type(screen.getByLabelText('Name'), 'Andor Farm')
     await user.type(screen.getByLabelText('Address'), 'Brgy. Andor')
-    await screen.findByLabelText('Sub Agent rate (%)')
+    await screen.findByLabelText('Sub rate (%)')
     await user.click(screen.getByRole('button', { name: 'Create Project' }))
 
     expect(createProject).toHaveBeenCalledWith({
@@ -96,7 +96,7 @@ describe('CreateProjectModal', () => {
 
     await user.type(screen.getByLabelText('Name'), 'Andor Farm')
     await user.type(screen.getByLabelText('Address'), 'Brgy. Andor')
-    await screen.findByLabelText('Sub Agent rate (%)')
+    await screen.findByLabelText('Sub rate (%)')
     await user.click(screen.getByRole('button', { name: 'Create Project' }))
 
     expect(await screen.findByText('name already taken')).toBeInTheDocument()
@@ -119,7 +119,7 @@ describe('CreateProjectModal', () => {
     render(<CreateProjectModal onClose={vi.fn()} onCreated={vi.fn()} />)
 
     expect(screen.getByRole('button', { name: 'Create Project' })).toBeDisabled()
-    expect(screen.queryByLabelText('Sub Agent rate (%)')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Sub rate (%)')).not.toBeInTheDocument()
   })
 
   it('lets rates be entered manually when loading them fails', async () => {
@@ -128,7 +128,7 @@ describe('CreateProjectModal', () => {
     render(<CreateProjectModal onClose={vi.fn()} onCreated={vi.fn()} />)
 
     expect(await screen.findByText('Could not load current rates — enter them manually.')).toBeInTheDocument()
-    expect(screen.getByLabelText('Sub Agent rate (%)')).toHaveValue(null)
+    expect(screen.getByLabelText('Sub rate (%)')).toHaveValue(null)
     expect(screen.getByRole('button', { name: 'Create Project' })).toBeEnabled()
   })
 
@@ -142,9 +142,9 @@ describe('CreateProjectModal', () => {
     expect(screen.getByLabelText('Name')).toHaveValue('Andor Farm')
     expect(screen.getByLabelText('Address')).toHaveValue('Brgy. Andor')
     expect(screen.queryByLabelText('Price per m² (PHP)')).not.toBeInTheDocument()
-    expect(await screen.findByLabelText('Sub Agent rate (%)')).toHaveValue(4)
-    expect(screen.getByLabelText('Direct Agent rate (%)')).toHaveValue(1.5)
-    expect(screen.getByLabelText('Agent Head rate (%)')).toHaveValue(5)
+    expect(await screen.findByLabelText('Sub rate (%)')).toHaveValue(4)
+    expect(screen.getByLabelText('Direct rate (%)')).toHaveValue(1.5)
+    expect(screen.getByLabelText('Head rate (%)')).toHaveValue(5)
   })
 
   it('falls back to the global rates when the project has none', async () => {
@@ -152,7 +152,7 @@ describe('CreateProjectModal', () => {
 
     render(<CreateProjectModal project={project} onClose={vi.fn()} onCreated={vi.fn()} />)
 
-    expect(await screen.findByLabelText('Sub Agent rate (%)')).toHaveValue(3)
+    expect(await screen.findByLabelText('Sub rate (%)')).toHaveValue(3)
   })
 
   it('submits an edit through updateProject', async () => {
@@ -163,7 +163,7 @@ describe('CreateProjectModal', () => {
 
     render(<CreateProjectModal project={project} onClose={vi.fn()} onCreated={onCreated} />)
 
-    await screen.findByLabelText('Sub Agent rate (%)')
+    await screen.findByLabelText('Sub rate (%)')
     await user.clear(screen.getByLabelText('Name'))
     await user.type(screen.getByLabelText('Name'), 'Andor Farm Updated')
     await user.click(screen.getByRole('button', { name: 'Save Changes' }))
