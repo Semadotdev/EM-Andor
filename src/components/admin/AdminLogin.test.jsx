@@ -108,4 +108,13 @@ describe('AdminLogin', () => {
     expect(await screen.findByText(/Something went wrong while signing in/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument()
   })
+
+  it('links to the forgot-password page', () => {
+    renderLogin()
+
+    expect(screen.getByRole('link', { name: 'Forgot password?' })).toHaveAttribute(
+      'href',
+      '/admin/forgot-password',
+    )
+  })
 })

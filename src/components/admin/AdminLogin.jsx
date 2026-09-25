@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase.js'
 import { contact } from '../../data/site.js'
 import Logo from '../shared/Logo.jsx'
@@ -90,6 +90,12 @@ export default function AdminLogin() {
                   }
                 />
                 {capsLock && <p className="mt-1.5 text-xs font-medium text-amber-600">Caps Lock is on</p>}
+                <Link
+                  to="/admin/forgot-password"
+                  className="mt-2 inline-block text-xs font-semibold text-brand transition-colors hover:underline"
+                >
+                  Forgot password?
+                </Link>
               </div>
             </div>
 
