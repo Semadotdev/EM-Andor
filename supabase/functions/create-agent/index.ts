@@ -12,7 +12,7 @@ const json = (body: unknown, status = 200) =>
     headers: { ...CORS, 'Content-Type': 'application/json' },
   })
 
-const ALLOWED_ROLES = ['agent_head', 'direct_agent', 'sub_agent']
+const ALLOWED_ROLES = ['admin', 'agent_head', 'direct_agent', 'sub_agent']
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
   const password = typeof body?.password === 'string' ? body.password : ''
   const phone = typeof body?.phone === 'string' ? body.phone.trim() : null
   const role = typeof body?.role === 'string' ? body.role : ''
-  const uplineId = typeof body?.upline_id === 'string' ? body.upline_id : null
+  let uplineId = typeof body?.upline_id === 'string' ? body.upline_id : null
 
   if (!name || !email || !password) {
     return json({ error: 'name, email, and password are required' }, 400)
@@ -66,6 +66,26 @@ Deno.serve(async (req) => {
   }
   if (!ALLOWED_ROLES.includes(role)) {
     return json({ error: 'Invalid role' }, 400)
+  }
+
+  if (role === 'admin') {
+    const adminPassword = typeof body?.admin_password === 'string' ? body.admin_password : ''
+    if (!adminPassword) {
+      return json({ error: 'Enter your admin password to continue.' }, 400)
+    }
+    const verifier = createClient(supabaseUrl, anonKey)
+    const callerEmail = userData.user.email
+    if (!callerEmail) {
+      return json({ error: 'Could not verify your identity.' }, 403)
+    }
+    const { error: verifyError } = await verifier.auth.signInWithPassword({
+      email: callerEmail,
+      password: adminPassword,
+    })
+    if (verifyError) {
+      return json({ error: 'Incorrect admin password.' }, 403)
+    }
+    uplineId = null
   }
 
   if (uplineId) {
