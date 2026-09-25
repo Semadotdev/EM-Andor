@@ -4,6 +4,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import AdminApp from './AdminApp.jsx'
 
 vi.mock('./AdminLogin.jsx', () => ({ default: () => <span>LoginPage</span> }))
+vi.mock('./ForgotPassword.jsx', () => ({ default: () => <span>ForgotPasswordPage</span> }))
+vi.mock('./UpdatePassword.jsx', () => ({ default: () => <span>UpdatePasswordPage</span> }))
 vi.mock('./Dashboard.jsx', () => ({ default: () => <span>DashboardPage</span> }))
 vi.mock('./AdminProjects.jsx', () => ({ default: () => <span>ProjectsPage</span> }))
 vi.mock('./ProjectDetail.jsx', () => ({ default: () => <span>ProjectDetailPage</span> }))
@@ -72,6 +74,20 @@ describe('AdminApp', () => {
     renderApp('/admin/login')
 
     expect(await screen.findByText('LoginPage')).toBeInTheDocument()
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+  })
+
+  it('renders the forgot-password page without the admin layout', async () => {
+    renderApp('/admin/forgot-password')
+
+    expect(await screen.findByText('ForgotPasswordPage')).toBeInTheDocument()
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+  })
+
+  it('renders the update-password page without the admin layout', async () => {
+    renderApp('/admin/update-password')
+
+    expect(await screen.findByText('UpdatePasswordPage')).toBeInTheDocument()
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
   })
 
