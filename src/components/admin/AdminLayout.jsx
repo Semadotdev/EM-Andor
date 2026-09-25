@@ -141,6 +141,10 @@ export default function AdminLayout() {
   if (checking) return <BrandLoader fullscreen />
   if (!session) return <Navigate to="/admin/login" replace />
 
+  if (session.user?.user_metadata?.password_setup_pending) {
+    return <Navigate to="/admin/set-password" replace />
+  }
+
   if (agentError) {
     return (
       <div className="grid min-h-screen place-items-center bg-brand-deep p-6 text-center text-white">

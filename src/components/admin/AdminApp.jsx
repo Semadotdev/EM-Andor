@@ -3,6 +3,7 @@ import AdminLayout from './AdminLayout.jsx'
 import AdminLogin from './AdminLogin.jsx'
 import ForgotPassword from './ForgotPassword.jsx'
 import UpdatePassword from './UpdatePassword.jsx'
+import SetInitialPassword from './SetInitialPassword.jsx'
 import Dashboard from './Dashboard.jsx'
 import AdminProjects from './AdminProjects.jsx'
 import ProjectDetail from './ProjectDetail.jsx'
@@ -36,6 +37,7 @@ export default function AdminApp() {
       <Route path="login" element={<AdminLogin />} />
       <Route path="forgot-password" element={<ForgotPassword />} />
       <Route path="update-password" element={<UpdatePassword />} />
+      <Route path="set-password" element={<SetInitialPassword />} />
       <Route element={<AdminLayout />}>
         <Route index element={<Dashboard />} />
         <Route path="projects" element={<AdminOnly><AdminProjects /></AdminOnly>} />

@@ -6,6 +6,7 @@ import AdminApp from './AdminApp.jsx'
 vi.mock('./AdminLogin.jsx', () => ({ default: () => <span>LoginPage</span> }))
 vi.mock('./ForgotPassword.jsx', () => ({ default: () => <span>ForgotPasswordPage</span> }))
 vi.mock('./UpdatePassword.jsx', () => ({ default: () => <span>UpdatePasswordPage</span> }))
+vi.mock('./SetInitialPassword.jsx', () => ({ default: () => <span>SetInitialPasswordPage</span> }))
 vi.mock('./Dashboard.jsx', () => ({ default: () => <span>DashboardPage</span> }))
 vi.mock('./AdminProjects.jsx', () => ({ default: () => <span>ProjectsPage</span> }))
 vi.mock('./ProjectDetail.jsx', () => ({ default: () => <span>ProjectDetailPage</span> }))
@@ -123,5 +124,23 @@ describe('AdminApp', () => {
     renderApp('/admin/does-not-exist')
 
     expect(await screen.findByText('DashboardPage')).toBeInTheDocument()
+  })
+
+  it('renders the set-password page without the admin layout', async () => {
+    renderApp('/admin/set-password')
+
+    expect(await screen.findByText('SetInitialPasswordPage')).toBeInTheDocument()
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+  })
+
+  it('redirects first-time agents from the layout to set-password', async () => {
+    supabase.auth.getSession.mockResolvedValue({
+      data: { session: { user: { id: 'a1', user_metadata: { password_setup_pending: true } } } },
+    })
+
+    renderApp('/admin')
+
+    expect(await screen.findByText('SetInitialPasswordPage')).toBeInTheDocument()
+    expect(screen.queryByText('DashboardPage')).not.toBeInTheDocument()
   })
 })
