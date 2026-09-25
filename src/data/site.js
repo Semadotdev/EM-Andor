@@ -1,5 +1,5 @@
 export const company = {
-  name: 'E. M. Andor Builders and Associates Dev’t. Corp.',
+  name: 'E.M. Andor Realty and Development',
   shortName: 'E.M. Andor',
   tagline: 'Built on Trust. Driven by Quality.',
   description:
@@ -25,7 +25,7 @@ export const about = {
   eyebrow: 'Who We Are',
   heading: 'Building a Better Tomorrow, Together.',
   body: [
-    'E. M. Andor Builders and Associates Dev’t. Corp. is a construction and development company rooted in Batangas City. For over a decade we have planned, built, and delivered structures that families call home and businesses call headquarters.',
+    'E.M. Andor Realty and Development is a construction and development company rooted in Batangas City. For over a decade we have planned, built, and delivered structures that families call home and businesses call headquarters.',
     'We believe every project — no matter the scale — deserves the same standard: quality craftsmanship, honest timelines, and a team that treats your vision as its own.',
   ],
   image: '/images/aboutme.jpg',

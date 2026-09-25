@@ -16,7 +16,7 @@ function Wordmark({ isLight }) {
           isLight ? 'text-white/70' : 'text-ink/70'
         }`}
       >
-        Builders &amp; Associates
+        Realty &amp; Development
       </span>
     </span>
   )
@@ -33,7 +33,7 @@ export default function Logo({ variant = 'dark', className = '', noLink = false 
         <>
           <img
             src={logoSrc}
-            alt="E. M. Andor Builders and Associates Dev't. Corp. logo"
+            alt="E.M. Andor Realty and Development logo"
             className="max-h-12 w-auto transition-transform duration-300 group-hover:scale-[1.03]"
           />
           <Wordmark isLight={isLight} />

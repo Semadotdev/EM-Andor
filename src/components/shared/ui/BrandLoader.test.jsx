@@ -10,7 +10,7 @@ describe('BrandLoader', () => {
     expect(status).toHaveClass('fixed', 'inset-0', 'bg-brand-deep')
     expect(status).toHaveTextContent('Loading…')
     expect(screen.getByText('Andor')).toBeInTheDocument()
-    expect(screen.getByText('Builders & Associates')).toBeInTheDocument()
+    expect(screen.getByText('Realty & Development')).toBeInTheDocument()
     expect(status.querySelector('.animate-brand-spin')).not.toBeNull()
     expect(status.querySelector('.animate-brand-progress')).not.toBeNull()
   })

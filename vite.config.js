@@ -13,7 +13,7 @@ export default defineConfig({
       manifest: {
         name: 'EM Andor Admin',
         short_name: 'EM Admin',
-        description: "Admin dashboard for E. M. Andor Builders and Associates Dev't. Corp.",
+        description: 'Admin dashboard for E.M. Andor Realty and Development',
         start_url: '/admin',
         scope: '/',
         id: '/admin',

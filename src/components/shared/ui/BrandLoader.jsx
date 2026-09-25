@@ -31,7 +31,7 @@ export default function BrandLoader({ fullscreen = true, label }) {
             E.M. <span className="text-gold">Andor</span>
           </span>
           <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-white/70">
-            Builders &amp; Associates
+            Realty &amp; Development
           </span>
         </p>
 

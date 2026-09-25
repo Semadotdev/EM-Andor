@@ -35,7 +35,7 @@ Typography: display = **Archivo** (fallback Arial/Helvetica), body = **Inter** (
 ## Layout (top to bottom)
 
 1. **Hidden preheader** — "Set a new password for your E.M. Andor dashboard account." (invisible; sets the snippet preview text).
-2. **Header band** (`brand-deep`, full-width) — text wordmark **E.M. ANDOR** (white, "ANDOR" gold), sub-line *BUILDERS & ASSOCIATES* (spaced caps, white 72%), then a 56×4px gold pill rule. Mirrors the `/admin` auth page shells. The wordmark is **text, not `<img>`**, because the site logo is a bundled asset with no public URL — text renders in every client.
+2. **Header band** (`brand-deep`, full-width) — text wordmark **E.M. ANDOR** (white, "ANDOR" gold), sub-line *REALTY & DEVELOPMENT* (spaced caps, white 72%), then a 56×4px gold pill rule. Mirrors the `/admin` auth page shells. The wordmark is **text, not `<img>`**, because the site logo is a bundled asset with no public URL — text renders in every client.
 3. **Body** (`surface` bg) — white card (1px `mist` border, 16px radius):
    - Eyebrow "PASSWORD RESET" (brand-2, letter-spaced caps) — site `.eyebrow` pattern.
    - Headline "Reset your password" (brand-deep, Archivo bold).
@@ -44,9 +44,9 @@ Typography: display = **Archivo** (fallback Arial/Helvetica), body = **Inter** (
    - Plain-text fallback link (`{{ .ConfirmationURL }}`, break-all) for text-only clients, labeled "If the button doesn't work…".
    - `mist` divider, then the no-action notice: "If you didn't request this, you can safely ignore this email and your password will not be changed."
 4. **Footer band** (`brand-deep`, full-width):
-   - Wordmark line "E.M. ANDOR BUILDERS & ASSOCIATES" (gold last two words).
+   - Wordmark line "E.M. ANDOR REALTY & DEVELOPMENT" (gold last two words).
    - Contact: `(043) 980 7189` · `emandorbuilders27@gmail.com` (tel:/mailto: links) and address from `src/data/site.js` (`250-G, P Burgos St., Poblacion, Brgy 12, Batangas City`).
-   - Gold hairline rule, then © 2026 E.M. Andor Builders and Associates Dev't. Corp.
+   - Gold hairline rule, then © 2026 E.M. Andor Realty and Development.
 
 ## Templating
 
