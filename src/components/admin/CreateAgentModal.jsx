@@ -1,20 +1,21 @@
 import { useState } from 'react'
 import { createAgent } from '../../lib/agents.js'
-import { ROLE_LABELS } from '../../lib/agentMeta.js'
+import { ROLE_LABELS, ROLE_RANK } from '../../lib/agentMeta.js'
 import { Button, Input, Modal, Select, useToast } from '../shared/ui'
 
-const assignableRoles = ['sub_agent', 'direct_agent', 'agent_head']
-
-const uplineRoleFor = (role) => (role === 'sub_agent' ? 'direct_agent' : role === 'direct_agent' ? 'agent_head' : null)
+const assignableRoles = ['sub_agent', 'direct_agent', 'agent_head', 'admin']
 
 export default function CreateAgentModal({ agents, onClose, onCreated }) {
   const { showToast } = useToast()
   const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'sub_agent', uplineId: '', password: '' })
+  const [adminPassword, setAdminPassword] = useState('')
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
 
-  const uplineRole = uplineRoleFor(form.role)
-  const uplineCandidates = uplineRole ? agents.filter((a) => a.role === uplineRole) : []
+  const isAdminTarget = form.role === 'admin'
+  const uplineCandidates = isAdminTarget
+    ? []
+    : agents.filter((a) => (ROLE_RANK[a.role] ?? 0) >= (ROLE_RANK[form.role] ?? 0))
 
   const setField = (field) => (e) => {
     const value = e.target.value
@@ -23,6 +24,7 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
       [field]: value,
       ...(field === 'role' ? { uplineId: '' } : {}),
     }))
+    if (field === 'role') setAdminPassword('')
     setError(null)
   }
 
@@ -33,8 +35,12 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
       setError('Name, email, and password are required.')
       return
     }
-    if (form.role !== 'agent_head' && !form.uplineId) {
+    if (form.role !== 'agent_head' && form.role !== 'admin' && !form.uplineId) {
       setError('Select an upline for this role.')
+      return
+    }
+    if (isAdminTarget && !adminPassword) {
+      setError('Enter your admin password to continue.')
       return
     }
     setSaving(true)
@@ -47,6 +53,7 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
         role: form.role,
         uplineId: form.uplineId,
         password: form.password,
+        adminPassword: isAdminTarget ? adminPassword : undefined,
       })
       showToast('Agent created.')
       onCreated()
@@ -96,11 +103,15 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
           label="Upline"
           value={form.uplineId}
           onChange={setField('uplineId')}
-          disabled={form.role === 'agent_head'}
-          required
+          disabled={form.role === 'agent_head' || isAdminTarget}
+          required={form.role !== 'agent_head' && !isAdminTarget}
         >
           <option value="" disabled>
-            {form.role === 'agent_head' ? 'No upline for an agent head' : 'Choose an upline'}
+            {isAdminTarget
+              ? 'No upline for an admin'
+              : form.role === 'agent_head'
+                ? 'No upline for an agent head'
+                : 'Choose an upline'}
           </option>
           {uplineCandidates.map((agent) => (
             <option key={agent.id} value={agent.id}>{agent.name} ({ROLE_LABELS[agent.role] ?? agent.role})</option>
@@ -119,6 +130,24 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
             placeholder="Share this with the agent"
           />
         </div>
+
+        {isAdminTarget && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 sm:col-span-2">
+            <p className="mb-1 text-sm font-semibold text-amber-800">Admin account</p>
+            <p className="mb-3 text-xs text-amber-700">Enter your admin password to create another admin account.</p>
+            <Input
+              id="ca-admin-password"
+              type="password"
+              autoComplete="current-password"
+              label="Admin password"
+              value={adminPassword}
+              onChange={(e) => {
+                setAdminPassword(e.target.value)
+                setError(null)
+              }}
+            />
+          </div>
+        )}
 
         <div className="mt-2 flex flex-wrap justify-end gap-3 sm:col-span-2">
           <Button variant="secondary" onClick={onClose} disabled={saving}>

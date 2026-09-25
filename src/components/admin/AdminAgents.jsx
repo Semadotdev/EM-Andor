@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import { ROLE_LABELS, buildAgentTree } from '../../lib/agentMeta.js'
 import { fetchAllAgents, fetchSoldCounts, resetAgentAccountPassword, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
 import { fetchCommissions, fetchTeamSales } from '../../lib/sales.js'
 import { eligibleAgents } from '../../lib/promotions.js'
 import { formatPrice } from '../../lib/format.js'
 import { formatRate } from '../../lib/commissions.js'
+import { verifyCurrentUserPassword } from '../../lib/auth.js'
 import CreateAgentModal from './CreateAgentModal.jsx'
 import {
   Badge,
@@ -74,6 +76,7 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
   const [saving, setSaving] = useState(false)
   const [resetting, setResetting] = useState(false)
   const [saveError, setSaveError] = useState(null)
+  const [adminPassword, setAdminPassword] = useState('')
   const [zoom, setZoom] = useState(1)
   const wrapRef = useRef(null)
   const chartRef = useRef(null)
@@ -181,6 +184,11 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
     setSaveError(null)
   }
 
+  const requireAdminPassword = async () => {
+    if (!adminPassword) throw new Error('Enter your admin password to continue.')
+    await verifyCurrentUserPassword(adminPassword)
+  }
+
   const saveProfile = async () => {
     if (saving) return
     if (!form.name.trim()) {
@@ -194,13 +202,15 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
     setSaving(true)
     setSaveError(null)
     try {
+      if (agent.role === 'admin') await requireAdminPassword()
       let updated = await updateAgent(agent.id, { name: form.name, phone: form.phone })
       if (form.email.trim() !== agent.email) {
         updated = await updateAgentAccount(agent.id, { email: form.email })
       }
+      setAdminPassword('')
       onSaved(updated)
-    } catch {
-      setSaveError('Could not save the profile. Please try again.')
+    } catch (err) {
+      setSaveError(err?.message || 'Could not save the profile. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -211,7 +221,9 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
     setResetting(true)
     setSaveError(null)
     try {
+      if (agent.role === 'admin') await requireAdminPassword()
       const updated = await resetAgentAccountPassword(agent.id)
+      setAdminPassword('')
       onSaved(updated, 'Password reset required.')
     } catch (err) {
       setSaveError(err?.message || 'Could not require a new password. Please try again.')
@@ -365,6 +377,24 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
 
       {state === 'ready' && tab === 'profile' && (
         <div role="tabpanel" className="space-y-5">
+          {agent.role === 'admin' && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+              <p className="mb-2 text-sm font-semibold text-amber-800">Admin account</p>
+              <p className="mb-3 text-xs text-amber-700">Enter your admin password to make changes to this account.</p>
+              <Input
+                id="ap-admin-password"
+                type="password"
+                autoComplete="current-password"
+                label="Admin password"
+                value={adminPassword}
+                onChange={(e) => {
+                  setAdminPassword(e.target.value)
+                  setSaveError(null)
+                }}
+              />
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <Input id="ap-name" label="Name" value={form.name} onChange={setField('name')} required />
             <Input id="ap-phone" label="Phone" value={form.phone} onChange={setField('phone')} />
@@ -464,6 +494,7 @@ function AgentNode({ node, depth, openIds, onToggle, eligibility, onView }) {
 
 export default function AdminAgents() {
   const { showToast } = useToast()
+  const { agent: currentAgent } = useOutletContext()
   const [agents, setAgents] = useState([])
   const [search, setSearch] = useState('')
   const [soldCounts, setSoldCounts] = useState({})
@@ -499,10 +530,12 @@ export default function AdminAgents() {
     })
   }, [])
 
-  const eligibility = useMemo(() => eligibleAgents(agents, soldCounts), [agents, soldCounts])
+  const visibleAgents = currentAgent ? agents.filter((a) => a.id !== currentAgent.id) : agents
+
+  const eligibility = useMemo(() => eligibleAgents(visibleAgents, soldCounts), [visibleAgents, soldCounts])
   const filtered = search
-    ? agents.filter((a) => `${a.name} ${a.email}`.toLowerCase().includes(search.toLowerCase()))
-    : agents
+    ? visibleAgents.filter((a) => `${a.name} ${a.email}`.toLowerCase().includes(search.toLowerCase()))
+    : visibleAgents
   const tree = useMemo(() => buildAgentTree(filtered), [filtered])
 
   const handleToggle = async () => {
@@ -551,11 +584,11 @@ export default function AdminAgents() {
 
       {state === 'error' && <ErrorState message="Could not load agents." onRetry={load} />}
 
-      {state === 'ready' && agents.length === 0 && (
+      {state === 'ready' && visibleAgents.length === 0 && (
         <EmptyState message='No agents yet. Click "Create Agent" to add the first one.' />
       )}
 
-      {state === 'ready' && agents.length > 0 && (
+      {state === 'ready' && visibleAgents.length > 0 && (
         <div className="mb-4">
           <Input
             type="text"
@@ -568,7 +601,7 @@ export default function AdminAgents() {
         </div>
       )}
 
-      {state === 'ready' && agents.length > 0 && (
+      {state === 'ready' && visibleAgents.length > 0 && (
         <ul className="space-y-2">
           {tree.map((node) => (
             <AgentNode
@@ -586,7 +619,7 @@ export default function AdminAgents() {
 
       {showCreate && (
         <CreateAgentModal
-          agents={agents.filter((a) => a.role !== 'admin' && a.is_active)}
+          agents={visibleAgents.filter((a) => a.role !== 'admin' && a.is_active)}
           onClose={() => setShowCreate(false)}
           onCreated={() => {
             setShowCreate(false)

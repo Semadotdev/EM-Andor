@@ -129,7 +129,7 @@ export async function applyEligiblePromotions() {
   return promoted
 }
 
-export async function createAgent({ name, email, phone, role, uplineId, password }) {
+export async function createAgent({ name, email, phone, role, uplineId, password, adminPassword }) {
   const { data, error } = await supabase.functions.invoke('create-agent', {
     body: {
       name,
@@ -138,6 +138,7 @@ export async function createAgent({ name, email, phone, role, uplineId, password
       role,
       upline_id: uplineId || null,
       password,
+      admin_password: adminPassword || '',
     },
   })
 

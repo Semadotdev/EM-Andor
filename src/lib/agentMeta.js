@@ -1,8 +1,14 @@
 export const ROLE_LABELS = {
   admin: 'Admin',
-  agent_head: 'Agent Head',
-  direct_agent: 'Direct Agent',
-  sub_agent: 'Sub Agent',
+  agent_head: 'Head',
+  direct_agent: 'Direct',
+  sub_agent: 'Sub',
+}
+
+export const ROLE_RANK = {
+  agent_head: 3,
+  direct_agent: 2,
+  sub_agent: 1,
 }
 
 export function buildAgentTree(agents) {

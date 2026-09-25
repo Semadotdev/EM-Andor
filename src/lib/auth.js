@@ -23,3 +23,12 @@ export async function setupInitialPassword(password) {
   })
   if (error) throw new Error(error.message)
 }
+
+export async function verifyCurrentUserPassword(password) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user?.email) throw new Error('Could not verify your identity.')
+  const { error } = await supabase.auth.signInWithPassword({ email: user.email, password })
+  if (error) throw new Error('Incorrect password. Please try again.')
+}
