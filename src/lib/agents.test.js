@@ -8,6 +8,7 @@ import {
   fetchCurrentAgent,
   fetchMyDownline,
   fetchSoldCounts,
+  resetAgentAccountPassword,
   setAgentActive,
   updateAgentAccount,
   updateCommissionRates,
@@ -233,5 +234,30 @@ describe('agents', () => {
     supabase.functions.invoke.mockResolvedValue({ data: { error: 'This agent has no login account yet.' }, error: null })
 
     await expect(updateAgentAccount('a1', { email: 'new@x.com' })).rejects.toThrow('This agent has no login account yet.')
+  })
+
+  it('resetAgentAccountPassword flags the agent and logs it', async () => {
+    const updated = { id: 'a1', email: 'sub@x.com', name: 'Sub', role: 'sub_agent' }
+    supabase.functions.invoke.mockResolvedValue({ data: { agent: updated }, error: null })
+
+    const result = await resetAgentAccountPassword('a1')
+
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('update-agent-account', {
+      body: { agent_id: 'a1', reset_password: true },
+    })
+    expect(result).toEqual(updated)
+    expect(logActivity).toHaveBeenCalledWith('agent', 'a1', 'reset_password_required')
+  })
+
+  it('resetAgentAccountPassword surfaces the edge function error body', async () => {
+    supabase.functions.invoke.mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Edge Function returned a non-2xx status code',
+        context: { json: async () => ({ error: 'Nothing to update.' }) },
+      },
+    })
+
+    await expect(resetAgentAccountPassword('a1')).rejects.toThrow('Nothing to update.')
   })
 })
