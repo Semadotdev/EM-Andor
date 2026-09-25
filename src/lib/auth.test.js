@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { resetPassword, updatePassword } from './auth.js'
+import { resetPassword, updatePassword, needsPasswordSetup, setupInitialPassword } from './auth.js'
 
 vi.mock('./supabase.js', () => ({
   supabase: {
@@ -46,5 +46,31 @@ describe('auth helpers', () => {
     supabase.auth.updateUser.mockResolvedValue({ data: {}, error: { message: 'Password too weak' } })
 
     await expect(updatePassword('abc')).rejects.toThrow('Password too weak')
+  })
+
+  it('reports when the user has no pending password setup', () => {
+    expect(needsPasswordSetup({ user_metadata: {} })).toBe(false)
+    expect(needsPasswordSetup(undefined)).toBe(false)
+  })
+
+  it('reports when the user must set a password on next login', () => {
+    expect(needsPasswordSetup({ user_metadata: { password_setup_pending: true } })).toBe(true)
+  })
+
+  it('clears the pending flag when the initial password is set', async () => {
+    supabase.auth.updateUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null })
+
+    await setupInitialPassword('newpass1')
+
+    expect(supabase.auth.updateUser).toHaveBeenCalledWith({
+      password: 'newpass1',
+      data: { password_setup_pending: false },
+    })
+  })
+
+  it('throws when the initial password update fails', async () => {
+    supabase.auth.updateUser.mockResolvedValue({ data: {}, error: { message: 'Password too weak' } })
+
+    await expect(setupInitialPassword('abc')).rejects.toThrow('Password too weak')
   })
 })
