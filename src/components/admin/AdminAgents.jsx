@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ROLE_LABELS, buildAgentTree } from '../../lib/agentMeta.js'
-import { fetchAllAgents, fetchSoldCounts, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
+import { fetchAllAgents, fetchSoldCounts, resetAgentAccountPassword, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
 import { fetchCommissions, fetchTeamSales } from '../../lib/sales.js'
 import { eligibleAgents } from '../../lib/promotions.js'
 import { formatPrice } from '../../lib/format.js'
@@ -70,8 +70,9 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
   const [state, setState] = useState('loading')
   const [tab, setTab] = useState('commissions')
   const [chartMode, setChartMode] = useState(false)
-  const [form, setForm] = useState({ name: agent.name, phone: agent.phone ?? '', email: agent.email, password: '' })
+  const [form, setForm] = useState({ name: agent.name, phone: agent.phone ?? '', email: agent.email })
   const [saving, setSaving] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [zoom, setZoom] = useState(1)
   const wrapRef = useRef(null)
@@ -194,14 +195,28 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
     setSaveError(null)
     try {
       let updated = await updateAgent(agent.id, { name: form.name, phone: form.phone })
-      if (form.email.trim() !== agent.email || form.password) {
-        updated = await updateAgentAccount(agent.id, { email: form.email, password: form.password })
+      if (form.email.trim() !== agent.email) {
+        updated = await updateAgentAccount(agent.id, { email: form.email })
       }
       onSaved(updated)
     } catch {
       setSaveError('Could not save the profile. Please try again.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const resetAccountPassword = async () => {
+    if (resetting) return
+    setResetting(true)
+    setSaveError(null)
+    try {
+      const updated = await resetAgentAccountPassword(agent.id)
+      onSaved(updated, 'Password reset required.')
+    } catch (err) {
+      setSaveError(err?.message || 'Could not require a new password. Please try again.')
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -357,17 +372,8 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Input id="ap-email" label="Email" type="email" value={form.email} onChange={setField('email')} required />
-            <Input
-              id="ap-password"
-              label="New password"
-              type="password"
-              autoComplete="new-password"
-              value={form.password}
-              onChange={setField('password')}
-              placeholder="Leave blank to keep current"
-            />
           </div>
-          <p className="text-xs text-ink/50">Email is the agent's login. The password is never shown — leave it blank to keep the current one.</p>
+          <p className="text-xs text-ink/50">Email is the agent's login. To change their password, use the Require new password button below.</p>
 
           {saveError && (
             <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
@@ -378,6 +384,13 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
           <div className="flex justify-end">
             <Button onClick={saveProfile} disabled={saving}>
               {saving ? 'Saving…' : 'Save Profile'}
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-mist pt-4">
+            <p className="text-xs text-ink/50">Force the agent to choose a new password at their next sign-in.</p>
+            <Button variant="secondary" onClick={resetAccountPassword} disabled={resetting}>
+              {resetting ? 'Requesting…' : 'Require new password'}
             </Button>
           </div>
 
@@ -514,10 +527,10 @@ export default function AdminAgents() {
     }
   }
 
-  const handleSaved = useCallback((updated) => {
+  const handleSaved = useCallback((updated, message = 'Profile saved.') => {
     setAgents((list) => list.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)))
     setDetail((d) => (d && d.id === updated.id ? { ...d, ...updated } : d))
-    showToast('Profile saved.')
+    showToast(message)
   }, [showToast])
 
   return (

@@ -10,6 +10,7 @@ vi.mock('../../lib/agents.js', () => ({
   setAgentActive: vi.fn(),
   updateAgent: vi.fn(),
   updateAgentAccount: vi.fn(),
+  resetAgentAccountPassword: vi.fn(),
 }))
 vi.mock('../../lib/sales.js', () => ({
   fetchCommissions: vi.fn().mockResolvedValue([]),
@@ -23,7 +24,7 @@ vi.mock('./CreateAgentModal.jsx', () => ({
   ),
 }))
 
-import { fetchAllAgents, fetchSoldCounts, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
+import { fetchAllAgents, fetchSoldCounts, resetAgentAccountPassword, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
 import { fetchCommissions, fetchTeamSales } from '../../lib/sales.js'
 
 const admin = { id: 'admin1', name: 'Admin', email: 'a@x.com', role: 'admin', upline_id: null, is_active: true }
@@ -314,23 +315,21 @@ describe('AdminAgents', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Ana Sub details' })
     await user.click(within(dialog).getByRole('tab', { name: 'Profile' }))
 
+    expect(within(dialog).queryByLabelText('New password')).not.toBeInTheDocument()
+
     const emailInput = within(dialog).getByLabelText('Email')
     expect(emailInput).toHaveValue('ana@x.com')
     await user.clear(emailInput)
     await user.type(emailInput, 'new@x.com')
-
-    const passwordInput = within(dialog).getByLabelText('New password')
-    expect(passwordInput).toHaveValue('')
     await user.click(within(dialog).getByRole('button', { name: 'Save Profile' }))
 
-    expect(updateAgentAccount).toHaveBeenCalledWith('a1', { email: 'new@x.com', password: '' })
+    expect(updateAgentAccount).toHaveBeenCalledWith('a1', { email: 'new@x.com' })
     expect(await screen.findByText('Profile saved.')).toBeInTheDocument()
   })
 
-  it('uses the password-only flow when the email is unchanged', async () => {
+  it('marks an agent to require a new password at their next sign-in', async () => {
     const user = userEvent.setup()
-    updateAgent.mockResolvedValue({ ...sub })
-    updateAgentAccount.mockResolvedValue({ ...sub })
+    resetAgentAccountPassword.mockResolvedValue({ ...sub })
 
     render(<AdminAgents />)
 
@@ -340,11 +339,10 @@ describe('AdminAgents', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Ana Sub details' })
     await user.click(within(dialog).getByRole('tab', { name: 'Profile' }))
 
-    await user.type(within(dialog).getByLabelText('New password'), 'newsecret')
-    await user.click(within(dialog).getByRole('button', { name: 'Save Profile' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Require new password' }))
 
-    expect(updateAgentAccount).toHaveBeenCalledWith('a1', { email: 'ana@x.com', password: 'newsecret' })
-    expect(await screen.findByText('Profile saved.')).toBeInTheDocument()
+    expect(resetAgentAccountPassword).toHaveBeenCalledWith('a1')
+    expect(await screen.findByText('Password reset required.')).toBeInTheDocument()
   })
 
   it('searches agents by name', async () => {
