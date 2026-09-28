@@ -10,6 +10,7 @@ vi.mock('../../lib/projects.js', () => ({
   fetchProjectLots: vi.fn(),
   updateLot: vi.fn(),
   deleteLot: vi.fn(),
+  setLotActive: vi.fn(),
   lotPrice: (area, pricePerSqm) => Math.round(Number(area) * Number(pricePerSqm) * 100) / 100,
 }))
 
@@ -74,7 +75,7 @@ vi.mock('./BuyerLedgerModal.jsx', () => ({
   ),
 }))
 
-import { deleteLot, fetchProject, fetchProjectLots, updateLot } from '../../lib/projects.js'
+import { deleteLot, fetchProject, fetchProjectLots, setLotActive, updateLot } from '../../lib/projects.js'
 import { cancelReservation } from '../../lib/sales.js'
 import { fetchAllAgents } from '../../lib/agents.js'
 
@@ -95,7 +96,16 @@ const availableLot = {
   lot_area_sqm: 100,
   price: 100000,
   status: 'available',
+  is_active: true,
   sold_by: null,
+}
+
+const disabledLot = {
+  ...availableLot,
+  id: 'l4',
+  block_no: '2',
+  lot_no: '1',
+  is_active: false,
 }
 
 const soldLot = {
@@ -136,6 +146,7 @@ describe('ProjectDetail', () => {
     fetchProject.mockResolvedValue(project)
     fetchAllAgents.mockResolvedValue([{ id: 'a1', name: 'Ana Agent', role: 'sub_agent', is_active: true }])
     deleteLot.mockResolvedValue(undefined)
+    setLotActive.mockImplementation(async (id, isActive) => ({ id, is_active: isActive }))
   })
 
   it('lists the lots with status, price, and selling agent', async () => {
@@ -387,6 +398,71 @@ describe('ProjectDetail', () => {
 
     expect(await screen.findByText('Only available lots can be deleted. Un-sell the lot first.')).toBeInTheDocument()
     expect(screen.getByRole('dialog', { name: 'Edit lot' })).toBeInTheDocument()
+  })
+
+  it('shows a disabled lot as Inactive with no Reserve action and an Enable action', async () => {
+    fetchProjectLots.mockResolvedValue([disabledLot])
+
+    renderDetail()
+
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Inactive')).toBeInTheDocument()
+    expect(within(table).queryByRole('button', { name: 'Reserve' })).not.toBeInTheDocument()
+    expect(within(table).getByRole('button', { name: 'Enable' })).toBeInTheDocument()
+    expect(screen.getByText('0 available')).toBeInTheDocument()
+    expect(screen.getByText('1 disabled')).toBeInTheDocument()
+  })
+
+  it('enables a disabled lot after confirmation', async () => {
+    fetchProjectLots.mockResolvedValue([disabledLot])
+    const user = userEvent.setup()
+
+    renderDetail()
+
+    const table = await screen.findByRole('table')
+    await user.click(within(table).getByRole('button', { name: 'Enable' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Enable Lot' })
+    await user.click(within(dialog).getByRole('button', { name: 'Enable' }))
+
+    expect(setLotActive).toHaveBeenCalledWith('l4', true)
+    expect(await screen.findByText('Lot enabled.')).toBeInTheDocument()
+    expect(within(table).getByText('Available')).toBeInTheDocument()
+    expect(within(table).getByRole('button', { name: 'Reserve' })).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog', { name: 'Enable Lot' })).not.toBeInTheDocument()
+  })
+
+  it('disables an available lot after confirmation', async () => {
+    fetchProjectLots.mockResolvedValue([availableLot])
+    const user = userEvent.setup()
+
+    renderDetail()
+
+    const table = await screen.findByRole('table')
+    await user.click(within(table).getByRole('button', { name: 'Disable' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Disable Lot' })
+    await user.click(within(dialog).getByRole('button', { name: 'Disable' }))
+
+    expect(setLotActive).toHaveBeenCalledWith('l1', false)
+    expect(await screen.findByText('Lot disabled.')).toBeInTheDocument()
+    expect(within(table).getByText('Inactive')).toBeInTheDocument()
+    expect(within(table).queryByRole('button', { name: 'Reserve' })).not.toBeInTheDocument()
+    expect(screen.getByText('1 disabled')).toBeInTheDocument()
+  })
+
+  it('keeps the confirm dialog open when toggling the lot fails', async () => {
+    setLotActive.mockRejectedValue(new Error('nope'))
+    fetchProjectLots.mockResolvedValue([availableLot])
+    const user = userEvent.setup()
+
+    renderDetail()
+
+    const table = await screen.findByRole('table')
+    await user.click(within(table).getByRole('button', { name: 'Disable' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Disable Lot' })
+    await user.click(within(dialog).getByRole('button', { name: 'Disable' }))
+
+    expect(await screen.findByText('Could not update the lot. Please try again.')).toBeInTheDocument()
+    expect(screen.getByRole('alertdialog', { name: 'Disable Lot' })).toBeInTheDocument()
   })
 
   it('shows the empty state and no compute buttons when there are no lots', async () => {

@@ -11,6 +11,7 @@ import {
   fetchProjectRatesMap,
   lotPrice,
   resolveLotPrice,
+  setLotActive,
   updateLot,
   updateProject,
   upsertProjectRates,
@@ -477,6 +478,34 @@ describe('projects', () => {
     await expect(deleteLot('lot1')).rejects.toThrow(
       'Only available lots can be deleted. Un-sell the lot first.',
     )
+  })
+
+  it('setLotActive disables a lot and logs the disable action', async () => {
+    const c = chain({ data: { id: 'lot1', is_active: false }, error: null })
+    supabase.from.mockReturnValue(c)
+
+    await setLotActive('lot1', false)
+
+    expect(c.update).toHaveBeenCalledWith({ is_active: false })
+    expect(c.eq).toHaveBeenCalledWith('id', 'lot1')
+    expect(logActivity).toHaveBeenCalledWith('property', 'lot1', 'disable')
+  })
+
+  it('setLotActive enables a lot and logs the enable action', async () => {
+    const c = chain({ data: { id: 'lot1', is_active: true }, error: null })
+    supabase.from.mockReturnValue(c)
+
+    await setLotActive('lot1', true)
+
+    expect(c.update).toHaveBeenCalledWith({ is_active: true })
+    expect(logActivity).toHaveBeenCalledWith('property', 'lot1', 'enable')
+  })
+
+  it('setLotActive surfaces supabase errors', async () => {
+    supabase.from.mockReturnValue(chain({ data: null, error: new Error('nope') }))
+
+    await expect(setLotActive('lot1', true)).rejects.toThrow('nope')
+    expect(logActivity).not.toHaveBeenCalled()
   })
 
   it('createProject rolls back the project when the rates upsert fails', async () => {

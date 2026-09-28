@@ -179,6 +179,18 @@ export async function updateLot(lot, project, updates = {}) {
   return data
 }
 
+export async function setLotActive(id, isActive) {
+  const { data, error } = await supabase
+    .from('properties')
+    .update({ is_active: isActive })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  logActivity('property', id, isActive ? 'enable' : 'disable').catch(() => {})
+  return data
+}
+
 export async function deleteLot(id) {
   const { data, error } = await supabase
     .from('properties')

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { deleteLot, fetchProject, fetchProjectLots, lotPrice, updateLot } from '../../lib/projects.js'
+import { deleteLot, fetchProject, fetchProjectLots, lotPrice, setLotActive, updateLot } from '../../lib/projects.js'
 import { cancelReservation } from '../../lib/sales.js'
 import { fetchAllAgents } from '../../lib/agents.js'
 import { formatPrice } from '../../lib/format.js'
@@ -199,6 +199,8 @@ export default function ProjectDetail() {
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
+  const [toggleTarget, setToggleTarget] = useState(null)
+  const [toggling, setToggling] = useState(false)
 
   const loadProject = useCallback(() => {
     setProjectState('loading')
@@ -251,6 +253,22 @@ export default function ProjectDetail() {
     }
   }
 
+  const handleToggle = async () => {
+    if (!toggleTarget || toggling) return
+    const next = !toggleTarget.is_active
+    setToggling(true)
+    try {
+      await setLotActive(toggleTarget.id, next)
+      setLots((list) => list.map((lot) => (lot.id === toggleTarget.id ? { ...lot, is_active: next } : lot)))
+      setToggleTarget(null)
+      showToast(next ? 'Lot enabled.' : 'Lot disabled.')
+    } catch {
+      showToast('Could not update the lot. Please try again.', 'error')
+    } finally {
+      setToggling(false)
+    }
+  }
+
   const handleCancelReservation = async () => {
     if (!cancelTarget) return
     try {
@@ -286,16 +304,32 @@ export default function ProjectDetail() {
 
   const counts = {
     total: lots.length,
-    available: lots.filter((lot) => lot.status === 'available').length,
+    available: lots.filter((lot) => lot.status === 'available' && lot.is_active !== false).length,
+    disabled: lots.filter((lot) => lot.status === 'available' && lot.is_active === false).length,
     reserved: lots.filter((lot) => lot.status === 'reserved').length,
     sold: lots.filter((lot) => lot.status === 'sold').length,
   }
 
+  const lotStatusBadge = (lot) => (
+    <Badge tone={lot.status === 'available' && lot.is_active === false ? statusTone('inactive') : statusTone(lot.status)}>
+      {lot.status === 'available' && lot.is_active === false ? 'Inactive' : statusLabel(lot.status)}
+    </Badge>
+  )
+
   const lotActions = (lot) => (
     <div className="flex flex-wrap justify-end gap-2">
-      {lot.status === 'available' && (
+      {lot.status === 'available' && lot.is_active !== false && (
         <Button size="sm" variant="secondary" onClick={() => setReservationLot(lot)}>
           Reserve
+        </Button>
+      )}
+      {lot.status === 'available' && (
+        <Button
+          size="sm"
+          variant={lot.is_active === false ? 'secondary' : 'danger'}
+          onClick={() => setToggleTarget(lot)}
+        >
+          {lot.is_active === false ? 'Enable' : 'Disable'}
         </Button>
       )}
       {lot.status === 'reserved' && (
@@ -332,7 +366,7 @@ export default function ProjectDetail() {
     {
       key: 'status',
       header: 'Status',
-      render: (lot) => <Badge tone={statusTone(lot.status)}>{statusLabel(lot.status)}</Badge>,
+      render: lotStatusBadge,
     },
     {
       key: 'buyer',
@@ -356,7 +390,7 @@ export default function ProjectDetail() {
         <p className="font-semibold text-brand-deep">
           Block {lot.block_no ?? '—'} Lot {lot.lot_no ?? '—'}
         </p>
-        <Badge tone={statusTone(lot.status)}>{statusLabel(lot.status)}</Badge>
+        {lotStatusBadge(lot)}
       </div>
       <dl className="mb-3 space-y-1 text-sm">
         <div className="flex justify-between gap-3">
@@ -431,6 +465,7 @@ export default function ProjectDetail() {
       <p className="mb-6 flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-wide text-ink/50">
         <span>{counts.total} lots</span>
         <span>{counts.available} available</span>
+        <span>{counts.disabled} disabled</span>
         <span>{counts.reserved} reserved</span>
         <span>{counts.sold} sold</span>
       </p>
@@ -550,6 +585,21 @@ export default function ProjectDetail() {
           </p>
         )}
       </ConfirmModal>
+
+      <ConfirmModal
+        open={Boolean(toggleTarget)}
+        onClose={() => setToggleTarget(null)}
+        onConfirm={handleToggle}
+        title={toggleTarget?.is_active ? 'Disable Lot' : 'Enable Lot'}
+        message={
+          toggleTarget
+            ? `${toggleTarget.is_active ? 'Disable' : 'Enable'} Block ${toggleTarget.block_no ?? '—'} Lot ${toggleTarget.lot_no ?? '—'}? ${toggleTarget.is_active ? 'It will be hidden from agents and can no longer be reserved.' : 'It will become reservable again.'}`
+            : ''
+        }
+        confirmLabel={toggleTarget?.is_active ? 'Disable' : 'Enable'}
+        destructive={Boolean(toggleTarget?.is_active)}
+        loading={toggling}
+      />
 
       <ConfirmModal
         open={Boolean(cancelTarget)}

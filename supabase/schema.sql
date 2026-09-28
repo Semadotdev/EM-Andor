@@ -8,6 +8,7 @@ create table if not exists public.properties (
   description text,
   image_url text,
   is_pinned boolean not null default false,
+  is_active boolean not null default true,
   map_pins jsonb not null default '[]',
   created_at timestamptz not null default now()
 );
@@ -271,6 +272,8 @@ create policy "admin all on payments" on public.payments
 alter table public.properties enable row level security;
 alter table public.inquiries enable row level security;
 
+alter table public.properties add column if not exists is_active boolean not null default true;
+
 drop policy if exists "admin all on properties" on public.properties;
 create policy "admin all on properties" on public.properties
   for all to authenticated
@@ -281,7 +284,7 @@ drop policy if exists "agent read properties" on public.properties;
 create policy "agent read properties" on public.properties
   for select to authenticated
   using (
-    status = 'available'
+    (status = 'available' and is_active = true)
     or sold_by = public.current_agent_id()
     or sold_by in (select public.get_downline(public.current_agent_id()))
   );

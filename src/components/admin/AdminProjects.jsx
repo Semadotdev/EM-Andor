@@ -35,7 +35,7 @@ export default function AdminProjects() {
           const lots = lists[i] ?? []
           return [project.id, {
             total: lots.length,
-            available: lots.filter((lot) => lot.status === 'available').length,
+            available: lots.filter((lot) => lot.status === 'available' && lot.is_active !== false).length,
             sold: lots.filter((lot) => lot.status === 'sold').length,
           }]
         })))
