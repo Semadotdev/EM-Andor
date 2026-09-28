@@ -138,6 +138,29 @@ describe('AdminProjects', () => {
     expect(await screen.findByText(/No projects yet/)).toBeInTheDocument()
   })
 
+  it('toggles the admin password visibility on the delete dialog', async () => {
+    const user = userEvent.setup()
+
+    renderProjects()
+
+    await screen.findByRole('table')
+    await user.click(screen.getAllByRole('button', { name: 'Delete Andor Farm' })[0])
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete project' })
+    const password = within(dialog).getByLabelText('Admin password')
+    expect(within(dialog).getByRole('button', { name: 'Show admin password' })).toHaveAttribute('aria-pressed', 'false')
+    expect(password).toHaveAttribute('type', 'password')
+
+    await user.click(within(dialog).getByRole('button', { name: 'Show admin password' }))
+
+    expect(within(dialog).getByLabelText('Admin password')).toHaveAttribute('type', 'text')
+    expect(within(dialog).getByRole('button', { name: 'Hide admin password' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(within(dialog).getByRole('button', { name: 'Hide admin password' }))
+
+    expect(within(dialog).getByLabelText('Admin password')).toHaveAttribute('type', 'password')
+  })
+
   it('deletes a project only after the admin password is entered', async () => {
     const user = userEvent.setup()
     deleteProject.mockResolvedValue({})

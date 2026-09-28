@@ -17,6 +17,25 @@ const agents = [
 describe('CreateAgentModal', () => {
   beforeEach(() => vi.clearAllMocks())
 
+  it('toggles the temporary password visibility', async () => {
+    const user = userEvent.setup()
+
+    render(<CreateAgentModal agents={agents} onClose={vi.fn()} onCreated={vi.fn()} />)
+
+    const show = screen.getByRole('button', { name: 'Show temporary password' })
+    expect(show).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByLabelText('Temporary Password')).toHaveAttribute('type', 'password')
+
+    await user.click(show)
+
+    expect(screen.getByLabelText('Temporary Password')).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('button', { name: 'Hide temporary password' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(screen.getByRole('button', { name: 'Hide temporary password' }))
+
+    expect(screen.getByLabelText('Temporary Password')).toHaveAttribute('type', 'password')
+  })
+
   it('creates a direct agent with an agent head upline', async () => {
     createAgent.mockResolvedValue({ id: 'a9' })
     const onCreated = vi.fn()
@@ -104,6 +123,27 @@ describe('CreateAgentModal', () => {
 
     expect(await screen.findByText('Select an upline for this role.')).toBeInTheDocument()
     expect(createAgent).not.toHaveBeenCalled()
+  })
+
+  it('toggles the admin password visibility', async () => {
+    const user = userEvent.setup()
+
+    render(<CreateAgentModal agents={agents} onClose={vi.fn()} onCreated={vi.fn()} />)
+
+    await user.selectOptions(screen.getByLabelText('Role'), 'admin')
+
+    const show = screen.getByRole('button', { name: 'Show admin password' })
+    expect(show).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByLabelText('Admin password')).toHaveAttribute('type', 'password')
+
+    await user.click(show)
+
+    expect(screen.getByLabelText('Admin password')).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('button', { name: 'Hide admin password' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(screen.getByRole('button', { name: 'Hide admin password' }))
+
+    expect(screen.getByLabelText('Admin password')).toHaveAttribute('type', 'password')
   })
 
   it('disables the upline and requires the admin password to create an admin', async () => {

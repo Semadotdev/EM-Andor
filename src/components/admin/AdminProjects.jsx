@@ -20,6 +20,7 @@ export default function AdminProjects() {
   const [showCreate, setShowCreate] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deletePassword, setDeletePassword] = useState('')
+  const [showDeletePassword, setShowDeletePassword] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
   const { showToast } = useToast()
@@ -225,7 +226,7 @@ export default function AdminProjects() {
             <Input
               id="project-delete-password"
               label="Admin password"
-              type="password"
+              type={showDeletePassword ? 'text' : 'password'}
               autoComplete="current-password"
               value={deletePassword}
               onChange={(e) => {
@@ -234,6 +235,17 @@ export default function AdminProjects() {
               }}
               placeholder="Enter your admin password"
               required
+              suffix={
+                <button
+                  type="button"
+                  aria-label={showDeletePassword ? 'Hide admin password' : 'Show admin password'}
+                  aria-pressed={showDeletePassword}
+                  onClick={() => setShowDeletePassword((shown) => !shown)}
+                  className="text-xs font-semibold text-ink/50 transition-colors hover:text-brand"
+                >
+                  {showDeletePassword ? 'Hide' : 'Show'}
+                </button>
+              }
             />
             {deleteError && (
               <p role="alert" className="mt-2 rounded-md border border-red-200 bg-red-50 p-2 text-sm font-medium text-red-700">

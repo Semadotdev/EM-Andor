@@ -401,6 +401,32 @@ describe('AdminAgents', () => {
     expect(screen.getByText('Boss Admin')).toBeInTheDocument()
   })
 
+  it('toggles the admin password visibility on the agent profile', async () => {
+    const user = userEvent.setup()
+    fetchAllAgents.mockResolvedValue([admin, otherAdmin, sub, recruit])
+
+    renderAdminAgents()
+
+    const row = (await screen.findByText('Boss Admin')).closest('li')
+    await user.click(within(row).getByRole('button', { name: 'View' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Boss Admin details' })
+    await user.click(within(dialog).getByRole('tab', { name: 'Profile' }))
+
+    const password = within(dialog).getByLabelText('Admin password')
+    expect(screen.getByRole('button', { name: 'Show admin password' })).toHaveAttribute('aria-pressed', 'false')
+    expect(password).toHaveAttribute('type', 'password')
+
+    await user.click(screen.getByRole('button', { name: 'Show admin password' }))
+
+    expect(within(dialog).getByLabelText('Admin password')).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('button', { name: 'Hide admin password' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(screen.getByRole('button', { name: 'Hide admin password' }))
+
+    expect(within(dialog).getByLabelText('Admin password')).toHaveAttribute('type', 'password')
+  })
+
   it('requires the current admin password before saving an admin profile', async () => {
     const user = userEvent.setup()
     fetchAllAgents.mockResolvedValue([admin, otherAdmin, sub, recruit])

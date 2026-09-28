@@ -9,6 +9,8 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
   const { showToast } = useToast()
   const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'sub_agent', uplineId: '', password: '' })
   const [adminPassword, setAdminPassword] = useState('')
+  const [showTemporary, setShowTemporary] = useState(false)
+  const [showAdmin, setShowAdmin] = useState(false)
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
 
@@ -121,13 +123,24 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
         <div className="sm:col-span-2">
           <Input
             id="ca-password"
-            type="text"
+            type={showTemporary ? 'text' : 'password'}
             autoComplete="new-password"
             spellCheck={false}
             label="Temporary Password"
             value={form.password}
             onChange={setField('password')}
             placeholder="Share this with the agent"
+            suffix={
+              <button
+                type="button"
+                aria-label={showTemporary ? 'Hide temporary password' : 'Show temporary password'}
+                aria-pressed={showTemporary}
+                onClick={() => setShowTemporary((shown) => !shown)}
+                className="text-xs font-semibold text-ink/50 transition-colors hover:text-brand"
+              >
+                {showTemporary ? 'Hide' : 'Show'}
+              </button>
+            }
           />
         </div>
 
@@ -137,7 +150,7 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
             <p className="mb-3 text-xs text-amber-700">Enter your admin password to create another admin account.</p>
             <Input
               id="ca-admin-password"
-              type="password"
+              type={showAdmin ? 'text' : 'password'}
               autoComplete="current-password"
               label="Admin password"
               value={adminPassword}
@@ -145,6 +158,17 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
                 setAdminPassword(e.target.value)
                 setError(null)
               }}
+              suffix={
+                <button
+                  type="button"
+                  aria-label={showAdmin ? 'Hide admin password' : 'Show admin password'}
+                  aria-pressed={showAdmin}
+                  onClick={() => setShowAdmin((shown) => !shown)}
+                  className="text-xs font-semibold text-ink/50 transition-colors hover:text-brand"
+                >
+                  {showAdmin ? 'Hide' : 'Show'}
+                </button>
+              }
             />
           </div>
         )}

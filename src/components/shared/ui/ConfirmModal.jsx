@@ -17,7 +17,13 @@ export default function ConfirmModal({
 
   useEffect(() => {
     if (!open) return undefined
-    const timer = setTimeout(() => confirmRef.current?.focus(), 50)
+    const timer = setTimeout(() => {
+      const active = document.activeElement
+      const dialog = confirmRef.current?.closest?.('[role="alertdialog"]')
+      if (!dialog || dialog === active || !dialog.contains(active)) {
+        confirmRef.current?.focus()
+      }
+    }, 50)
     return () => clearTimeout(timer)
   }, [open])
 

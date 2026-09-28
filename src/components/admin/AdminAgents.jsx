@@ -77,6 +77,7 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
   const [resetting, setResetting] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [adminPassword, setAdminPassword] = useState('')
+  const [showAdminPassword, setShowAdminPassword] = useState(false)
   const [zoom, setZoom] = useState(1)
   const wrapRef = useRef(null)
   const chartRef = useRef(null)
@@ -383,7 +384,7 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
               <p className="mb-3 text-xs text-amber-700">Enter your admin password to make changes to this account.</p>
               <Input
                 id="ap-admin-password"
-                type="password"
+                type={showAdminPassword ? 'text' : 'password'}
                 autoComplete="current-password"
                 label="Admin password"
                 value={adminPassword}
@@ -391,6 +392,17 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
                   setAdminPassword(e.target.value)
                   setSaveError(null)
                 }}
+                suffix={
+                  <button
+                    type="button"
+                    aria-label={showAdminPassword ? 'Hide admin password' : 'Show admin password'}
+                    aria-pressed={showAdminPassword}
+                    onClick={() => setShowAdminPassword((shown) => !shown)}
+                    className="text-xs font-semibold text-ink/50 transition-colors hover:text-brand"
+                  >
+                    {showAdminPassword ? 'Hide' : 'Show'}
+                  </button>
+                }
               />
             </div>
           )}
