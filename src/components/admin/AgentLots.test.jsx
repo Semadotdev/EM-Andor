@@ -40,7 +40,7 @@ describe('AgentLots', () => {
       status: 'available',
       sort: 'newest',
       page: 1,
-      pageSize: 9,
+      pageSize: 15,
     })
   })
 
@@ -89,7 +89,7 @@ describe('AgentLots', () => {
     render(<AgentLots />)
 
     await screen.findByText('Lot 1')
-    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument()
+    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Next page' }))
 
     expect(await screen.findByText('Second Page Lot')).toBeInTheDocument()
@@ -97,30 +97,18 @@ describe('AgentLots', () => {
       status: 'available',
       sort: 'newest',
       page: 2,
-      pageSize: 9,
+      pageSize: 15,
     })
   })
 
-  it('resets to the first page when the page size changes', async () => {
-    fetchProperties
-      .mockResolvedValueOnce({ data: [LOT('p1', 'First Page Lot')], count: 25 })
-      .mockResolvedValueOnce({ data: [LOT('p2', 'Resized Page Lot')], count: 25 })
-    const user = userEvent.setup()
+  it('keeps the page size fixed and offers no rows-per-page selector', async () => {
+    fetchProperties.mockResolvedValue({ data: [LOT('p1', 'First Page Lot')], count: 25 })
 
     render(<AgentLots />)
 
-    await screen.findByText('First Page Lot')
-    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument()
-    await user.selectOptions(screen.getByLabelText('Rows per page'), '12')
-
-    expect(await screen.findByText('Resized Page Lot')).toBeInTheDocument()
-    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument()
-    expect(fetchProperties).toHaveBeenLastCalledWith({
-      status: 'available',
-      sort: 'newest',
-      page: 1,
-      pageSize: 12,
-    })
+    expect(await screen.findByText('First Page Lot')).toBeInTheDocument()
+    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Rows per page')).not.toBeInTheDocument()
   })
 
   it('shows an empty state when nothing is available', async () => {

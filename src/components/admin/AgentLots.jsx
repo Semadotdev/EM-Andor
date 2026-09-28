@@ -6,19 +6,18 @@ import Icon from '../shared/Icon.jsx'
 import ComputationModal from './ComputationModal.jsx'
 import logoSrc from '../../assets/logo.png'
 
-const PAGE_SIZE_OPTIONS = [6, 9, 12]
+const PAGE_SIZE = 15
 
 export default function AgentLots() {
   const [lots, setLots] = useState([])
   const [count, setCount] = useState(0)
   const [state, setState] = useState('loading')
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(9)
   const [computeLot, setComputeLot] = useState(null)
 
   useEffect(() => {
     let mounted = true
-    fetchProperties({ status: 'available', sort: 'newest', page, pageSize })
+    fetchProperties({ status: 'available', sort: 'newest', page, pageSize: PAGE_SIZE })
       .then((result) => {
         if (!mounted) return
         setLots(result.data ?? [])
@@ -29,11 +28,11 @@ export default function AgentLots() {
         if (mounted) setState('error')
       })
     return () => { mounted = false }
-  }, [page, pageSize])
+  }, [page])
 
-  const totalPages = Math.max(1, Math.ceil(count / pageSize))
-  const from = count === 0 ? 0 : (page - 1) * pageSize + 1
-  const to = Math.min(page * pageSize, count)
+  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE))
+  const from = count === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
+  const to = Math.min(page * PAGE_SIZE, count)
 
   return (
     <div>
@@ -86,12 +85,7 @@ export default function AgentLots() {
             total={count}
             from={from}
             to={to}
-            pageSize={pageSize}
-            onPageSizeChange={(size) => {
-              setPageSize(size)
-              setPage(1)
-            }}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            pageSize={PAGE_SIZE}
           />
         </>
       )}
