@@ -117,7 +117,7 @@ export default function Modal({
           </div>
         )}
         {children}
-        {footer && <div className="mt-6 flex justify-end gap-3">{footer}</div>}
+        {footer && <div className="modal-actions mt-6">{footer}</div>}
       </div>
     </div>
   )

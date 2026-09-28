@@ -175,7 +175,7 @@ export default function CreateProjectModal({ project, onClose, onCreated }) {
           {errors.rates && <FieldError>{errors.rates}</FieldError>}
         </div>
 
-        <div className="mt-2 flex flex-wrap justify-end gap-3 sm:col-span-2">
+        <div className="modal-actions mt-2 sm:col-span-2">
           <Button variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>

@@ -93,7 +93,7 @@ export default function ComputationModal({ lot, onClose }) {
           </div>
         )}
 
-        <div className="flex flex-wrap justify-end gap-3 sm:col-span-2">
+        <div className="modal-actions sm:col-span-2">
           <Button variant="secondary" onClick={onClose}>
             Close
           </Button>

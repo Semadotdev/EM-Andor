@@ -173,7 +173,7 @@ export default function CreateAgentModal({ agents, onClose, onCreated }) {
           </div>
         )}
 
-        <div className="mt-2 flex flex-wrap justify-end gap-3 sm:col-span-2">
+        <div className="modal-actions mt-2 sm:col-span-2">
           <Button variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>

@@ -182,7 +182,7 @@ export default function UploadLotsModal({ project, onClose, onImported }) {
           </div>
         )}
 
-        <div className="flex flex-wrap justify-end gap-3">
+        <div className="modal-actions">
           <Button variant="secondary" onClick={onClose} disabled={importing}>
             Cancel
           </Button>

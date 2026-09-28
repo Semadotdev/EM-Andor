@@ -113,6 +113,14 @@
     @apply border border-brand-deep/40 text-brand-deep hover:border-brand hover:bg-brand hover:text-white;
   }
 
+  .modal-actions {
+    @apply flex flex-wrap items-center justify-end gap-3;
+  }
+
+  .modal-actions > :where(button, a) {
+    @apply min-w-0 flex-1 whitespace-nowrap px-4 sm:flex-none sm:px-7;
+  }
+
   .eyebrow {
     @apply font-display text-xs font-bold uppercase tracking-[0.28em] text-brand-2;
   }

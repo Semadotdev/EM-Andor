@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ConfirmModal from './ConfirmModal.jsx'
 
@@ -24,6 +24,15 @@ describe('ConfirmModal', () => {
     const dialog = screen.getByRole('alertdialog', { name: 'Delete Lot' })
     expect(dialog).toHaveAttribute('aria-modal', 'true')
     expect(screen.getByText('This cannot be undone.')).toBeInTheDocument()
+  })
+
+  it('lays out the action buttons with the modal-actions row', () => {
+    render(<ConfirmModal {...base} />)
+
+    const actions = screen.getByRole('alertdialog').querySelector('.modal-actions')
+    expect(actions).toBeInTheDocument()
+    expect(within(actions).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+    expect(within(actions).getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
   })
 
   it('uses the default labels and calls the callbacks', async () => {

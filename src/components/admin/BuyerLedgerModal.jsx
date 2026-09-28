@@ -281,7 +281,7 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
               </button>
             </div>
 
-            <div className="mb-4 flex flex-wrap justify-end gap-3">
+            <div className="modal-actions mb-4">
               <Button onClick={openAddPayment}>Add Payment</Button>
               <Button variant="secondary" onClick={() => setShowEditSale(true)}>
                 Edit Sale
@@ -507,7 +507,7 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
                 />
               </div>
 
-              <div className="flex flex-wrap justify-end gap-3 sm:col-span-2">
+              <div className="modal-actions sm:col-span-2">
                 <Button variant="secondary" onClick={closePaymentModal} disabled={savingPayment}>
                   Cancel
                 </Button>

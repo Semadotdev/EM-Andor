@@ -164,7 +164,7 @@ function EditLotModal({ lot, project, onClose, onSaved, onDelete }) {
               Delete Lot
             </Button>
           )}
-          <div className="flex flex-wrap justify-end gap-3">
+          <div className="modal-actions">
             <Button variant="secondary" onClick={onClose} disabled={saving}>
               Cancel
             </Button>

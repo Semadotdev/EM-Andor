@@ -152,7 +152,7 @@ export default function SaleDetailsModal({ lot, onClose, onSaved }) {
             ))}
           </Select>
 
-          <div className="flex flex-wrap justify-end gap-3 sm:col-span-2">
+          <div className="modal-actions sm:col-span-2">
             <Button variant="secondary" onClick={onClose} disabled={saving}>
               Cancel
             </Button>

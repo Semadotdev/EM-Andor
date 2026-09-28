@@ -429,7 +429,7 @@ function AgentDetail({ agent, onClose, onToggle, onPromote, onSaved, pending }) 
             </Button>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-mist pt-4">
+          <div className="modal-actions items-center border-t border-mist pt-4">
             <p className="text-xs text-ink/50">Force the agent to choose a new password at their next sign-in.</p>
             <Button variant="secondary" onClick={resetAccountPassword} disabled={resetting}>
               {resetting ? 'Requesting…' : 'Require new password'}
@@ -437,7 +437,7 @@ function AgentDetail({ agent, onClose, onToggle, onPromote, onSaved, pending }) 
           </div>
 
           {agent.role !== 'admin' && (
-            <div className="flex flex-wrap items-center justify-end gap-3 border-t border-mist pt-4">
+<div className="modal-actions items-center border-t border-mist pt-4">
               {agent.role === 'direct_agent' && agent.is_active && (
                 <Button
                   variant="secondary"

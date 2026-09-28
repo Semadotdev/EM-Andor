@@ -365,7 +365,7 @@ export default function AdminNotifications() {
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="modal-actions mt-6">
               <Button variant="secondary" onClick={() => setEditingType(null)}>
                 Cancel
               </Button>

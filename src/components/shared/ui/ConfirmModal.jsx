@@ -55,7 +55,7 @@ export default function ConfirmModal({
         </div>
       </div>
       {children && <div className="mt-4">{children}</div>}
-      <div className="mt-6 flex justify-end gap-3">
+      <div className="modal-actions mt-6">
         <button
           type="button"
           onClick={onClose}
