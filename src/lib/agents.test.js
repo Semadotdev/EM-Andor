@@ -8,6 +8,7 @@ import {
   fetchCurrentAgent,
   fetchMyDownline,
   fetchSoldCounts,
+  promoteAgentToHead,
   resetAgentAccountPassword,
   setAgentActive,
   updateAgentAccount,
@@ -87,6 +88,23 @@ describe('agents', () => {
     expect(c.eq).toHaveBeenCalledWith('id', 'a1')
     expect(result).toEqual(updated)
     expect(logActivity).toHaveBeenCalledWith('agent', 'a1', 'deactivate')
+  })
+
+  it('promoteAgentToHead promotes a direct agent to head and logs it', async () => {
+    const direct = { ...sub, id: 'd1', role: 'direct_agent' }
+    const updated = { ...direct, role: 'agent_head' }
+    const c = chain({ data: updated, error: null })
+    supabase.from.mockReturnValue(c)
+
+    const result = await promoteAgentToHead('d1')
+
+    expect(c.update).toHaveBeenCalledWith({ role: 'agent_head' })
+    expect(c.eq).toHaveBeenCalledWith('id', 'd1')
+    expect(result).toEqual(updated)
+    expect(logActivity).toHaveBeenCalledWith('agent', 'd1', 'promote', {
+      from: 'direct_agent',
+      to: 'agent_head',
+    })
   })
 
   it('fetchCommissionRates returns configured rows', async () => {

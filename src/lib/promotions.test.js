@@ -3,7 +3,6 @@ import {
   computePromotion,
   computeRewireUpline,
   countDirectRecruits,
-  countDownlineDirectAgents,
   eligibleAgents,
 } from './promotions.js'
 
@@ -19,9 +18,8 @@ describe('promotions', () => {
     expect(computePromotion({ role: 'sub_agent', ownSales: 4, directRecruits: 5 }).eligibleFor).toBeNull()
   })
 
-  it('promotes a direct agent when 5 direct agents are in the downline', () => {
-    expect(computePromotion({ role: 'direct_agent', downlineDirectAgents: 5 }).eligibleFor).toBe('agent_head')
-    expect(computePromotion({ role: 'direct_agent', downlineDirectAgents: 4 }).eligibleFor).toBeNull()
+  it('never auto-promotes a direct agent to head', () => {
+    expect(computePromotion({ role: 'direct_agent', ownSales: 99, directRecruits: 99 }).eligibleFor).toBeNull()
   })
 
   it('never promotes an agent head or admin', () => {
@@ -39,18 +37,6 @@ describe('promotions', () => {
     expect(countDirectRecruits(agents, 'a1')).toBe(1)
   })
 
-  it('counts direct agents anywhere below, not just one level down', () => {
-    const agents = [
-      agent('head1', 'agent_head'),
-      agent('d1', 'direct_agent', 'head1'),
-      agent('d2', 'direct_agent', 'd1'),
-      agent('s1', 'sub_agent', 'd2'),
-      agent('d3', 'direct_agent', 's1'),
-      agent('d4', 'direct_agent', 's1', false),
-    ]
-    expect(countDownlineDirectAgents(agents, 'head1')).toBe(3)
-  })
-
   it('returns every agent that is currently eligible', () => {
     const agents = [agent('s1', 'sub_agent')]
     for (let i = 0; i < 5; i++) agents.push(agent(`r${i}`, 'sub_agent', 's1'))
@@ -58,6 +44,13 @@ describe('promotions', () => {
 
     expect(eligible.get('s1').eligibleFor).toBe('direct_agent')
     expect(eligible.get('s1').counts).toEqual({ ownSales: 5, directRecruits: 5 })
+  })
+
+  it('does not flag direct agents as eligible for head', () => {
+    const agents = [agent('s1', 'sub_agent'), agent('d1', 'direct_agent', 's1')]
+    const eligible = eligibleAgents(agents, { d1: 5 })
+
+    expect(eligible.has('d1')).toBe(false)
   })
 })
 

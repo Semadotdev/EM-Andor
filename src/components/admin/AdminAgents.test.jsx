@@ -9,6 +9,7 @@ vi.mock('../../lib/agents.js', () => ({
   fetchAllAgents: vi.fn(),
   fetchSoldCounts: vi.fn(),
   setAgentActive: vi.fn(),
+  promoteAgentToHead: vi.fn(),
   updateAgent: vi.fn(),
   updateAgentAccount: vi.fn(),
   resetAgentAccountPassword: vi.fn(),
@@ -28,7 +29,7 @@ vi.mock('./CreateAgentModal.jsx', () => ({
   ),
 }))
 
-import { fetchAllAgents, fetchSoldCounts, resetAgentAccountPassword, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
+import { fetchAllAgents, fetchSoldCounts, promoteAgentToHead, resetAgentAccountPassword, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
 import { fetchCommissions, fetchTeamSales } from '../../lib/sales.js'
 import { verifyCurrentUserPassword } from '../../lib/auth.js'
 
@@ -131,6 +132,40 @@ describe('AdminAgents', () => {
 
     expect(setAgentActive).toHaveBeenCalledWith('a1', false)
     expect(await screen.findByText('Agent deactivated.')).toBeInTheDocument()
+  })
+
+  it('promotes an active direct agent to head after confirmation', async () => {
+    const user = userEvent.setup()
+    const direct = { id: 'd1', name: 'Ben Direct', email: 'ben@x.com', role: 'direct_agent', upline_id: null, is_active: true }
+    fetchAllAgents.mockResolvedValue([admin, otherAdmin, direct])
+    promoteAgentToHead.mockResolvedValue({ ...direct, role: 'agent_head' })
+
+    renderAdminAgents()
+
+    const row = (await screen.findByText('Ben Direct')).closest('li')
+    await user.click(within(row).getByRole('button', { name: 'View' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Ben Direct details' })
+    await user.click(within(dialog).getByRole('tab', { name: 'Profile' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Promote to Head' }))
+
+    const confirm = await screen.findByRole('alertdialog')
+    expect(within(confirm).getByText(/Promote "Ben Direct" from Direct to Head/)).toBeInTheDocument()
+    await user.click(within(confirm).getByRole('button', { name: 'Promote' }))
+
+    expect(promoteAgentToHead).toHaveBeenCalledWith('d1')
+    expect(await screen.findByText('Agent promoted to Head.')).toBeInTheDocument()
+  })
+
+  it('hides the promote to head action for sub agents, heads, and admins', async () => {
+    const head = { id: 'h1', name: 'Cara Head', email: 'cara@x.com', role: 'agent_head', upline_id: null, is_active: true }
+    fetchAllAgents.mockResolvedValue([admin, otherAdmin, sub, head])
+
+    renderAdminAgents()
+
+    await screen.findByText('Ana Sub')
+
+    expect(screen.queryByRole('button', { name: 'Promote to Head' })).not.toBeInTheDocument()
   })
 
   it('keeps activation actions inside the profile tab and hides them for admins', async () => {

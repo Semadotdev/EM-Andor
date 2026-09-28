@@ -2,6 +2,7 @@ import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { PageHeader } from '../shared/ui'
 import AgentStats from './AgentStats.jsx'
 import DashboardStats from './DashboardStats.jsx'
+import PromotionProgress from './PromotionProgress.jsx'
 
 const AGENT_LINKS = [
   { to: '/admin/lots', title: 'Available Lots', description: 'Browse the lots you can sell.' },
@@ -31,6 +32,7 @@ export default function Dashboard() {
   return (
     <div>
       <PageHeader title="Dashboard" description="Your sales, commissions, and team at a glance." />
+      <PromotionProgress agent={agent} downline={downline} />
       <AgentStats agent={agent} downlineCount={downline.length} />
       <div className="grid gap-4 sm:grid-cols-2">
         {links.map((item) => (

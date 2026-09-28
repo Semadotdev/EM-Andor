@@ -37,6 +37,13 @@ export async function setAgentActive(id, isActive) {
   return data
 }
 
+export async function promoteAgentToHead(id) {
+  const { data, error } = await supabase.from('agents').update({ role: 'agent_head' }).eq('id', id).select().single()
+  if (error) throw error
+  logActivity('agent', id, 'promote', { from: 'direct_agent', to: 'agent_head' }).catch(() => {})
+  return data
+}
+
 export async function updateAgent(id, { name, phone }) {
   const { data, error } = await supabase
     .from('agents')

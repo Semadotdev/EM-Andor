@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { ROLE_LABELS, buildAgentTree } from '../../lib/agentMeta.js'
-import { fetchAllAgents, fetchSoldCounts, resetAgentAccountPassword, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
+import { fetchAllAgents, fetchSoldCounts, promoteAgentToHead, resetAgentAccountPassword, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
 import { fetchCommissions, fetchTeamSales } from '../../lib/sales.js'
 import { eligibleAgents } from '../../lib/promotions.js'
 import { formatPrice } from '../../lib/format.js'
@@ -65,7 +65,7 @@ function OrgChart({ data }) {
   )
 }
 
-function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
+function AgentDetail({ agent, onClose, onToggle, onPromote, onSaved, pending }) {
   const [sales, setSales] = useState([])
   const [commissions, setCommissions] = useState([])
   const [allAgents, setAllAgents] = useState([])
@@ -437,7 +437,16 @@ function AgentDetail({ agent, onClose, onToggle, onSaved, pending }) {
           </div>
 
           {agent.role !== 'admin' && (
-            <div className="flex justify-end border-t border-mist pt-4">
+            <div className="flex flex-wrap items-center justify-end gap-3 border-t border-mist pt-4">
+              {agent.role === 'direct_agent' && agent.is_active && (
+                <Button
+                  variant="secondary"
+                  onClick={() => onPromote(agent)}
+                  disabled={Boolean(pending?.[agent.id])}
+                >
+                  Promote to Head
+                </Button>
+              )}
               <Button
                 variant={agent.is_active ? 'danger' : 'secondary'}
                 onClick={() => onToggle(agent)}
@@ -516,6 +525,8 @@ export default function AdminAgents() {
   const [detail, setDetail] = useState(null)
   const [confirmToggle, setConfirmToggle] = useState(null)
   const [toggling, setToggling] = useState(false)
+  const [confirmPromote, setConfirmPromote] = useState(null)
+  const [promoting, setPromoting] = useState(false)
   const [pending, setPending] = useState({})
   const [openIds, setOpenIds] = useState(() => new Set())
 
@@ -577,6 +588,27 @@ export default function AdminAgents() {
     setDetail((d) => (d && d.id === updated.id ? { ...d, ...updated } : d))
     showToast(message)
   }, [showToast])
+
+  const handlePromote = async () => {
+    if (!confirmPromote || promoting) return
+    const id = confirmPromote.id
+    setPromoting(true)
+    setError(null)
+    setPending((p) => ({ ...p, [id]: true }))
+    try {
+      const updated = await promoteAgentToHead(id)
+      setAgents((list) => list.map((a) => (a.id === id ? { ...a, ...updated } : a)))
+      setDetail((d) => (d && d.id === id ? { ...d, ...updated } : d))
+      setConfirmPromote(null)
+      showToast('Agent promoted to Head.')
+      load()
+    } catch {
+      setError('Could not promote the agent. Please try again.')
+    } finally {
+      setPromoting(false)
+      setPending((p) => ({ ...p, [id]: false }))
+    }
+  }
 
   return (
     <div>
@@ -645,6 +677,7 @@ export default function AdminAgents() {
           agent={detail}
           onClose={() => setDetail(null)}
           onToggle={setConfirmToggle}
+          onPromote={setConfirmPromote}
           onSaved={handleSaved}
           pending={pending}
         />
@@ -663,6 +696,16 @@ export default function AdminAgents() {
         confirmLabel={confirmToggle?.is_active ? 'Deactivate' : 'Activate'}
         destructive={Boolean(confirmToggle?.is_active)}
         loading={toggling}
+      />
+
+      <ConfirmModal
+        open={Boolean(confirmPromote)}
+        onClose={() => setConfirmPromote(null)}
+        onConfirm={handlePromote}
+        title="Promote to Head"
+        message={confirmPromote ? `Promote "${confirmPromote.name}" from Direct to Head?` : ''}
+        confirmLabel="Promote"
+        loading={promoting}
       />
     </div>
   )

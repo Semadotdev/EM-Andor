@@ -21,6 +21,10 @@ vi.mock('./AgentStats.jsx', () => ({
   ),
 }))
 
+vi.mock('./PromotionProgress.jsx', () => ({
+  default: ({ agent }) => <span>PromotionProgressPanel {agent.name}</span>,
+}))
+
 const admin = { id: 'admin1', name: 'Admin', role: 'admin' }
 const agent = { id: 'a1', name: 'Ana', role: 'sub_agent' }
 
@@ -57,6 +61,7 @@ describe('Dashboard', () => {
 
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
     expect(screen.getByText(/AgentStatsPanel Ana 1/)).toBeInTheDocument()
+    expect(screen.getByText('PromotionProgressPanel Ana')).toBeInTheDocument()
     expect(screen.queryByText('StatsPanel')).not.toBeInTheDocument()
 
     const links = [
