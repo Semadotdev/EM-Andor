@@ -10,6 +10,7 @@ export default function ConfirmModal({
   message,
   confirmLabel = 'Confirm',
   destructive = false,
+  icon,
   loading = false,
   children,
 }) {
@@ -31,6 +32,8 @@ export default function ConfirmModal({
     ? 'bg-red-600 text-white hover:bg-red-700 focus-visible:outline-red-600'
     : 'btn-gold'
 
+  const iconName = icon ?? (destructive ? 'safety' : 'detail')
+
   return (
     <Modal
       open={open}
@@ -42,7 +45,7 @@ export default function ConfirmModal({
     >
       <div className="flex items-start gap-4">
         <span className={`mt-0.5 grid size-10 shrink-0 place-items-center rounded-full ${destructive ? 'bg-red-100 text-red-600' : 'bg-brand/10 text-brand'}`}>
-          <Icon name={destructive ? 'safety' : 'detail'} className="size-5" />
+          <Icon name={iconName} className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
           <h3 className="font-display text-lg font-bold text-brand-deep">{title}</h3>

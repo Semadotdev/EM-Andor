@@ -268,6 +268,8 @@ export default function AdminLayout() {
             title="Sign out?"
             message="You will be returned to the login screen."
             confirmLabel="Sign out"
+            destructive
+            icon="logout"
           />
         )}
       </div>

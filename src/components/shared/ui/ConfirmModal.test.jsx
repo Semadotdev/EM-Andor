@@ -59,6 +59,15 @@ describe('ConfirmModal', () => {
     expect(screen.getByRole('button', { name: 'Delete' })).toHaveClass('bg-red-600')
   })
 
+  it('renders a custom icon in red when destructive and an icon are provided', () => {
+    render(<ConfirmModal {...base} destructive icon="logout" confirmLabel="Sign out" />)
+
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete Lot' })
+    const icon = dialog.querySelector('svg')
+    expect(icon).toBeInTheDocument()
+    expect(icon.innerHTML).toContain('M9 21H5')
+  })
+
   it('auto-focuses the confirm button', async () => {
     render(<ConfirmModal {...base} />)
 

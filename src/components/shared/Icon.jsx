@@ -77,6 +77,13 @@ export default function Icon({ name, className = 'size-6' }) {
         <path d="m9 12 2 2 4-4" />
       </svg>
     ),
+    logout: (
+      <svg {...common}>
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <path d="m16 17 5-5-5-5" />
+        <path d="m21 12-12 0" />
+      </svg>
+    ),
     phone: (
       <svg {...common}>
         <path d="M5 4h4l1.5 4.5-2.2 1.7a12 12 0 0 0 5.5 5.5l1.7-2.2L20 15v4a1.5 1.5 0 0 1-1.7 1.5C10.5 19.6 4.4 13.5 3.5 5.7A1.5 1.5 0 0 1 5 4Z" />
