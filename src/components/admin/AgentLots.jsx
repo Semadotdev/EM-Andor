@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { fetchProperties } from '../../lib/api.js'
 import { formatPrice } from '../../lib/format.js'
-import { Badge, EmptyState, ErrorState, LoadingState, PageHeader, Pagination } from '../shared/ui'
+import { Badge, Button, EmptyState, ErrorState, LoadingState, PageHeader, Pagination } from '../shared/ui'
+import Icon from '../shared/Icon.jsx'
+import ComputationModal from './ComputationModal.jsx'
+import logoSrc from '../../assets/logo.png'
 
 const PAGE_SIZE_OPTIONS = [6, 9, 12]
 
@@ -11,6 +14,7 @@ export default function AgentLots() {
   const [state, setState] = useState('loading')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(9)
+  const [computeLot, setComputeLot] = useState(null)
 
   useEffect(() => {
     let mounted = true
@@ -44,12 +48,13 @@ export default function AgentLots() {
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {lots.map((lot) => (
               <article key={lot.id} className="overflow-hidden rounded-lg border border-mist bg-white shadow-card">
-                <img
-                  src={lot.image_url || '/images/lot-placeholder.svg'}
-                  alt=""
-                  loading="lazy"
-                  className="h-40 w-full object-cover"
-                />
+                {lot.image_url ? (
+                  <img src={lot.image_url} alt="" loading="lazy" className="h-40 w-full object-cover" />
+                ) : (
+                  <div className="grid h-40 place-items-center bg-mist">
+                    <img src={logoSrc} alt="" loading="lazy" className="max-h-24 w-auto object-contain opacity-70" />
+                  </div>
+                )}
                 <div className="space-y-1.5 p-4">
                   <div className="flex items-center justify-between gap-2">
                     <h2 className="font-display font-bold text-brand-deep">{lot.name}</h2>
@@ -60,6 +65,16 @@ export default function AgentLots() {
                   {lot.lot_area_sqm != null && (
                     <p className="text-xs text-ink/50">{Number(lot.lot_area_sqm).toLocaleString('en-PH')} sqm</p>
                   )}
+                  <div className="flex justify-end pt-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      aria-label="Compute"
+                      onClick={() => setComputeLot(lot)}
+                    >
+                      <Icon name="eye" className="size-4" />
+                    </Button>
+                  </div>
                 </div>
               </article>
             ))}
@@ -80,6 +95,8 @@ export default function AgentLots() {
           />
         </>
       )}
+
+      {computeLot && <ComputationModal lot={computeLot} onClose={() => setComputeLot(null)} />}
     </div>
   )
 }

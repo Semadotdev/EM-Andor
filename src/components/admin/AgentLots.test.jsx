@@ -2,8 +2,16 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AgentLots from './AgentLots.jsx'
+import logoSrc from '../../assets/logo.png'
 
 vi.mock('../../lib/api.js', () => ({ fetchProperties: vi.fn() }))
+vi.mock('./ComputationModal.jsx', () => ({
+  default: ({ onClose }) => (
+    <div role="dialog" aria-label="Quick computation">
+      <button onClick={onClose}>Close</button>
+    </div>
+  ),
+}))
 
 import { fetchProperties } from '../../lib/api.js'
 
@@ -22,12 +30,12 @@ describe('AgentLots', () => {
     fetchProperties.mockResolvedValue({ data: [LOT('p1', 'Andor Ridge Lot A')], count: 1 })
   })
 
-  it('lists available lots with prices by page, using the placeholder image when none is set', async () => {
+  it('lists available lots with prices by page, using the website logo when no picture is set', async () => {
     const { container } = render(<AgentLots />)
 
     expect(await screen.findByText('Andor Ridge Lot A')).toBeInTheDocument()
     expect(screen.getByText('₱ 1,500,000')).toBeInTheDocument()
-    expect(container.querySelector('img')).toHaveAttribute('src', '/images/lot-placeholder.svg')
+    expect(container.querySelector('img')).toHaveAttribute('src', logoSrc)
     expect(fetchProperties).toHaveBeenCalledWith({
       status: 'available',
       sort: 'newest',
@@ -46,6 +54,29 @@ describe('AgentLots', () => {
 
     expect(await screen.findByText('Andor Ridge Lot A')).toBeInTheDocument()
     expect(container.querySelector('img')).toHaveAttribute('src', 'https://cdn.example.com/lot.jpg')
+  })
+
+  it('opens the quick computation modal for a lot from its compute button', async () => {
+    const user = userEvent.setup()
+
+    render(<AgentLots />)
+
+    await screen.findByText('Andor Ridge Lot A')
+    await user.click(screen.getByRole('button', { name: 'Compute' }))
+
+    expect(screen.getByRole('dialog', { name: 'Quick computation' })).toBeInTheDocument()
+  })
+
+  it('closes the quick computation modal', async () => {
+    const user = userEvent.setup()
+
+    render(<AgentLots />)
+
+    await screen.findByText('Andor Ridge Lot A')
+    await user.click(screen.getByRole('button', { name: 'Compute' }))
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Quick computation' })).not.toBeInTheDocument()
   })
 
   it('pages through the lots and refetches the selected page', async () => {
