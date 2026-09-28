@@ -12,7 +12,7 @@ vi.mock('../../lib/agents.js', () => ({
   promoteAgentToHead: vi.fn(),
   updateAgent: vi.fn(),
   updateAgentAccount: vi.fn(),
-  resetAgentAccountPassword: vi.fn(),
+  sendPasswordResetEmail: vi.fn(),
 }))
 vi.mock('../../lib/sales.js', () => ({
   fetchCommissions: vi.fn().mockResolvedValue([]),
@@ -29,7 +29,7 @@ vi.mock('./CreateAgentModal.jsx', () => ({
   ),
 }))
 
-import { fetchAllAgents, fetchSoldCounts, promoteAgentToHead, resetAgentAccountPassword, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
+import { fetchAllAgents, fetchSoldCounts, promoteAgentToHead, sendPasswordResetEmail, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
 import { fetchCommissions, fetchTeamSales } from '../../lib/sales.js'
 import { verifyCurrentUserPassword } from '../../lib/auth.js'
 
@@ -382,9 +382,9 @@ describe('AdminAgents', () => {
     expect(await screen.findByText('Profile saved.')).toBeInTheDocument()
   })
 
-  it('marks an agent to require a new password at their next sign-in', async () => {
+  it('sends a password reset email to the agent', async () => {
     const user = userEvent.setup()
-    resetAgentAccountPassword.mockResolvedValue({ ...sub })
+    sendPasswordResetEmail.mockResolvedValue(undefined)
 
     renderAdminAgents()
 
@@ -394,10 +394,26 @@ describe('AdminAgents', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Ana Sub details' })
     await user.click(within(dialog).getByRole('tab', { name: 'Profile' }))
 
-    await user.click(within(dialog).getByRole('button', { name: 'Require new password' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Reset Password' }))
 
-    expect(resetAgentAccountPassword).toHaveBeenCalledWith('a1')
-    expect(await screen.findByText('Password reset required.')).toBeInTheDocument()
+    expect(sendPasswordResetEmail).toHaveBeenCalledWith(expect.objectContaining({ id: 'a1', email: 'ana@x.com' }))
+    expect(await screen.findByText('Password reset email sent to ana@x.com.')).toBeInTheDocument()
+  })
+
+  it('explains when an agent has no login account to reset', async () => {
+    const user = userEvent.setup()
+    sendPasswordResetEmail.mockRejectedValue(new Error('This agent has no login account yet.'))
+
+    renderAdminAgents()
+
+    const row = (await screen.findByText('Ana Sub')).closest('li')
+    await user.click(within(row).getByRole('button', { name: 'View' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Ana Sub details' })
+    await user.click(within(dialog).getByRole('tab', { name: 'Profile' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Reset Password' }))
+
+    expect(await within(dialog).findByText('This agent has no login account yet.')).toBeInTheDocument()
   })
 
   it('searches agents by name', async () => {
@@ -518,7 +534,7 @@ describe('AdminAgents', () => {
   it('requires the current admin password to reset another admin password', async () => {
     const user = userEvent.setup()
     fetchAllAgents.mockResolvedValue([admin, otherAdmin, sub, recruit])
-    resetAgentAccountPassword.mockResolvedValue({ ...otherAdmin })
+    sendPasswordResetEmail.mockResolvedValue(undefined)
 
     renderAdminAgents()
 
@@ -528,14 +544,14 @@ describe('AdminAgents', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Boss Admin details' })
     await user.click(within(dialog).getByRole('tab', { name: 'Profile' }))
 
-    await user.click(within(dialog).getByRole('button', { name: 'Require new password' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Reset Password' }))
     expect(await within(dialog).findByText('Enter your admin password to continue.')).toBeInTheDocument()
-    expect(resetAgentAccountPassword).not.toHaveBeenCalled()
+    expect(sendPasswordResetEmail).not.toHaveBeenCalled()
 
     await user.type(within(dialog).getByLabelText('Admin password'), 'secret')
-    await user.click(within(dialog).getByRole('button', { name: 'Require new password' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Reset Password' }))
     expect(verifyCurrentUserPassword).toHaveBeenCalledWith('secret')
-    expect(resetAgentAccountPassword).toHaveBeenCalledWith('admin2')
-    expect(await screen.findByText('Password reset required.')).toBeInTheDocument()
+    expect(sendPasswordResetEmail).toHaveBeenCalledWith(expect.objectContaining({ id: 'admin2', email: 'boss@x.com' }))
+    expect(await screen.findByText('Password reset email sent to boss@x.com.')).toBeInTheDocument()
   })
 })

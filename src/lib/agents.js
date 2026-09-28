@@ -79,26 +79,19 @@ export async function updateAgentAccount(id, { email, password }) {
   return agent
 }
 
-export async function resetAgentAccountPassword(id) {
-  const { data, error } = await supabase.functions.invoke('update-agent-account', {
-    body: { agent_id: id, reset_password: true },
+export async function sendPasswordResetEmail(agent) {
+  if (!agent?.user_id) throw new Error('This agent has no login account yet.')
+  const { error } = await supabase.auth.resetPasswordForEmail(agent.email, {
+    redirectTo: `${window.location.origin}/admin/update-password`,
   })
-
   if (error) {
-    let message = error.message
-    try {
-      const body = await error.context.json()
-      if (body?.error) message = body.error
-    } catch {
-      // keep the SDK message when the body cannot be read
-    }
-    throw new Error(message || 'Could not reset the password.')
+    throw new Error(
+      /For security purposes/i.test(error.message)
+        ? 'Please wait a moment before requesting another email.'
+        : error.message || 'Could not send the password reset email.',
+    )
   }
-  if (data?.error) throw new Error(data.error)
-
-  const agent = data?.agent
-  if (!agent) throw new Error('Could not reset the password.')
-  logActivity('agent', id, 'reset_password_required').catch(() => {})
+  logActivity('agent', agent.id, 'password_reset_sent').catch(() => {})
   return agent
 }
 

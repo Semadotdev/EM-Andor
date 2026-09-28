@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { ROLE_LABELS, buildAgentTree } from '../../lib/agentMeta.js'
-import { fetchAllAgents, fetchSoldCounts, promoteAgentToHead, resetAgentAccountPassword, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
+import { fetchAllAgents, fetchSoldCounts, promoteAgentToHead, sendPasswordResetEmail, setAgentActive, updateAgent, updateAgentAccount } from '../../lib/agents.js'
 import { fetchCommissions, fetchTeamSales } from '../../lib/sales.js'
 import { eligibleAgents } from '../../lib/promotions.js'
 import { formatPrice } from '../../lib/format.js'
@@ -223,9 +223,9 @@ function AgentDetail({ agent, onClose, onToggle, onPromote, onSaved, pending }) 
     setSaveError(null)
     try {
       if (agent.role === 'admin') await requireAdminPassword()
-      const updated = await resetAgentAccountPassword(agent.id)
+      await sendPasswordResetEmail(agent)
       setAdminPassword('')
-      onSaved(updated, 'Password reset required.')
+      onSaved(agent, `Password reset email sent to ${agent.email}.`)
     } catch (err) {
       setSaveError(err?.message || 'Could not require a new password. Please try again.')
     } finally {
@@ -415,7 +415,7 @@ function AgentDetail({ agent, onClose, onToggle, onPromote, onSaved, pending }) 
           <div className="grid gap-4 sm:grid-cols-2">
             <Input id="ap-email" label="Email" type="email" value={form.email} onChange={setField('email')} required />
           </div>
-          <p className="text-xs text-ink/50">Email is the agent's login. To change their password, use the Require new password button below.</p>
+          <p className="text-xs text-ink/50">Email is the agent's login. To reset their password, send them a reset link by email.</p>
 
           {saveError && (
             <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
@@ -430,9 +430,9 @@ function AgentDetail({ agent, onClose, onToggle, onPromote, onSaved, pending }) 
           </div>
 
           <div className="modal-actions items-center border-t border-mist pt-4">
-            <p className="text-xs text-ink/50">Force the agent to choose a new password at their next sign-in.</p>
+            <p className="text-xs text-ink/50">Send an email that lets the agent choose a new password.</p>
             <Button variant="secondary" onClick={resetAccountPassword} disabled={resetting}>
-              {resetting ? 'Requesting…' : 'Require new password'}
+              {resetting ? 'Sending…' : 'Reset Password'}
             </Button>
           </div>
 

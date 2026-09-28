@@ -9,7 +9,7 @@ import {
   fetchMyDownline,
   fetchSoldCounts,
   promoteAgentToHead,
-  resetAgentAccountPassword,
+  sendPasswordResetEmail,
   setAgentActive,
   updateAgentAccount,
   updateCommissionRates,
@@ -17,7 +17,7 @@ import {
 
 vi.mock('./supabase.js', () => ({
   supabase: {
-    auth: { getUser: vi.fn() },
+    auth: { getUser: vi.fn(), resetPasswordForEmail: vi.fn() },
     from: vi.fn(),
     functions: { invoke: vi.fn() },
   },
@@ -254,28 +254,33 @@ describe('agents', () => {
     await expect(updateAgentAccount('a1', { email: 'new@x.com' })).rejects.toThrow('This agent has no login account yet.')
   })
 
-  it('resetAgentAccountPassword flags the agent and logs it', async () => {
-    const updated = { id: 'a1', email: 'sub@x.com', name: 'Sub', role: 'sub_agent' }
-    supabase.functions.invoke.mockResolvedValue({ data: { agent: updated }, error: null })
+  it('sendPasswordResetEmail sends a recovery email to the agent and logs it', async () => {
+    const agent = { id: 'a1', email: 'sub@x.com', user_id: 'u1' }
+    supabase.auth.resetPasswordForEmail.mockResolvedValue({ error: null })
 
-    const result = await resetAgentAccountPassword('a1')
+    const result = await sendPasswordResetEmail(agent)
 
-    expect(supabase.functions.invoke).toHaveBeenCalledWith('update-agent-account', {
-      body: { agent_id: 'a1', reset_password: true },
+    expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith('sub@x.com', {
+      redirectTo: expect.stringContaining('/admin/update-password'),
     })
-    expect(result).toEqual(updated)
-    expect(logActivity).toHaveBeenCalledWith('agent', 'a1', 'reset_password_required')
+    expect(result).toEqual(agent)
+    expect(logActivity).toHaveBeenCalledWith('agent', 'a1', 'password_reset_sent')
   })
 
-  it('resetAgentAccountPassword surfaces the edge function error body', async () => {
-    supabase.functions.invoke.mockResolvedValue({
-      data: null,
-      error: {
-        message: 'Edge Function returned a non-2xx status code',
-        context: { json: async () => ({ error: 'Nothing to update.' }) },
-      },
+  it('sendPasswordResetEmail rejects agents without a login account', async () => {
+    await expect(sendPasswordResetEmail({ id: 'a1', email: 'sub@x.com' })).rejects.toThrow(
+      'This agent has no login account yet.',
+    )
+    expect(supabase.auth.resetPasswordForEmail).not.toHaveBeenCalled()
+  })
+
+  it('sendPasswordResetEmail surfaces the rate limit message', async () => {
+    supabase.auth.resetPasswordForEmail.mockResolvedValue({
+      error: { message: 'For security purposes, you can only request this once every 60 seconds.' },
     })
 
-    await expect(resetAgentAccountPassword('a1')).rejects.toThrow('Nothing to update.')
+    await expect(
+      sendPasswordResetEmail({ id: 'a1', email: 'sub@x.com', user_id: 'u1' }),
+    ).rejects.toThrow('Please wait a moment before requesting another email.')
   })
 })
