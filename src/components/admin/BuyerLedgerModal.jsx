@@ -282,7 +282,7 @@ export default function BuyerLedgerModal({ lot, project, onClose, onChanged }) {
             </div>
 
             <div className="modal-actions mb-4">
-              <Button onClick={openAddPayment}>Add Payment</Button>
+              <Button onClick={openAddPayment}>Payment</Button>
               <Button variant="secondary" onClick={() => setShowEditSale(true)}>
                 Edit Sale
               </Button>

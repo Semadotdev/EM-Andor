@@ -100,7 +100,7 @@ describe('DownpaymentModal', () => {
 
     await openForm()
     await user.type(screen.getByLabelText('Downpayment'), '0')
-    await user.click(screen.getByRole('button', { name: 'Record Downpayment' }))
+    await user.click(screen.getByRole('button', { name: 'Pay' }))
 
     expect(completeDownpayment).not.toHaveBeenCalled()
     expect(screen.getByText('Downpayment must be greater than 0.')).toBeInTheDocument()
@@ -132,7 +132,7 @@ describe('DownpaymentModal', () => {
     await openForm()
     await user.type(screen.getByLabelText('Downpayment'), '49999')
     await user.selectOptions(screen.getByLabelText('Terms of Payment'), '24')
-    await user.click(screen.getByRole('button', { name: 'Record Downpayment' }))
+    await user.click(screen.getByRole('button', { name: 'Pay' }))
 
     expect(completeDownpayment).not.toHaveBeenCalled()
     expect(
@@ -149,7 +149,7 @@ describe('DownpaymentModal', () => {
     await openForm()
     await user.type(screen.getByLabelText('Downpayment'), '50000')
     await user.selectOptions(screen.getByLabelText('Terms of Payment'), '24')
-    await user.click(screen.getByRole('button', { name: 'Record Downpayment' }))
+    await user.click(screen.getByRole('button', { name: 'Pay' }))
 
     expect(completeDownpayment).toHaveBeenCalled()
     expect(screen.queryByText(/must be at least/)).not.toBeInTheDocument()
@@ -172,7 +172,7 @@ describe('DownpaymentModal', () => {
 
     await openForm()
     await user.type(screen.getByLabelText('Downpayment'), '600000')
-    await user.click(screen.getByRole('button', { name: 'Record Downpayment' }))
+    await user.click(screen.getByRole('button', { name: 'Pay' }))
 
     expect(completeDownpayment).not.toHaveBeenCalled()
     expect(screen.getByText('Downpayment cannot exceed the TCP.')).toBeInTheDocument()
@@ -186,7 +186,7 @@ describe('DownpaymentModal', () => {
     await openForm()
     await user.type(screen.getByLabelText('Downpayment'), '100000')
     await user.selectOptions(screen.getByLabelText('Terms of Payment'), '')
-    await user.click(screen.getByRole('button', { name: 'Record Downpayment' }))
+    await user.click(screen.getByRole('button', { name: 'Pay' }))
 
     expect(completeDownpayment).not.toHaveBeenCalled()
     expect(screen.getByText('Select the terms of payment.')).toBeInTheDocument()
@@ -201,7 +201,7 @@ describe('DownpaymentModal', () => {
     await openForm()
     await user.type(screen.getByLabelText('Downpayment'), '100000')
     await user.selectOptions(screen.getByLabelText('Terms of Payment'), '24')
-    await user.click(screen.getByRole('button', { name: 'Record Downpayment' }))
+    await user.click(screen.getByRole('button', { name: 'Pay' }))
 
     expect(completeDownpayment).toHaveBeenCalledWith({
       propertyId: 'l1',
@@ -242,7 +242,7 @@ describe('DownpaymentModal', () => {
 
     await openForm()
     await user.type(screen.getByLabelText('Downpayment'), '100000')
-    await user.click(screen.getByRole('button', { name: 'Record Downpayment' }))
+    await user.click(screen.getByRole('button', { name: 'Pay' }))
 
     expect(await screen.findByText('boom')).toBeInTheDocument()
     expect(completeDownpayment).toHaveBeenCalled()

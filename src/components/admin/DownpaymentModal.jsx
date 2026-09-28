@@ -204,7 +204,7 @@ export default function DownpaymentModal({ lot, project, onClose, onSold }) {
                 Cancel
               </Button>
               <Button type="submit" disabled={saving}>
-                {saving ? 'Saving…' : 'Record Downpayment'}
+                {saving ? 'Saving…' : 'Pay'}
               </Button>
             </div>
           </form>

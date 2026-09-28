@@ -164,7 +164,7 @@ describe('BuyerLedgerModal', () => {
     render(<BuyerLedgerModal lot={lot} project={project} onClose={vi.fn()} onChanged={onChanged} />)
 
     await screen.findByText('OR-1')
-    await user.click(screen.getByRole('button', { name: 'Add Payment' }))
+    await user.click(screen.getByRole('button', { name: 'Payment' }))
 
     const dialog = screen.getByRole('dialog', { name: 'Add payment' })
     await user.type(within(dialog).getByLabelText('DATE'), '2026-03-05')
@@ -194,7 +194,7 @@ describe('BuyerLedgerModal', () => {
     render(<BuyerLedgerModal lot={lot} project={project} onClose={vi.fn()} onChanged={vi.fn()} />)
 
     await screen.findByText('OR-1')
-    await user.click(screen.getByRole('button', { name: 'Add Payment' }))
+    await user.click(screen.getByRole('button', { name: 'Payment' }))
 
     const dialog = screen.getByRole('dialog', { name: 'Add payment' })
     await user.type(within(dialog).getByLabelText('DATE'), '2026-03-05')
@@ -210,7 +210,7 @@ describe('BuyerLedgerModal', () => {
     render(<BuyerLedgerModal lot={lot} project={project} onClose={vi.fn()} onChanged={vi.fn()} />)
 
     await screen.findByText('OR-1')
-    await user.click(screen.getByRole('button', { name: 'Add Payment' }))
+    await user.click(screen.getByRole('button', { name: 'Payment' }))
 
     const dialog = screen.getByRole('dialog', { name: 'Add payment' })
     await user.click(within(dialog).getByRole('button', { name: 'Add Payment' }))
@@ -258,7 +258,7 @@ describe('BuyerLedgerModal', () => {
     render(<BuyerLedgerModal lot={lot} project={project} onClose={vi.fn()} onChanged={vi.fn()} />)
 
     await screen.findByText('OR-1')
-    await user.click(screen.getByRole('button', { name: 'Add Payment' }))
+    await user.click(screen.getByRole('button', { name: 'Payment' }))
 
     const dialog = screen.getByRole('dialog', { name: 'Add payment' })
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
@@ -400,7 +400,7 @@ describe('BuyerLedgerModal', () => {
     render(<BuyerLedgerModal lot={lot} project={project} onClose={onClose} onChanged={vi.fn()} />)
 
     await screen.findByText('OR-1')
-    await user.click(screen.getByRole('button', { name: 'Add Payment' }))
+    await user.click(screen.getByRole('button', { name: 'Payment' }))
     await screen.findByRole('dialog', { name: 'Add payment' })
 
     await user.keyboard('{Escape}')

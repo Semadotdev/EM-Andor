@@ -190,7 +190,8 @@ function AgentDetail({ agent, onClose, onToggle, onPromote, onSaved, pending }) 
     await verifyCurrentUserPassword(adminPassword)
   }
 
-  const saveProfile = async () => {
+  const saveProfile = async (event) => {
+    if (event) event.preventDefault()
     if (saving) return
     if (!form.name.trim()) {
       setSaveError('Name is required.')
@@ -377,9 +378,15 @@ function AgentDetail({ agent, onClose, onToggle, onPromote, onSaved, pending }) 
       )}
 
       {state === 'ready' && tab === 'profile' && (
-        <div role="tabpanel" className="space-y-5">
+        <form role="tabpanel" onSubmit={saveProfile} noValidate className="grid gap-5 sm:grid-cols-2">
+          {saveError && (
+            <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700 sm:col-span-2">
+              {saveError}
+            </p>
+          )}
+
           {agent.role === 'admin' && (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-4 sm:col-span-2">
               <p className="mb-2 text-sm font-semibold text-amber-800">Admin account</p>
               <p className="mb-3 text-xs text-amber-700">Enter your admin password to make changes to this account.</p>
               <Input
@@ -407,56 +414,46 @@ function AgentDetail({ agent, onClose, onToggle, onPromote, onSaved, pending }) 
             </div>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input id="ap-name" label="Name" value={form.name} onChange={setField('name')} required />
-            <Input id="ap-phone" label="Phone" value={form.phone} onChange={setField('phone')} />
+          <div className="sm:col-span-2">
+            <Input id="ap-name" autoFocus label="Name" value={form.name} onChange={setField('name')} required />
           </div>
+          <Input id="ap-email" label="Email" type="email" value={form.email} onChange={setField('email')} required />
+          <Input id="ap-phone" label="Phone" value={form.phone} onChange={setField('phone')} />
+          <p className="text-xs text-ink/50 sm:col-span-2">Email is the agent's login. To reset their password, send them a reset link by email.</p>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input id="ap-email" label="Email" type="email" value={form.email} onChange={setField('email')} required />
-          </div>
-          <p className="text-xs text-ink/50">Email is the agent's login. To reset their password, send them a reset link by email.</p>
-
-          {saveError && (
-            <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
-              {saveError}
-            </p>
-          )}
-
-          <div className="flex justify-end">
-            <Button onClick={saveProfile} disabled={saving}>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-mist pt-4 sm:col-span-2">
+            <div className="flex flex-wrap items-center gap-3">
+              {agent.role !== 'admin' && (
+                <>
+                  {agent.role === 'direct_agent' && agent.is_active && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => onPromote(agent)}
+                      disabled={Boolean(pending?.[agent.id])}
+                    >
+                      Promote to Head
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant={agent.is_active ? 'danger' : 'secondary'}
+                    onClick={() => onToggle(agent)}
+                    disabled={Boolean(pending?.[agent.id])}
+                  >
+                    {agent.is_active ? 'Deactivate Account' : 'Activate Account'}
+                  </Button>
+                </>
+              )}
+              <Button type="button" variant="secondary" onClick={resetAccountPassword} disabled={resetting}>
+                {resetting ? 'Sending…' : 'Reset Password'}
+              </Button>
+            </div>
+            <Button type="submit" disabled={saving}>
               {saving ? 'Saving…' : 'Save Profile'}
             </Button>
           </div>
-
-          <div className="modal-actions items-center border-t border-mist pt-4">
-            <p className="text-xs text-ink/50">Send an email that lets the agent choose a new password.</p>
-            <Button variant="secondary" onClick={resetAccountPassword} disabled={resetting}>
-              {resetting ? 'Sending…' : 'Reset Password'}
-            </Button>
-          </div>
-
-          {agent.role !== 'admin' && (
-<div className="modal-actions items-center border-t border-mist pt-4">
-              {agent.role === 'direct_agent' && agent.is_active && (
-                <Button
-                  variant="secondary"
-                  onClick={() => onPromote(agent)}
-                  disabled={Boolean(pending?.[agent.id])}
-                >
-                  Promote to Head
-                </Button>
-              )}
-              <Button
-                variant={agent.is_active ? 'danger' : 'secondary'}
-                onClick={() => onToggle(agent)}
-                disabled={Boolean(pending?.[agent.id])}
-              >
-                {agent.is_active ? 'Deactivate Account' : 'Activate Account'}
-              </Button>
-            </div>
-          )}
-        </div>
+        </form>
       )}
     </Modal>
   )
