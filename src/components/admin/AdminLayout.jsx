@@ -6,7 +6,7 @@ import { ROLE_LABELS } from '../../lib/agentMeta.js'
 import Logo from '../shared/Logo.jsx'
 import BrandLoader from '../shared/ui/BrandLoader.jsx'
 import useInstallPrompt from '../../hooks/useInstallPrompt.js'
-import { ToastProvider } from '../shared/ui'
+import { ToastProvider, ConfirmModal } from '../shared/ui'
 
 const DASHBOARD_ITEM = { to: '/admin', label: 'Dashboard', end: true }
 
@@ -90,7 +90,13 @@ export default function AdminLayout() {
   const [agentError, setAgentError] = useState(null)
   const [downline, setDownline] = useState([])
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [confirmSignOut, setConfirmSignOut] = useState(false)
   const { canInstall, promptInstall } = useInstallPrompt()
+
+  const signOut = () => {
+    setConfirmSignOut(false)
+    supabase.auth.signOut()
+  }
 
   useEffect(() => {
     let mounted = true
@@ -189,7 +195,7 @@ export default function AdminLayout() {
                 <p className="text-xs text-ink/50">{ROLE_LABELS[agent.role] ?? agent.role}</p>
               </div>
               <button
-                onClick={() => supabase.auth.signOut()}
+                onClick={() => setConfirmSignOut(true)}
                 className="hidden rounded-md border border-mist px-4 py-2 text-sm font-semibold text-ink/70 transition-colors hover:border-brand hover:text-brand lg:block"
               >
                 Sign out
@@ -245,7 +251,7 @@ export default function AdminLayout() {
                   </div>
                 )}
                 <button
-                  onClick={() => supabase.auth.signOut()}
+                  onClick={() => setConfirmSignOut(true)}
                   className="w-full rounded-md border border-mist px-4 py-2 text-sm font-semibold text-ink/70 transition-colors hover:border-brand hover:text-brand"
                 >
                   Sign out
@@ -253,6 +259,16 @@ export default function AdminLayout() {
               </div>
             </div>
           </div>
+        )}
+        {confirmSignOut && (
+          <ConfirmModal
+            open={confirmSignOut}
+            onClose={() => setConfirmSignOut(false)}
+            onConfirm={signOut}
+            title="Sign out?"
+            message="You will be returned to the login screen."
+            confirmLabel="Sign out"
+          />
         )}
       </div>
     </ToastProvider>

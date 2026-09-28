@@ -116,7 +116,7 @@ describe('AdminLayout', () => {
     expect(screen.queryByRole('link', { name: 'My Downline' })).not.toBeInTheDocument()
   })
 
-  it('shows the agent name and role in the header and signs out', async () => {
+  it('shows the agent name and role in the header and signs out after confirmation', async () => {
     fetchCurrentAgent.mockResolvedValue({ id: 'a1', name: 'Ana Cruz', role: 'sub_agent', is_active: true })
     const user = userEvent.setup()
 
@@ -126,7 +126,28 @@ describe('AdminLayout', () => {
     expect(screen.getByText('Sub')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
 
+    const dialog = await screen.findByRole('alertdialog', { name: 'Sign out?' })
+    expect(dialog).toHaveTextContent('You will be returned to the login screen.')
+    expect(supabase.auth.signOut).not.toHaveBeenCalled()
+    await user.click(within(dialog).getByRole('button', { name: 'Sign out' }))
+
     expect(supabase.auth.signOut).toHaveBeenCalled()
+  })
+
+  it('leaves the session intact when cancelling sign out', async () => {
+    fetchCurrentAgent.mockResolvedValue({ id: 'a1', name: 'Ana Cruz', role: 'sub_agent', is_active: true })
+    const user = userEvent.setup()
+
+    renderLayout()
+
+    await screen.findByText('Ana Cruz')
+    await user.click(screen.getByRole('button', { name: 'Sign out' }))
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Sign out?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('alertdialog', { name: 'Sign out?' })).not.toBeInTheDocument()
+    expect(supabase.auth.signOut).not.toHaveBeenCalled()
   })
 
   it('shows the not-linked screen with sign out when no agent profile exists', async () => {
@@ -160,6 +181,8 @@ describe('AdminLayout', () => {
     expect(within(drawer).getByText('Sub')).toBeInTheDocument()
 
     await user.click(within(drawer).getByRole('button', { name: 'Sign out' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Sign out?' })
+    await user.click(within(dialog).getByRole('button', { name: 'Sign out' }))
     expect(supabase.auth.signOut).toHaveBeenCalledTimes(1)
   })
 
