@@ -4,18 +4,25 @@ import userEvent from '@testing-library/user-event'
 import ReservationModal from './ReservationModal.jsx'
 import { renderWithToast as render } from '../../test/renderWithToast.jsx'
 
-vi.mock('../../lib/agents.js', () => ({ fetchAllAgents: vi.fn() }))
-vi.mock('../../lib/sales.js', () => ({ completeReservationWithDownpayment: vi.fn(), lotFieldsForSale: (lot) => {
-  const fields = { ...lot }
-  delete fields.id
-  delete fields.created_at
-  delete fields.updated_at
-  delete fields.sales
-  return fields
-}, reserveLot: vi.fn() }))
+vi.mock('../../lib/agents.js', () => ({ fetchAllAgents: vi.fn(), fetchCommissionRatesMap: vi.fn() }))
+vi.mock('../../lib/projects.js', () => ({ fetchProjectRatesMap: vi.fn() }))
+vi.mock('../../lib/sales.js', () => ({
+  completeReservationWithDownpayment: vi.fn(),
+  resolveChainForAgent: vi.fn(),
+  lotFieldsForSale: (lot) => {
+    const fields = { ...lot }
+    delete fields.id
+    delete fields.created_at
+    delete fields.updated_at
+    delete fields.sales
+    return fields
+  },
+  reserveLot: vi.fn(),
+}))
 
-import { fetchAllAgents } from '../../lib/agents.js'
-import { completeReservationWithDownpayment, reserveLot } from '../../lib/sales.js'
+import { fetchAllAgents, fetchCommissionRatesMap } from '../../lib/agents.js'
+import { fetchProjectRatesMap } from '../../lib/projects.js'
+import { completeReservationWithDownpayment, resolveChainForAgent, reserveLot } from '../../lib/sales.js'
 
 const lot = {
   id: 'l1',
@@ -39,8 +46,15 @@ describe('ReservationModal', () => {
     fetchAllAgents.mockResolvedValue([
       { id: 'admin1', name: 'Admin', role: 'admin', is_active: true },
       { id: 'a1', name: 'Ana Sub', role: 'sub_agent', is_active: true },
+      { id: 'h1', name: 'Cara Head', role: 'agent_head', is_active: true },
       { id: 'a2', name: 'Inactive Agent', role: 'sub_agent', is_active: false },
     ])
+    resolveChainForAgent.mockResolvedValue([
+      { id: 'a1', name: 'Ana Sub', role: 'sub_agent' },
+      { id: 'h1', name: 'Cara Head', role: 'agent_head' },
+    ])
+    fetchCommissionRatesMap.mockResolvedValue({ sub_agent: 0.05, agent_head: 0.01 })
+    fetchProjectRatesMap.mockResolvedValue({})
     reserveLot.mockResolvedValue({ id: 'l1', status: 'reserved' })
     completeReservationWithDownpayment.mockResolvedValue({ id: 'l1', status: 'sold' })
   })
@@ -124,6 +138,47 @@ describe('ReservationModal', () => {
     render(<ReservationModal lot={lot} project={project} onClose={vi.fn()} onReserved={vi.fn()} />)
 
     expect(await screen.findByText(/20% of TCP: ₱ 20,000/)).toBeInTheDocument()
+  })
+
+  it('shows no commission breakdown before a selling agent is selected', async () => {
+    render(<ReservationModal lot={lot} project={project} onClose={vi.fn()} onReserved={vi.fn()} />)
+
+    await screen.findByRole('option', { name: 'Ana Sub (Sub)' })
+    expect(screen.queryByText('Commission breakdown')).not.toBeInTheDocument()
+  })
+
+  it('shows the commission breakdown once a selling agent is selected', async () => {
+    const user = userEvent.setup()
+
+    render(<ReservationModal lot={lot} project={project} onClose={vi.fn()} onReserved={vi.fn()} />)
+
+    await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
+
+    expect(await screen.findByText('Commission breakdown')).toBeInTheDocument()
+    expect(resolveChainForAgent).toHaveBeenCalledWith('a1')
+    expect(fetchCommissionRatesMap).toHaveBeenCalled()
+    expect(fetchProjectRatesMap).toHaveBeenCalledWith('pr1')
+    expect(screen.getByText('Ana Sub')).toBeInTheDocument()
+    expect(screen.getByText('(Sub)')).toBeInTheDocument()
+    expect(screen.getByText('5.00%')).toBeInTheDocument()
+    expect(screen.getByText('₱ 5,000')).toBeInTheDocument()
+    expect(screen.getByText('Cara Head')).toBeInTheDocument()
+    expect(screen.getByText('(Head)')).toBeInTheDocument()
+    expect(screen.getByText('1.00%')).toBeInTheDocument()
+    expect(screen.getByText('₱ 1,000')).toBeInTheDocument()
+  })
+
+  it('explains when no commission rate is configured for the selling chain', async () => {
+    fetchCommissionRatesMap.mockResolvedValue({})
+    const user = userEvent.setup()
+
+    render(<ReservationModal lot={lot} project={project} onClose={vi.fn()} onReserved={vi.fn()} />)
+
+    await user.selectOptions(await screen.findByLabelText('Selling Agent'), 'a1')
+
+    expect(
+      await screen.findByText(/No commission rate configured for sub_agent/),
+    ).toBeInTheDocument()
   })
 
   it('records a full downpayment when the reservation fee reaches 20% of the TCP', async () => {

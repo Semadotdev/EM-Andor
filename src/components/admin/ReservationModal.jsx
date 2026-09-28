@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
-import { fetchAllAgents } from '../../lib/agents.js'
+import { fetchAllAgents, fetchCommissionRatesMap } from '../../lib/agents.js'
+import { buildCommissionRows, formatRate } from '../../lib/commissions.js'
+import { fetchProjectRatesMap } from '../../lib/projects.js'
+import { completeReservationWithDownpayment, lotFieldsForSale, reserveLot, resolveChainForAgent } from '../../lib/sales.js'
 import { ROLE_LABELS } from '../../lib/agentMeta.js'
-import { lotFieldsForSale, completeReservationWithDownpayment, reserveLot } from '../../lib/sales.js'
 import { minimumEquity, monthlyAmortization, PAYMENT_TERMS } from '../../lib/ledger.js'
 import { formatPrice } from '../../lib/format.js'
 import { Button, FieldError, Input, Modal, Select, useToast } from '../shared/ui'
@@ -11,6 +13,7 @@ const detailFields = ['buyer_name', 'buyer_address', 'tcp', 'reservation_fee', '
 export default function ReservationModal({ lot, project, onClose, onReserved }) {
   const { showToast } = useToast()
   const [agents, setAgents] = useState([])
+  const [agentNames, setAgentNames] = useState({})
   const [agentsState, setAgentsState] = useState('loading')
   const [sellerId, setSellerId] = useState(lot?.sold_by ?? '')
   const [form, setForm] = useState({
@@ -24,12 +27,41 @@ export default function ReservationModal({ lot, project, onClose, onReserved }) 
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
 
+  const [preview, setPreview] = useState({ rows: null, warnings: [], loading: false })
+
+  useEffect(() => {
+    let cancelled = false
+    const tcp = Number(form.tcp)
+
+    if (!sellerId || !(tcp > 0)) {
+      setPreview({ rows: null, warnings: [], loading: false })
+      return undefined
+    }
+
+    setPreview((p) => ({ ...p, loading: true }))
+
+    Promise.all([resolveChainForAgent(sellerId), fetchCommissionRatesMap(), fetchProjectRatesMap(project?.id)])
+      .then(([chain, globalRates, projectRates]) => {
+        if (cancelled) return
+        const { rows, warnings } = buildCommissionRows(tcp, chain, { ...globalRates, ...projectRates })
+        setPreview({ rows, warnings, loading: false })
+      })
+      .catch(() => {
+        if (!cancelled) setPreview({ rows: null, warnings: ['Could not compute commissions.'], loading: false })
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [sellerId, form.tcp, project?.id])
+
   useEffect(() => {
     let mounted = true
     fetchAllAgents()
       .then((rows) => {
         if (!mounted) return
         setAgents(rows.filter((a) => a.role !== 'admin' && a.is_active))
+        setAgentNames(Object.fromEntries(rows.map((a) => [a.id, a.name])))
         setAgentsState('ready')
       })
       .catch(() => {
@@ -173,6 +205,36 @@ export default function ReservationModal({ lot, project, onClose, onReserved }) 
           {otherErrors.map(([field, message]) => (
             <FieldError key={field}>{message}</FieldError>
           ))}
+
+          {sellerId && tcp > 0 && (
+            <div className="rounded-lg border border-mist bg-surface p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <p className="font-display text-sm font-bold text-brand-deep">Commission breakdown</p>
+                <p className="text-xs text-ink/50">earned when the lot is sold</p>
+              </div>
+
+              {preview.loading && <p className="text-sm text-ink/50">Computing…</p>}
+
+              {!preview.loading && preview.rows && preview.rows.length > 0 && (
+                <ul className="space-y-1.5">
+                  {preview.rows.map((row) => (
+                    <li key={row.agent_id} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="min-w-0 font-medium text-brand-deep">{agentNames[row.agent_id] ?? 'Agent'}</span>
+                      <span className="shrink-0 text-xs text-ink/50">({ROLE_LABELS[row.role_at_sale] ?? row.role_at_sale})</span>
+                      <span className="ml-auto shrink-0 whitespace-nowrap text-ink/70">{formatRate(row.rate)}</span>
+                      <span className="shrink-0 whitespace-nowrap font-semibold text-brand-deep">{formatPrice(row.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {!preview.loading && (!preview.rows || preview.rows.length === 0) && (
+                <p className="text-sm text-ink/50">
+                  {preview.warnings[0] ?? 'No commissions configured for this chain.'}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="sm:col-span-2">
