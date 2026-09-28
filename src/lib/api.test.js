@@ -25,7 +25,7 @@ import { supabase } from './supabase.js'
 
 function makeChain() {
   const c = {}
-  for (const m of ['select', 'eq', 'order', 'update', 'delete', 'single', 'insert', 'or', 'in']) {
+  for (const m of ['select', 'eq', 'order', 'update', 'delete', 'single', 'insert', 'or', 'in', 'range']) {
     c[m] = vi.fn(() => c)
   }
   return c
@@ -241,6 +241,26 @@ describe('api', () => {
     const result = await fetchProperties()
 
     expect(result).toEqual({ data: [{ id: 'p1' }], count: 1 })
+  })
+
+  it('fetchProperties applies a range when page and pageSize are given', async () => {
+    const c = makeChain()
+    c.range.mockResolvedValue({ data: [], error: null, count: 25 })
+    supabase.from.mockReturnValue(c)
+
+    await fetchProperties({ page: 2, pageSize: 9 })
+
+    expect(c.range).toHaveBeenCalledWith(9, 17)
+  })
+
+  it('fetchProperties does not apply a range without page and pageSize', async () => {
+    const c = makeChain()
+    c.order.mockResolvedValue({ data: [], error: null, count: 25 })
+    supabase.from.mockReturnValue(c)
+
+    await fetchProperties({ status: 'available' })
+
+    expect(c.range).not.toHaveBeenCalled()
   })
 
   it('fetchInquiries applies search filter via or ilike', async () => {

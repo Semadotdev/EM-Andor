@@ -39,6 +39,11 @@ export async function fetchProperties(filters = {}) {
   const s = sortMap[filters.sort] || sortMap.newest
   query = query.order(s.column, { ascending: s.ascending })
 
+  if (filters.page && filters.pageSize) {
+    const from = (filters.page - 1) * filters.pageSize
+    query = query.range(from, from + filters.pageSize - 1)
+  }
+
   const { data, error, count } = await query
   if (error) throw error
   return { data: data ?? [], count: count ?? 0 }
