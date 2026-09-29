@@ -1,9 +1,50 @@
+# Dependencies
 node_modules
+
+# Build output
 dist
-*.local
+dist-ssr
+stats.html
+
+# Environment — .env.example must stay tracked
 .env
+.env.*
+*.local
+!.env.example
+
+# Supabase
+supabase/.temp
+
+# Agent tooling scratch directories
 .worktrees
 .superpowers
 .supabase
-supabase/.temp
+.kilo
+.opencode
+
+# Vercel
+.vercel
+
+# Test output
+coverage
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor and OS metadata
 .DS_Store
+Thumbs.db
+.idea
+.vscode
+*.swp
+
+# Windows "downloaded from internet" markers.
+# These are alternate data streams, not real files, and the ":" makes them
+# impossible to check out on Windows.
+*:Zone.Identifier
+
+# Misc
+*.tsbuildinfo

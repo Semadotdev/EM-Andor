@@ -223,6 +223,7 @@ emails to render correctly.
     ├── App.jsx                 Top-level router
     ├── main.jsx                React root
     ├── index.css               Global styles + Tailwind entry
+    ├── assets/logo.png         Brand logo (imported by JS; source for PWA icons)
     ├── data/site.js            All public site copy and content
     ├── hooks/                  Shared hooks (useInstallPrompt)
     ├── lib/                    Data + business logic layer (see below)
@@ -388,8 +389,13 @@ Note that Vercel preview deployments will build against whatever Supabase projec
 - The public site's copy, stats, project list, and contact details are hardcoded in
   `src/data/site.js`. The admin CMS writes to the `cms_content` table, but the public site
   does not read from it yet — CMS edits currently have no effect on the rendered site.
-- `Buyers Ledger-1.xlsx` and the workbooks in `demo/` are sample data for the lot import
-  flow, not application fixtures.
+- The four workbooks in `demo/` are sample data for the lot import flow, not application
+  fixtures.
+- **Known issue:** the five files in `public/icons/` are all 540×540, but `vite.config.js`
+  declares them as 192×192 and 512×512, and `scripts/generate-pwa-icons.py` writes
+  192/512/180. The generator appears never to have been run, so the committed icons do not
+  match the manifest they are declared in. Re-running the script corrects the dimensions;
+  it has deliberately been left alone for now.
 - Design and planning history for the portal lives in
   [`docs/superpowers/`](docs/superpowers/) — `specs/` holds design documents and `plans/`
   holds the per-feature implementation plans.
